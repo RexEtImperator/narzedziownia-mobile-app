@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# embedded backend repo (ignored; use submodule if needed)
+source-system-zarzadzania-narzedziownia/
