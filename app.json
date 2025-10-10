@@ -3,6 +3,9 @@
     "name": "mobilna",
     "slug": "mobilna",
     "version": "1.0.0",
+    "extra": {
+      "apiBaseUrl": "http://192.168.10.99:3000"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -24,6 +27,9 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-barcode-scanner"
+    ]
   }
 }
