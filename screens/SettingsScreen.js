@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { View, Text, ScrollView, TextInput, Switch, Pressable, ActivityIndicator, Alert, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TextInput, Pressable, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import api from '../lib/api';
 
@@ -15,41 +15,16 @@ const LANG_OPTIONS = [
   { label: 'English', value: 'en' }
 ];
 
-const BACKUP_FREQ_OPTIONS = [
-  { label: 'Codziennie', value: 'daily' },
-  { label: 'Tygodniowo', value: 'weekly' },
-  { label: 'Miesięcznie', value: 'monthly' }
-];
-
 export default function SettingsScreen() {
   const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [savingGeneral, setSavingGeneral] = useState(false);
-  const [savingNotifications, setSavingNotifications] = useState(false);
-  const [savingFeatures, setSavingFeatures] = useState(false);
-
   const [general, setGeneral] = useState({
     appName: 'System Zarządzania',
     companyName: 'Moja Firma',
     timezone: 'Europe/Warsaw',
     language: 'pl',
     dateFormat: 'DD/MM/YYYY'
-  });
-
-  const [notifications, setNotifications] = useState({
-    emailNotifications: true,
-    smsNotifications: false,
-    pushNotifications: true,
-    auditLogRetention: 90,
-    backupFrequency: 'daily'
-  });
-
-  const [features, setFeatures] = useState({
-    enableAuditLog: true,
-    enableReports: true,
-    enableMobileApp: true,
-    enableApiAccess: false,
-    enableDataExport: true
   });
 
   // Sekcje i przewijanie do nich
@@ -79,34 +54,10 @@ export default function SettingsScreen() {
             language: g?.language ?? prev.language,
             dateFormat: g?.dateFormat ?? prev.dateFormat,
           }));
-          if (g?.backupFrequency) {
-            setNotifications(prev => ({ ...prev, backupFrequency: g.backupFrequency }));
-          }
+          // backupFrequency przeniesione do ekranu 💾 Backup
         } catch (e) { /* brak endpointu lub błąd – użyj domyślnych */ }
 
-        // Pobierz powiadomienia
-        try {
-          const n = await api.get('/api/config/notifications');
-          setNotifications(prev => ({
-            emailNotifications: n?.emailNotifications ?? prev.emailNotifications,
-            smsNotifications: n?.smsNotifications ?? prev.smsNotifications,
-            pushNotifications: n?.pushNotifications ?? prev.pushNotifications,
-            auditLogRetention: n?.auditLogRetention ?? prev.auditLogRetention,
-            backupFrequency: n?.backupFrequency ?? prev.backupFrequency,
-          }));
-        } catch (e) { /* pomiń */ }
-
-        // Pobierz funkcje
-        try {
-          const f = await api.get('/api/config/features');
-          setFeatures(prev => ({
-            enableAuditLog: f?.enableAuditLog ?? prev.enableAuditLog,
-            enableReports: f?.enableReports ?? prev.enableReports,
-            enableMobileApp: f?.enableMobileApp ?? prev.enableMobileApp,
-            enableApiAccess: f?.enableApiAccess ?? prev.enableApiAccess,
-            enableDataExport: f?.enableDataExport ?? prev.enableDataExport,
-          }));
-        } catch (e) { /* pomiń */ }
+        // Powiadomienia — sekcja nieużywana; Funkcje — obsługa w dedykowanym ekranie
       } finally {
         setLoading(false);
       }
@@ -126,29 +77,7 @@ export default function SettingsScreen() {
     }
   };
 
-  const saveNotifications = async () => {
-    try {
-      setSavingNotifications(true);
-      await api.put('/api/config/notifications', notifications);
-      Alert.alert('Zapisano', 'Ustawienia powiadomień zapisane.');
-    } catch (e) {
-      Alert.alert('Błąd', e?.message || 'Nie udało się zapisać ustawień powiadomień');
-    } finally {
-      setSavingNotifications(false);
-    }
-  };
-
-  const saveFeatures = async () => {
-    try {
-      setSavingFeatures(true);
-      await api.put('/api/config/features', features);
-      Alert.alert('Zapisano', 'Ustawienia funkcji zapisane.');
-    } catch (e) {
-      Alert.alert('Błąd', e?.message || 'Nie udało się zapisać ustawień funkcji');
-    } finally {
-      setSavingFeatures(false);
-    }
-  };
+  // Brak sekcji powiadomień; Funkcje przeniesione do osobnego ekranu
 
   if (loading) {
     return (
@@ -168,20 +97,26 @@ export default function SettingsScreen() {
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Sekcje</Text>
         <View>
-          <Pressable style={styles.navItem} onPress={() => scrollTo('ogolne')}>
-            <Text style={styles.navItemText}>Ogólne</Text>
+          <Pressable style={styles.navItem} onPress={() => navigation.navigate('🔒Bezpieczeństwo')}>
+            <Text style={styles.navItemText}>🔒 Bezpieczeństwo</Text>
           </Pressable>
-          <Pressable style={styles.navItem} onPress={() => scrollTo('powiadomienia')}>
-            <Text style={styles.navItemText}>Powiadomienia</Text>
+          <Pressable style={styles.navItem} onPress={() => navigation.navigate('👥Użytkownicy')}>
+            <Text style={styles.navItemText}>👥 Użytkownicy</Text>
           </Pressable>
-          <Pressable style={styles.navItem} onPress={() => scrollTo('funkcje')}>
-            <Text style={styles.navItemText}>Funkcje systemu</Text>
+          <Pressable style={styles.navItem} onPress={() => navigation.navigate('🎛️Funkcje')}>
+            <Text style={styles.navItemText}>🎛️ Funkcje</Text>
           </Pressable>
-          <Pressable style={styles.navItem} onPress={() => navigation.navigate('Działy')}>
-            <Text style={styles.navItemText}>Działy</Text>
+          <Pressable style={styles.navItem} onPress={() => navigation.navigate('🏢Działy')}>
+            <Text style={styles.navItemText}>🏢 Działy</Text>
           </Pressable>
-          <Pressable style={styles.navItem} onPress={() => navigation.navigate('Stanowiska')}>
-            <Text style={styles.navItemText}>Stanowiska</Text>
+          <Pressable style={styles.navItem} onPress={() => navigation.navigate('👔Stanowiska')}>
+            <Text style={styles.navItemText}>👔 Stanowiska</Text>
+          </Pressable>
+          <Pressable style={styles.navItem} onPress={() => navigation.navigate('🏷️Kategorie')}>
+            <Text style={styles.navItemText}>🏷️ Kategorie</Text>
+          </Pressable>
+          <Pressable style={styles.navItem} onPress={() => navigation.navigate('💾Backup')}>
+            <Text style={styles.navItemText}>💾 Backup</Text>
           </Pressable>
         </View>
       </View>
@@ -292,138 +227,6 @@ export default function SettingsScreen() {
         </Pressable>
       </View>
 
-      {/* Powiadomienia */}
-      <View style={styles.card} onLayout={registerSection('powiadomienia')}>
-        <Text style={styles.sectionTitle}>Ustawienia powiadomień</Text>
-        <View style={styles.row}>
-          <Text style={styles.rowText}>Powiadomienia email</Text>
-          <Switch
-            value={notifications.emailNotifications}
-            onValueChange={(v) => setNotifications({ ...notifications, emailNotifications: v })}
-          />
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.rowText}>Powiadomienia SMS</Text>
-          <Switch
-            value={notifications.smsNotifications}
-            onValueChange={(v) => setNotifications({ ...notifications, smsNotifications: v })}
-          />
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.rowText}>Powiadomienia push</Text>
-          <Switch
-            value={notifications.pushNotifications}
-            onValueChange={(v) => setNotifications({ ...notifications, pushNotifications: v })}
-          />
-        </View>
-
-        <View className="flex-1 mb-3"> 
-          <Text style={styles.label}>Częstotliwość backupu</Text>
-          <View className="flex-row flex-wrap gap-2">
-            {BACKUP_FREQ_OPTIONS.map(opt => (
-              <Pressable
-                key={opt.value}
-                style={[
-                  styles.optionChip,
-                  notifications.backupFrequency === opt.value && styles.optionChipSelected,
-                ]}
-                onPress={() => setNotifications({ ...notifications, backupFrequency: opt.value })}
-              >
-                <Text
-                  style={[
-                    styles.optionChipText,
-                    notifications.backupFrequency === opt.value && styles.optionChipTextSelected,
-                  ]}
-                >
-                  {opt.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
-        <View className="flex-1 mb-3"> 
-          <Text style={styles.label}>Retencja dziennika audytu (dni)</Text>
-          <TextInput
-            style={styles.input}
-            value={String(notifications.auditLogRetention)}
-            onChangeText={(v) => {
-              const num = parseInt(v, 10);
-              setNotifications({ ...notifications, auditLogRetention: isNaN(num) ? 0 : num });
-            }}
-            keyboardType="numeric"
-            placeholderTextColor="#64748b"
-          />
-        </View>
-
-        <Pressable
-          style={({ pressed }) => [
-            styles.button,
-            savingNotifications && styles.buttonDisabled,
-            pressed && styles.buttonPressed,
-          ]}
-          onPress={saveNotifications}
-          disabled={savingNotifications}
-        >
-          <Text style={{ color: '#ffffff', fontWeight: '600' }}>
-            {savingNotifications ? 'Zapisywanie…' : 'Zapisz ustawienia powiadomień'}
-          </Text>
-        </Pressable>
-      </View>
-
-      {/* Funkcje */}
-      <View style={styles.card} onLayout={registerSection('funkcje')}>
-        <Text style={styles.sectionTitle}>Funkcje systemu</Text>
-        <View style={styles.row}>
-          <Text style={styles.rowText}>Dziennik audytu</Text>
-          <Switch
-            value={features.enableAuditLog}
-            onValueChange={(v) => setFeatures({ ...features, enableAuditLog: v })}
-          />
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.rowText}>Raporty</Text>
-          <Switch
-            value={features.enableReports}
-            onValueChange={(v) => setFeatures({ ...features, enableReports: v })}
-          />
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.rowText}>Aplikacja mobilna</Text>
-          <Switch
-            value={features.enableMobileApp}
-            onValueChange={(v) => setFeatures({ ...features, enableMobileApp: v })}
-          />
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.rowText}>Dostęp API</Text>
-          <Switch
-            value={features.enableApiAccess}
-            onValueChange={(v) => setFeatures({ ...features, enableApiAccess: v })}
-          />
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.rowText}>Eksport danych</Text>
-          <Switch
-            value={features.enableDataExport}
-            onValueChange={(v) => setFeatures({ ...features, enableDataExport: v })}
-          />
-        </View>
-
-        <Pressable
-          style={({ pressed }) => [
-            styles.button,
-            savingFeatures && styles.buttonDisabled,
-            pressed && styles.buttonPressed,
-          ]}
-          onPress={saveFeatures}
-          disabled={savingFeatures}
-        >
-          <Text style={{ color: '#ffffff', fontWeight: '600' }}>
-            {savingFeatures ? 'Zapisywanie…' : 'Zapisz ustawienia funkcji'}
-          </Text>
-        </Pressable>
-      </View>
       </View>
     </ScrollView>
   );

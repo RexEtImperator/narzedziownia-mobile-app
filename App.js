@@ -8,6 +8,11 @@ import api from './lib/api';
 import { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import SettingsScreen from './screens/SettingsScreen';
+import SecuritySettings from './screens/SecuritySettings';
+import UsersSettings from './screens/UsersSettings';
+import FeaturesSettings from './screens/FeaturesSettings';
+import CategoriesScreen from './screens/CategoriesScreen';
+import BackupSettings from './screens/BackupSettings';
 import LoginScreen from './screens/Login';
 import DashboardScreen from './screens/Dashboard';
 import ToolsScreen from './screens/Tools';
@@ -23,9 +28,14 @@ const SettingsStackNav = createNativeStackNavigator();
 function SettingsStack() {
   return (
     <SettingsStackNav.Navigator>
-      <SettingsStackNav.Screen name="Ustawienia główne" component={SettingsScreen} />
-      <SettingsStackNav.Screen name="Działy" component={DepartmentsScreen} />
-      <SettingsStackNav.Screen name="Stanowiska" component={PositionsScreen} />
+      <SettingsStackNav.Screen name="⚙️Ogólne" component={SettingsScreen} />
+      <SettingsStackNav.Screen name="🔒Bezpieczeństwo" component={SecuritySettings} />
+      <SettingsStackNav.Screen name="👥Użytkownicy" component={UsersSettings} />
+      <SettingsStackNav.Screen name="🎛️Funkcje" component={FeaturesSettings} />
+      <SettingsStackNav.Screen name="🏢Działy" component={DepartmentsScreen} />
+      <SettingsStackNav.Screen name="👔Stanowiska" component={PositionsScreen} />
+      <SettingsStackNav.Screen name="🏷️Kategorie" component={CategoriesScreen} />
+      <SettingsStackNav.Screen name="💾Backup" component={BackupSettings} />
     </SettingsStackNav.Navigator>
   );
 }

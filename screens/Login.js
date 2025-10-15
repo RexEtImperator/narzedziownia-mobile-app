@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, Image } from 'react-native';
 import api from '../lib/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 
 export default function LoginScreen() {
@@ -14,13 +13,10 @@ export default function LoginScreen() {
   useEffect(() => {
     const bootstrap = async () => {
       await api.init();
-      const existing = await AsyncStorage.getItem('token');
-      if (existing) {
-        navigation.navigate('Dashboard');
-      }
+      // Przekierowanie po tokenie obsługuje App.js; bez ręcznego navigate.
     };
     bootstrap();
-  }, [navigation]);
+  }, []);
 
   const handleLogin = async () => {
     setLoading(true);
@@ -29,7 +25,7 @@ export default function LoginScreen() {
       const res = await api.post('/api/login', { username, password });
       if (res && (res.token || res.accessToken)) {
         await api.setToken(res.token || res.accessToken);
-        navigation.navigate('Dashboard');
+        // App.js przełączy nawidgację na zakładki po ustawieniu tokena.
       }
     } catch (e) {
       setError(e.message || 'Błąd logowania');
@@ -101,15 +97,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc' },
   title: { fontSize: 24, fontWeight: '600', marginBottom: 12, color: '#0f172a' },
   input: { width: '90%', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 12, marginBottom: 12, color: '#0f172a', backgroundColor: '#fff' },
-  button: { width: '90%', backgroundColor: '#4f46e5', padding: 12, borderRadius: 8, alignItems: 'center' },
+  button: { alignSelf: 'stretch', width: '100%', backgroundColor: '#4f46e5', paddingVertical: 14, paddingHorizontal: 16, borderRadius: 8, alignItems: 'center', marginTop: 16 },
   buttonDisabled: { opacity: 0.6 },
   buttonPressed: { backgroundColor: '#4338ca' },
   buttonText: { color: '#fff', fontWeight: '600' },
-  error: { color: 'red', marginBottom: 12 },
-  // New styles to support logo and icon fields without replacing existing ones
+  error: { color: 'red', marginBottom: 12, marginTop: 8 },
   logoWrapper: { alignItems: 'center', marginBottom: 16 },
-  logoBox: { width: 64, height: 64, borderRadius: 16, backgroundColor: '#eef2ff', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  logoImage: { width: 40, height: 40 },
+  logoBox: { width: 448, height: 128, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  logoImage: { width: 200, height: 200 },
   description: { fontSize: 12, color: '#475569' },
   card: { width: '90%', maxWidth: 420, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 16 },
   field: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
