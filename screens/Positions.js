@@ -26,18 +26,18 @@ export default function PositionsScreen() {
   }, []);
 
   return (
-    <View style={styles.wrapper}>
-      <Text style={styles.title}>Stanowiska</Text>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      {loading ? <Text style={styles.muted}>Ładowanie…</Text> : (
+    <View style={styles.wrapper} className="flex-1 bg-white p-4">
+      <Text style={styles.title} className="text-2xl font-bold mb-3">Stanowiska</Text>
+      {error ? <Text style={styles.error} className="text-red-500 mb-2">{error}</Text> : null}
+      {loading ? <Text style={styles.muted} className="text-slate-600">Ładowanie…</Text> : (
         <FlatList
           data={positions}
           keyExtractor={(item) => String(item.id)}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          ItemSeparatorComponent={() => <View style={styles.separator} className="h-px bg-slate-200" />}
           renderItem={({ item }) => (
-            <View style={styles.item}>
-              <Text style={styles.itemName}>{item.name}</Text>
-              <Text style={styles.itemCode}>ID: {item.id}</Text>
+            <View style={styles.item} className="py-2">
+              <Text style={styles.itemName} className="font-semibold text-gray-800">{item.name}</Text>
+              <Text style={styles.itemCode} className="text-slate-600">ID: {item.id}</Text>
             </View>
           )}
         />

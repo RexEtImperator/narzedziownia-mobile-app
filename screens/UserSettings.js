@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Button, StyleSheet } from 'react-native';
+import { View, Text, Button } from 'react-native';
 import api from '../lib/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 
 export default function UserSettingsScreen() {
   const [hasToken, setHasToken] = useState(false);
   const [baseUrl, setBaseUrl] = useState('');
+  const navigation = useNavigation();
 
   useEffect(() => {
     const check = async () => {
@@ -17,8 +19,19 @@ export default function UserSettingsScreen() {
   }, []);
 
   const logout = async () => {
+    // Wyczyść token w kliencie API i w pamięci trwałej
+    await api.setToken(null);
     await AsyncStorage.removeItem('token');
     setHasToken(false);
+    // Przenieś użytkownika na ekran logowania, aby nie widział danych ze stanu
+    try {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'Logowanie' }],
+        })
+      );
+    } catch {}
     alert('Wylogowano');
   };
 
@@ -41,20 +54,15 @@ export default function UserSettingsScreen() {
   };
 
   return (
-    <View style={styles.wrapper}>
-      <Text style={styles.title}>Ustawienia użytkownika</Text>
-      <Text style={styles.status}>{hasToken ? 'Zalogowano' : 'Niezalogowany'}</Text>
-      {baseUrl ? <Text style={styles.small}>API: {baseUrl}</Text> : null}
+    <View className="flex-1 bg-white p-4">
+      <Text className="text-2xl font-bold mb-3">Ustawienia użytkownika</Text>
+      <Text className="mb-3">{hasToken ? 'Zalogowano' : 'Niezalogowany'}</Text>
+      {baseUrl ? <Text className="text-slate-600 mb-3">API: {baseUrl}</Text> : null}
       <Button title="Wyloguj" onPress={logout} />
-      <View style={{ height: 8 }} />
+      <View className="h-2" />
       <Button title="Sprawdź połączenie z API" onPress={testConnection} />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: { flex: 1, backgroundColor: '#fff', padding: 16 },
-  title: { fontSize: 24, fontWeight: '700', marginBottom: 12 },
-  status: { marginBottom: 12 }
-  ,small: { marginBottom: 12, color: '#666' }
-});
+// StyleSheet usunięty — ekrany korzystają z klas Nativewind/Tailwind

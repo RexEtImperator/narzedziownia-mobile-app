@@ -25,10 +25,12 @@
       },
       "edgeToEdgeEnabled": true
     },
-    "web": {
+  "web": {
+      "bundler": "metro",
       "favicon": "./assets/favicon.png"
-    },
+  },
     "plugins": [
+      
       "expo-barcode-scanner"
     ]
   }
