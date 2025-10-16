@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable, Switch, Alert, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import api from '../lib/api';
+import { useTheme } from '../lib/theme';
 
 const ROLE_OPTIONS = [
   { label: 'Użytkownik', value: 'user' },
@@ -10,13 +11,12 @@ const ROLE_OPTIONS = [
 ];
 
 export default function UsersSettings() {
+  const { colors } = useTheme();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-
   
-
   const load = async () => {
     setLoading(true);
     setError('');
@@ -85,53 +85,53 @@ export default function UsersSettings() {
   };
 
   return (
-    <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.container}>
-      <Text style={styles.title}>👥 Użytkownicy</Text>
-      <Text style={styles.subtitle}>Zarządzanie kontami i rolami</Text>
+    <ScrollView style={[styles.scrollContainer, { backgroundColor: colors.bg }]} contentContainerStyle={[styles.container, { backgroundColor: colors.bg }]}>
+      <Text style={[styles.title, { color: colors.text }]}>👥 Użytkownicy</Text>
+      <Text style={[styles.subtitle, { color: colors.muted }]}>Zarządzanie kontami i rolami</Text>
 
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Szukaj</Text>
-        <TextInput style={styles.input} placeholder="login, imię/nazwisko, email" value={search} onChangeText={setSearch} placeholderTextColor="#64748b" />
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Szukaj</Text>
+        <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="login, imię/nazwisko, email" value={search} onChangeText={setSearch} placeholderTextColor={colors.muted} />
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Lista użytkowników</Text>
-        {loading ? <Text style={styles.subtitle}>Ładowanie…</Text> : null}
-        {error ? <Text style={{ color: '#b91c1c', marginBottom: 8 }}>{error}</Text> : null}
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Lista użytkowników</Text>
+        {loading ? <Text style={[styles.subtitle, { color: colors.muted }]}>Ładowanie…</Text> : null}
+        {error ? <Text style={{ color: colors.danger, marginBottom: 8 }}>{error}</Text> : null}
         {(filtered || []).map(u => (
-          <View key={String(u?.id || u?.username || u?.email)} style={{ borderBottomWidth: 1, borderBottomColor: '#e5e7eb', paddingVertical: 8 }}>
+          <View key={String(u?.id || u?.username || u?.email)} style={{ borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 8 }}>
             <View>
               <View style={{ marginBottom: 8 }}>
-                <Text style={{ fontSize: 16, color: '#0f172a', fontWeight: '600' }}>{u?.name || u?.username}</Text>
-                {u?.email ? <Text style={{ color: '#475569' }}>{u.email}</Text> : null}
-                <Text style={{ color: '#64748b' }}>Rola: {u?.role || 'user'} • {u?.active ? 'Aktywny' : 'Nieaktywny'}</Text>
+                <Text style={{ fontSize: 16, color: colors.text, fontWeight: '600' }}>{u?.name || u?.username}</Text>
+                {u?.email ? <Text style={{ color: colors.muted }}>{u.email}</Text> : null}
+                <Text style={{ color: colors.muted }}>Rola: {u?.role || 'user'}</Text>
               </View>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
                 <Pressable
                   accessibilityLabel="Zmień rolę"
-                  style={[styles.smallButton, { backgroundColor: '#0ea5e9' }]}
+                  style={[styles.smallButton, { backgroundColor: colors.primary }]}
                   onPress={() => updateUser(u, { role: cycleRole(u) })}
                 >
                   <MaterialIcons name="autorenew" size={20} color="#fff" />
                 </Pressable>
                 <Pressable
                   accessibilityLabel={u?.active ? 'Dezaktywuj użytkownika' : 'Aktywuj użytkownika'}
-                  style={[styles.smallButton, { backgroundColor: u?.active ? '#334155' : '#22c55e' }]}
+                  style={[styles.smallButton, { backgroundColor: colors.primary }]}
                   onPress={() => updateUser(u, { active: !u?.active })}
                 >
                   <MaterialIcons name={u?.active ? 'block' : 'check-circle'} size={20} color="#fff" />
                 </Pressable>
                 <Pressable
                   accessibilityLabel="Resetuj hasło"
-                  style={[styles.smallButton, { backgroundColor: '#f59e0b' }]}
+                  style={[styles.smallButton, { backgroundColor: colors.primary }]}
                   onPress={() => resetPassword(u)}
                 >
                   <MaterialIcons name="vpn-key" size={20} color="#fff" />
                 </Pressable>
                 <Pressable
                   accessibilityLabel="Usuń użytkownika"
-                  style={[styles.smallButton, { backgroundColor: '#ef4444' }]}
+                  style={[styles.smallButton, { backgroundColor: colors.danger }]}
                   onPress={() => removeUser(u)}
                 >
                   <MaterialIcons name="delete" size={20} color="#fff" />
@@ -140,7 +140,7 @@ export default function UsersSettings() {
             </View>
           </View>
         ))}
-        {(!loading && filtered.length === 0) ? <Text style={{ color: '#64748b' }}>Brak użytkowników</Text> : null}
+        {(!loading && filtered.length === 0) ? <Text style={{ color: colors.muted }}>Brak użytkowników</Text> : null}
       </View>
     </ScrollView>
   );

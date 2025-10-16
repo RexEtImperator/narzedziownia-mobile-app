@@ -21,9 +21,15 @@ import DepartmentsScreen from './screens/Departments';
 import PositionsScreen from './screens/Positions';
 import IssueReturnScreen from './screens/IssueReturn';
 import UserSettingsScreen from './screens/UserSettings';
+import IssueScreen from './screens/IssueScreen';
+import ReturnScreen from './screens/ReturnScreen';
+import { ThemeProvider, useTheme } from './lib/theme';
+import { initializeAndRestore } from './lib/notifications';
 
 const Tab = createBottomTabNavigator();
 const SettingsStackNav = createNativeStackNavigator();
+const RootStack = createNativeStackNavigator();
+const IssueStackNav = createNativeStackNavigator();
 
 function SettingsStack() {
   return (
@@ -40,7 +46,78 @@ function SettingsStack() {
   );
 }
 
-export default function App() {
+function IssueStack() {
+  return (
+    <IssueStackNav.Navigator screenOptions={{ headerShown: false }}>
+      <IssueStackNav.Screen name="IssueReturn" component={IssueReturnScreen} />
+      <IssueStackNav.Screen name="IssueScreen" component={IssueScreen} />
+      <IssueStackNav.Screen name="ReturnScreen" component={ReturnScreen} />
+    </IssueStackNav.Navigator>
+  );
+}
+
+function MainTabs({ hasToken }) {
+  return (
+    <Tab.Navigator
+      initialRouteName={hasToken ? 'Dashboard' : 'Logowanie'}
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName = 'ellipse-outline';
+          switch (route.name) {
+            case 'Dashboard':
+              iconName = focused ? 'home' : 'home-outline';
+              break;
+            case 'Wydaj/Zwrot':
+              iconName = focused ? 'swap-horizontal' : 'swap-horizontal';
+              break;
+            case 'Narzędzia':
+              iconName = focused ? 'construct' : 'construct-outline';
+              break;
+            case 'Pracownicy':
+              iconName = focused ? 'people' : 'people-outline';
+              break;
+            case 'Działy':
+              iconName = focused ? 'layers' : 'layers-outline';
+              break;
+            case 'Stanowiska':
+              iconName = focused ? 'briefcase' : 'briefcase-outline';
+              break;
+            case 'Ustawienia':
+              iconName = focused ? 'settings' : 'settings-outline';
+              break;
+            case 'Użytkownik':
+              iconName = focused ? 'person-circle' : 'person-circle-outline';
+              break;
+            case 'Logowanie':
+              iconName = focused ? 'log-in' : 'log-in-outline';
+              break;
+            default:
+              iconName = focused ? 'ellipse' : 'ellipse-outline';
+          }
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: '#4f46e5',
+        tabBarInactiveTintColor: '#8b8b8b',
+      })}
+    >
+      {hasToken ? (
+        <>
+          <Tab.Screen name="Dashboard" component={DashboardScreen} />
+          <Tab.Screen name="Wydaj/Zwrot" component={IssueStack} options={{ headerShown: false }} />
+          <Tab.Screen name="Narzędzia" component={ToolsScreen} />
+          <Tab.Screen name="Pracownicy" component={EmployeesScreen} />
+          <Tab.Screen name="Ustawienia" component={SettingsStack} options={{ headerShown: false }} />
+          <Tab.Screen name="Użytkownik" component={UserSettingsScreen} />
+        </>
+      ) : (
+        <Tab.Screen name="Logowanie" component={LoginScreen} />
+      )}
+    </Tab.Navigator>
+  );
+}
+
+function AppContent() {
+  const { navTheme, isDark } = useTheme();
   const [hasToken, setHasToken] = useState(false);
 
   useEffect(() => {
@@ -51,71 +128,30 @@ export default function App() {
       try {
         unsubscribe = api.onTokenChange((t) => setHasToken(!!t));
       } catch {}
+      // Odtwórz harmonogram powiadomień z zapisanych ustawień
+      try {
+        await initializeAndRestore();
+      } catch {}
     };
     bootstrap();
-    return () => {
-      try { unsubscribe(); } catch {}
-    };
+    return () => { try { unsubscribe(); } catch {} };
   }, []);
+
   return (
-    <NavigationContainer>
-      <Tab.Navigator
-        initialRouteName={hasToken ? 'Dashboard' : 'Logowanie'}
-        screenOptions={({ route }) => ({
-          tabBarIcon: ({ focused, color, size }) => {
-            let iconName = 'ellipse-outline';
-            switch (route.name) {
-              case 'Dashboard':
-                iconName = focused ? 'home' : 'home-outline';
-                break;
-              case 'Wydaj/Zwrot':
-                iconName = focused ? 'swap-horizontal' : 'swap-horizontal';
-                break;
-              case 'Narzędzia':
-                iconName = focused ? 'construct' : 'construct-outline';
-                break;
-              case 'Pracownicy':
-                iconName = focused ? 'people' : 'people-outline';
-                break;
-              case 'Działy':
-                iconName = focused ? 'layers' : 'layers-outline';
-                break;
-              case 'Stanowiska':
-                iconName = focused ? 'briefcase' : 'briefcase-outline';
-                break;
-              case 'Ustawienia':
-                iconName = focused ? 'settings' : 'settings-outline';
-                break;
-              case 'Użytkownik':
-                iconName = focused ? 'person-circle' : 'person-circle-outline';
-                break;
-              case 'Logowanie':
-                iconName = focused ? 'log-in' : 'log-in-outline';
-                break;
-              default:
-                iconName = focused ? 'ellipse' : 'ellipse-outline';
-            }
-            return <Ionicons name={iconName} size={size} color={color} />;
-          },
-          tabBarActiveTintColor: '#4f46e5',
-          tabBarInactiveTintColor: '#8b8b8b',
-        })}
-      >
-        {hasToken ? (
-          <>
-            <Tab.Screen name="Dashboard" component={DashboardScreen} />
-            <Tab.Screen name="Wydaj/Zwrot" component={IssueReturnScreen} />
-            <Tab.Screen name="Narzędzia" component={ToolsScreen} />
-            <Tab.Screen name="Pracownicy" component={EmployeesScreen} />
-            <Tab.Screen name="Ustawienia" component={SettingsStack} options={{ headerShown: false }} />
-            <Tab.Screen name="Użytkownik" component={UserSettingsScreen} />
-          </>
-        ) : (
-          <Tab.Screen name="Logowanie" component={LoginScreen} />
-        )}
-      </Tab.Navigator>
-      <StatusBar style="auto" />
+    <NavigationContainer theme={navTheme}>
+      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+        <RootStack.Screen name="MainTabs">{() => <MainTabs hasToken={hasToken} />}</RootStack.Screen>
+      </RootStack.Navigator>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
     </NavigationContainer>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }
 

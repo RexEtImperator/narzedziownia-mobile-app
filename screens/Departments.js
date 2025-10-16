@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList } from 'react-native';
 import api from '../lib/api';
+import { useTheme } from '../lib/theme';
 
 export default function DepartmentsScreen() {
+  const { colors } = useTheme();
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -26,18 +28,18 @@ export default function DepartmentsScreen() {
   }, []);
 
   return (
-    <View style={styles.wrapper} className="flex-1 bg-slate-50 p-4">
-      <Text style={styles.title} className="text-2xl font-bold text-slate-900 mb-3">Działy</Text>
-      {error ? <Text style={styles.error} className="text-red-500 mb-2">{error}</Text> : null}
-      {loading ? <Text style={styles.muted} className="text-slate-600">Ładowanie…</Text> : (
+    <View style={[styles.wrapper, { backgroundColor: colors.bg }]} className="flex-1 p-4">
+      <Text style={[styles.title, { color: colors.text }]} className="text-2xl font-bold mb-3">Działy</Text>
+      {error ? <Text style={[styles.error, { color: colors.danger }]} className="mb-2">{error}</Text> : null}
+      {loading ? <Text style={[styles.muted, { color: colors.muted }]}>Ładowanie…</Text> : (
         <FlatList
           data={departments}
           keyExtractor={(item) => String(item.id)}
-          ItemSeparatorComponent={() => <View style={styles.separator} className="h-px bg-slate-200" />}
+          ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: colors.border }]} className="h-px" />}
           renderItem={({ item }) => (
             <View style={styles.item} className="py-2">
-              <Text style={styles.itemName} className="font-semibold text-gray-800">{item.name}</Text>
-              <Text style={styles.itemCode} className="text-slate-600">ID: {item.id}</Text>
+              <Text style={[styles.itemName, { color: colors.text }]} className="font-semibold">{item.name}</Text>
+              <Text style={[styles.itemCode, { color: colors.muted }]}>ID: {item.id}</Text>
             </View>
           )}
         />

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, ScrollView, TextInput, TouchableOpacity } from 'react-native';
+import { useTheme } from '../lib/theme';
 import api from '../lib/api';
 
 export default function EmployeesScreen() {
+  const { colors } = useTheme();
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -51,72 +53,73 @@ export default function EmployeesScreen() {
   });
 
   return (
-    <View style={styles.wrapper} className="flex-1 bg-slate-50 p-4">
-      <Text style={styles.title} className="text-2xl font-bold text-slate-900 mb-3">Pracownicy</Text>
+    <View style={[styles.wrapper, { backgroundColor: colors.bg }]} className="flex-1 p-4">
+      <Text style={[styles.title, { color: colors.text }]} className="text-2xl font-bold mb-3">Pracownicy</Text>
       {/* Sekcja wyszukiwarki i filtrów */}
       <View style={styles.filterRow} className="flex-row items-center gap-2 mb-2">
         <TextInput
-          style={styles.filterInput}
+          style={[styles.filterInput, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
           className="flex-1 border border-slate-300 rounded-md px-2 h-10"
           placeholder="Szukaj: imię, nazwisko, telefon, nr służbowy"
           value={searchTerm}
           onChangeText={setSearchTerm}
+          placeholderTextColor={colors.muted}
         />
       </View>
       <View style={styles.filterRow} className="flex-row items-center gap-2 mb-2">
-        <TouchableOpacity style={styles.dropdownToggle} className="border border-slate-300 rounded-md px-2 h-9 justify-center" onPress={() => setShowDeptDropdown(v => !v)}>
-          <Text style={styles.dropdownToggleText} className="text-gray-900">{filterDepartment === 'all' ? 'Wszystkie działy' : filterDepartment}</Text>
+        <TouchableOpacity style={[styles.dropdownToggle, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md px-2 h-9 justify-center" onPress={() => setShowDeptDropdown(v => !v)}>
+          <Text style={[styles.dropdownToggleText, { color: colors.text }]}>{filterDepartment === 'all' ? 'Wszystkie działy' : filterDepartment}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.dropdownToggle} className="border border-slate-300 rounded-md px-2 h-9 justify-center" onPress={() => setShowPosDropdown(v => !v)}>
-          <Text style={styles.dropdownToggleText} className="text-gray-900">{filterPosition === 'all' ? 'Wszystkie stanowiska' : filterPosition}</Text>
+        <TouchableOpacity style={[styles.dropdownToggle, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md px-2 h-9 justify-center" onPress={() => setShowPosDropdown(v => !v)}>
+          <Text style={[styles.dropdownToggleText, { color: colors.text }]}>{filterPosition === 'all' ? 'Wszystkie stanowiska' : filterPosition}</Text>
         </TouchableOpacity>
       </View>
       {showDeptDropdown && (
-        <View style={styles.dropdown} className="border border-slate-200 rounded-md mb-2 bg-white">
-          <TouchableOpacity style={styles.dropdownItem} className="py-2 px-2 border-b border-slate-100" onPress={() => { setFilterDepartment('all'); setShowDeptDropdown(false); }}>
+        <View style={[styles.dropdown, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md mb-2">
+          <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setFilterDepartment('all'); setShowDeptDropdown(false); }}>
             <Text>Wszystkie działy</Text>
           </TouchableOpacity>
           {departmentNames.map(dep => (
-            <TouchableOpacity key={String(dep)} style={styles.dropdownItem} className="py-2 px-2 border-b border-slate-100" onPress={() => { setFilterDepartment(dep); setShowDeptDropdown(false); }}>
+            <TouchableOpacity key={String(dep)} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setFilterDepartment(dep); setShowDeptDropdown(false); }}>
               <Text>{dep}</Text>
             </TouchableOpacity>
           ))}
         </View>
       )}
       {showPosDropdown && (
-        <View style={styles.dropdown} className="border border-slate-200 rounded-md mb-2 bg-white">
-          <TouchableOpacity style={styles.dropdownItem} className="py-2 px-2 border-b border-slate-100" onPress={() => { setFilterPosition('all'); setShowPosDropdown(false); }}>
+        <View style={[styles.dropdown, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md mb-2">
+          <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setFilterPosition('all'); setShowPosDropdown(false); }}>
             <Text>Wszystkie stanowiska</Text>
           </TouchableOpacity>
           {positionNames.map(pos => (
-            <TouchableOpacity key={String(pos)} style={styles.dropdownItem} className="py-2 px-2 border-b border-slate-100" onPress={() => { setFilterPosition(pos); setShowPosDropdown(false); }}>
+            <TouchableOpacity key={String(pos)} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setFilterPosition(pos); setShowPosDropdown(false); }}>
               <Text>{pos}</Text>
             </TouchableOpacity>
           ))}
         </View>
       )}
-      {error ? <Text style={styles.error} className="text-red-500 mb-2">{error}</Text> : null}
-      {loading ? <Text style={styles.muted} className="text-slate-600">Ładowanie…</Text> : (
+      {error ? <Text style={[styles.error, { color: colors.danger }]} className="mb-2">{error}</Text> : null}
+      {loading ? <Text style={[styles.muted, { color: colors.muted }]}>Ładowanie…</Text> : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={{ minWidth: 900 }}>
-            <View style={[styles.tableHeader, styles.tableRow]} className="bg-slate-50 rounded-t-md flex-row py-2 px-2">
-              <Text style={[styles.th, styles.colName]} className="font-bold text-gray-900">Imię i nazwisko</Text>
-              <Text style={[styles.th, styles.colBrand]} className="font-bold text-gray-900">Numer służbowy</Text>
-              <Text style={[styles.th, styles.colPhone]} className="font-bold text-gray-900">Telefon</Text>
-              <Text style={[styles.th, styles.colDept]} className="font-bold text-gray-900">Dział</Text>
-              <Text style={[styles.th, styles.colPos]} className="font-bold text-gray-900">Stanowisko</Text>
+            <View style={[styles.tableHeader, styles.tableRow, { backgroundColor: colors.card }]} className="rounded-t-md flex-row py-2 px-2">
+              <Text style={[styles.th, styles.colName, { color: colors.text }]} className="font-bold">Imię i nazwisko</Text>
+              <Text style={[styles.th, styles.colBrand, { color: colors.text }]} className="font-bold">Numer służbowy</Text>
+              <Text style={[styles.th, styles.colPhone, { color: colors.text }]} className="font-bold">Telefon</Text>
+              <Text style={[styles.th, styles.colDept, { color: colors.text }]} className="font-bold">Dział</Text>
+              <Text style={[styles.th, styles.colPos, { color: colors.text }]} className="font-bold">Stanowisko</Text>
             </View>
             <FlatList
               data={filteredEmployees}
               keyExtractor={(item) => String(item.id)}
-              ItemSeparatorComponent={() => <View style={styles.separator} className="h-px bg-slate-200" />}
+              ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: colors.border }]} className="h-px" />}
               renderItem={({ item }) => (
                 <View style={styles.tableRow} className="flex-row py-2 px-2">
-                  <Text style={[styles.td, styles.colName]} className="text-gray-700">{item.first_name} {item.last_name}</Text>
-                  <Text style={[styles.td, styles.colBrand]} className="text-gray-700">{item.brand_number || '-'}</Text>
-                  <Text style={[styles.td, styles.colPhone]} className="text-gray-700">{item.phone || '-'}</Text>
-                  <Text style={[styles.td, styles.colDept]} className="text-gray-700">{item.department || item.department_name || '-'}</Text>
-                  <Text style={[styles.td, styles.colPos]} className="text-gray-700">{item.position || item.position_name || item.position_id || '-'}</Text>
+                  <Text style={[styles.td, styles.colName, { color: colors.text }]}>{item.first_name} {item.last_name}</Text>
+                  <Text style={[styles.td, styles.colBrand, { color: colors.text }]}>{item.brand_number || '-'}</Text>
+                  <Text style={[styles.td, styles.colPhone, { color: colors.text }]}>{item.phone || '-'}</Text>
+                  <Text style={[styles.td, styles.colDept, { color: colors.text }]}>{item.department || item.department_name || '-'}</Text>
+                  <Text style={[styles.td, styles.colPos, { color: colors.text }]}>{item.position || item.position_name || item.position_id || '-'}</Text>
                 </View>
               )}
             />

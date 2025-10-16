@@ -1,15 +1,14 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, FlatList, Modal, Platform, Linking } from 'react-native';
+import { View, Text, TextInput, StyleSheet, FlatList, Modal, Platform, Pressable, Linking } from 'react-native';
 import { useTheme } from '../lib/theme';
 import api from '../lib/api';
 
-export default function IssueReturnScreen() {
+export default function IssueScreen() {
   const { colors } = useTheme();
   const [code, setCode] = useState('');
   const [foundTool, setFoundTool] = useState(null);
   const [details, setDetails] = useState(null);
   const [employeeId, setEmployeeId] = useState('');
-  const [issueId, setIssueId] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -24,10 +23,9 @@ export default function IssueReturnScreen() {
 
   const openScanner = async () => {
     if (Platform.OS === 'web') {
-      // Fallback dla web: wybór obrazu i dekodowanie QR z użyciem jsQR wczytanego z CDN
       return openWebImageScanner();
     }
-    // Spróbuj expo-camera
+    // Spróbuj expo-camera (CameraView)
     try {
       const mod = await import('expo-camera');
       const { CameraView, requestCameraPermissionsAsync } = mod || {};
@@ -37,10 +35,12 @@ export default function IssueReturnScreen() {
         const granted = res?.granted || res?.status === 'granted';
         setCanAskAgain(res?.canAskAgain !== false);
         setCamPermGranted(granted);
-        if (granted) { setError(''); setScanning(true); return; }
+        if (granted) { setScanning(true); setError(''); return; }
         else { setError('Brak zgody na dostęp do kamery'); return; }
       }
-    } catch (e) { /* spróbuj fallback */ }
+    } catch (e) {
+      // pomiń, spróbuj fallback
+    }
     // Fallback: expo-barcode-scanner (działa w Expo Go)
     try {
       const mod2 = await import('expo-barcode-scanner');
@@ -54,7 +54,11 @@ export default function IssueReturnScreen() {
       setBarcodeScannerComp(() => BarCodeScanner);
       setError('');
       setScanning(true);
-    } catch (e2) { const msg = `Moduł kamery niedostępny: ${e2?.message || 'nieznany'}`; setError(msg); setCameraModuleError(msg); }
+    } catch (e2) {
+      const msg = `Moduł kamery niedostępny: ${e2?.message || 'nieznany'}`;
+      setError(msg);
+      setCameraModuleError(msg);
+    }
   };
 
   const requestCamPermission = async () => {
@@ -88,15 +92,12 @@ export default function IssueReturnScreen() {
     }
   };
 
-  // Wczytanie biblioteki jsQR z CDN jeśli nie jest dostępna
   const ensureJsQrLoaded = () => new Promise((resolve, reject) => {
     if (typeof window !== 'undefined' && window.jsQR) { resolve(window.jsQR); return; }
     const script = document.createElement('script');
     script.src = 'https://unpkg.com/jsqr@1.4.0/dist/jsQR.js';
     script.async = true;
-    script.onload = () => {
-      if (window.jsQR) { resolve(window.jsQR); } else { reject(new Error('jsQR nie został załadowany')); }
-    };
+    script.onload = () => { if (window.jsQR) { resolve(window.jsQR); } else { reject(new Error('jsQR nie został załadowany')); } };
     script.onerror = () => reject(new Error('Nie można załadować jsQR z CDN'));
     document.head.appendChild(script);
   });
@@ -106,9 +107,7 @@ export default function IssueReturnScreen() {
       if (Platform.OS !== 'web') return;
       await ensureJsQrLoaded();
       const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
-      input.capture = 'environment';
+      input.type = 'file'; input.accept = 'image/*'; input.capture = 'environment';
       input.onchange = (e) => {
         const file = e.target.files && e.target.files[0];
         if (!file) return;
@@ -122,13 +121,8 @@ export default function IssueReturnScreen() {
             ctx.drawImage(img, 0, 0);
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const result = window.jsQR(imageData.data, canvas.width, canvas.height);
-            if (result && result.data) {
-              setCode(String(result.data));
-              setMessage('Zeskanowano QR z obrazu');
-              setTimeout(() => { searchTool(); }, 50);
-            } else {
-              setError('Nie udało się odczytać QR z obrazu');
-            }
+            if (result && result.data) { setCode(String(result.data)); setMessage('Zeskanowano QR z obrazu'); setTimeout(() => { searchTool(); }, 50); }
+            else { setError('Nie udało się odczytać QR z obrazu'); }
           };
           img.onerror = () => setError('Nie można wczytać obrazu');
           img.src = reader.result;
@@ -145,15 +139,11 @@ export default function IssueReturnScreen() {
   const onBarCodeScanned = ({ type, data }) => {
     setScanning(false);
     setCode(String(data || ''));
-    // Automatyczne wyszukiwanie po zeskanowaniu
     setTimeout(() => { searchTool(); }, 50);
   };
 
   const searchTool = async () => {
-    setError('');
-    setMessage('');
-    setFoundTool(null);
-    setDetails(null);
+    setError(''); setMessage(''); setFoundTool(null); setDetails(null);
     try {
       setLoading(true);
       const result = await api.get(`/api/tools/search?code=${encodeURIComponent(code)}`);
@@ -162,14 +152,11 @@ export default function IssueReturnScreen() {
       setDetails(det);
     } catch (e) {
       setError(e.message || 'Nie znaleziono narzędzia');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const issueTool = async () => {
-    setError('');
-    setMessage('');
+    setError(''); setMessage('');
     if (!foundTool || !employeeId) { setError('Wybierz narzędzie i podaj ID pracownika'); return; }
     try {
       setLoading(true);
@@ -179,152 +166,116 @@ export default function IssueReturnScreen() {
       setDetails(det);
     } catch (e) {
       setError(e.message || 'Błąd wydania');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const returnTool = async () => {
-    setError('');
-    setMessage('');
-    if (!foundTool || !issueId) { setError('Podaj ID wydania'); return; }
-    try {
-      setLoading(true);
-      await api.post(`/api/tools/${foundTool.id}/return`, { issue_id: parseInt(issueId, 10) });
-      setMessage('Zwrócono narzędzie');
-      const det = await api.get(`/api/tools/${foundTool.id}/details`);
-      setDetails(det);
-    } catch (e) {
-      setError(e.message || 'Błąd zwrotu');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   return (
-    <View style={[styles.wrapper, { backgroundColor: colors.bg }]} className="flex-1 p-4">
-      <Text style={[styles.title, { color: colors.text }]} className="text-2xl font-bold mb-3">Wydanie / Zwrot</Text>
+    <View style={[styles.wrapper, { backgroundColor: colors.bg }]}
+      className="flex-1 p-4">
+      <Text style={[styles.title, { color: colors.text }]} className="text-2xl font-bold mb-3">Szybkie wydanie</Text>
       <View style={styles.row} className="flex-row items-center gap-2 mb-2">
-        <TextInput
-          style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
-          className="flex-1 border rounded-md px-2 h-10"
-          placeholder="Kod narzędzia"
-          value={code}
-          onChangeText={setCode}
-          placeholderTextColor={colors.muted}
-        />
-        <Button title="Szukaj" onPress={searchTool} />
-        <View style={{ width: 8 }} />
-        <Button title={Platform.OS === 'web' ? 'Skanuj obraz (web)' : 'Skanuj'} onPress={openScanner} />
+        <TextInput style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.card }]} className="flex-1 rounded-md px-2 h-10" placeholder="Kod narzędzia" value={code} onChangeText={setCode} placeholderTextColor={colors.muted} />
+        <Pressable onPress={searchTool} style={[styles.smallButton, { backgroundColor: colors.primary }]}>
+          <Text style={styles.buttonText}>Szukaj</Text>
+        </Pressable>
+        <Pressable onPress={openScanner} style={[styles.smallButton, { backgroundColor: colors.primary }]}> 
+          <Text style={styles.buttonText}>{Platform.OS === 'web' ? 'Skanuj obraz (web)' : 'Skanuj'}</Text>
+        </Pressable>
         {Platform.OS !== 'web' && (
-          <View style={{ width: 8 }} />
-        )}
-        {Platform.OS !== 'web' && (
-          <Button title="Poproś o dostęp" onPress={requestCamPermission} />
+          <Pressable onPress={requestCamPermission} style={[styles.smallButton, { backgroundColor: colors.secondary || colors.primary }]}> 
+            <Text style={styles.buttonText}>Poproś o dostęp</Text>
+          </Pressable>
         )}
       </View>
       {Platform.OS === 'web' && (
-        <Text style={[styles.muted, { color: colors.muted }]}>Na web możesz zeskanować z obrazu (upload). Dla pełnego skanera użyj aplikacji mobilnej.</Text>
+        <Text style={{ color: colors.muted }}>Na web możesz zeskanować z obrazu (upload). Dla pełnego skanera użyj aplikacji mobilnej.</Text>
       )}
       {camPermGranted === false && (
         <View style={{ backgroundColor: '#fef3c7', borderColor: '#f59e0b', borderWidth: 1, padding: 10, borderRadius: 8, marginTop: 8 }}>
           <Text style={{ color: '#92400e' }}>Aby skanować, nadaj dostęp do kamery.</Text>
-          <View style={{ height: 8 }} />
-          <Button title="Nadaj dostęp" onPress={requestCamPermission} />
-          {!canAskAgain && (<>
-            <View style={{ height: 8 }} />
-            <Button title="Otwórz ustawienia" onPress={() => { try { Linking.openSettings(); } catch {} }} />
-          </>)}
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+            <Pressable onPress={requestCamPermission} style={[styles.smallButton, { backgroundColor: colors.primary }]}>
+              <Text style={styles.buttonText}>Nadaj dostęp</Text>
+            </Pressable>
+            {!canAskAgain && (
+              <Pressable onPress={() => { try { Linking.openSettings(); } catch {} }} style={[styles.smallButton, { backgroundColor: colors.muted }]}>
+                <Text style={styles.buttonText}>Otwórz ustawienia</Text>
+              </Pressable>
+            )}
+          </View>
         </View>
       )}
       {cameraModuleError ? (
         <View style={{ backgroundColor: '#fee2e2', borderColor: '#ef4444', borderWidth: 1, padding: 10, borderRadius: 8, marginTop: 8 }}>
           <Text style={{ color: '#7f1d1d' }}>{cameraModuleError}</Text>
-          <View style={{ height: 8 }} />
-          <Button title="Instrukcja (Expo Camera)" onPress={() => Linking.openURL('https://docs.expo.dev/versions/latest/sdk/camera/')} />
-          <View style={{ height: 8 }} />
-          <Button title="Instrukcja (Barcode Scanner)" onPress={() => Linking.openURL('https://docs.expo.dev/versions/latest/sdk/bar-code-scanner/')} />
+          <Pressable onPress={() => Linking.openURL('https://docs.expo.dev/versions/latest/sdk/camera/')} style={[styles.smallButton, { backgroundColor: colors.primary, marginTop: 8 }]}>
+            <Text style={styles.buttonText}>Instrukcja (Expo Camera)</Text>
+          </Pressable>
+          <Pressable onPress={() => Linking.openURL('https://docs.expo.dev/versions/latest/sdk/bar-code-scanner/')} style={[styles.smallButton, { backgroundColor: colors.primary, marginTop: 8 }]}>
+            <Text style={styles.buttonText}>Instrukcja (Barcode Scanner)</Text>
+          </Pressable>
         </View>
       ) : null}
-      {loading ? <Text style={[styles.muted, { color: colors.muted }]}>Ładowanie…</Text> : null}
-      {message ? <Text style={[styles.ok, { color: colors.success }]}>{message}</Text> : null}
-      {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
+      {loading ? <Text style={{ color: colors.muted }}>Ładowanie…</Text> : null}
+      {message ? <Text style={{ color: colors.success }}>{message}</Text> : null}
+      {error ? <Text style={{ color: colors.danger }}>{error}</Text> : null}
 
       {foundTool && (
-        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md p-3 mb-3">
-          <Text style={[styles.toolName, { color: colors.text }]} className="font-semibold">{foundTool.name}</Text>
-          <Text style={[styles.toolMeta, { color: colors.muted }]}>Ilość: {foundTool.quantity} | Status: {foundTool.status || '—'}</Text>
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]} className="rounded-md p-3 mb-3">
+          <Text style={{ color: colors.text, fontWeight: '600' }}>{foundTool.name}</Text>
+          <Text style={{ color: colors.muted }}>Ilość: {foundTool.quantity} | Status: {foundTool.status || '—'}</Text>
         </View>
       )}
 
-      {details && (
-        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md p-3 mb-3">
+      {details && details.issues && (
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]} className="rounded-md p-3 mb-3">
           <Text style={[styles.sectionTitle, { color: colors.text }]} className="text-lg font-bold mb-2">Aktywne wydania</Text>
-          {details.issues && details.issues.length > 0 ? (
+          {details.issues.length > 0 ? (
             <FlatList
               data={details.issues}
               keyExtractor={(item) => String(item.id)}
-              ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: colors.border }]} className="h-px" />}
+              ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: colors.border }} />}
               renderItem={({ item }) => (
-                <View style={styles.item} className="py-2">
-                  <Text style={[styles.itemName, { color: colors.text }]}>#{item.id} • {item.employee_first_name} {item.employee_last_name}</Text>
-                  <Text style={[styles.itemCode, { color: colors.muted }]}>Ilość: {item.quantity} • Wydano: {item.issued_at}</Text>
+                <View style={{ paddingVertical: 8 }}>
+                  <Text style={{ color: colors.text }}>#{item.id} • {item.employee_first_name} {item.employee_last_name}</Text>
+                  <Text style={{ color: colors.muted }}>Ilość: {item.quantity} • Wydano: {item.issued_at}</Text>
                 </View>
               )}
             />
-          ) : <Text style={[styles.muted, { color: colors.muted }]}>Brak aktywnych wydań</Text>}
+          ) : <Text style={{ color: colors.muted }}>Brak aktywnych wydań</Text>}
         </View>
       )}
 
       <View style={styles.row} className="flex-row items-center gap-2 mb-2">
-        <TextInput
-          style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
-          className="flex-1 border rounded-md px-2 h-10"
-          placeholder="ID pracownika"
-          value={employeeId}
-          onChangeText={setEmployeeId}
-          keyboardType="numeric"
-          placeholderTextColor={colors.muted}
-        />
-        <Button title="Wydaj 1 szt." onPress={issueTool} />
-      </View>
-      <View style={styles.row} className="flex-row items-center gap-2 mb-2">
-        <TextInput
-          style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
-          className="flex-1 border rounded-md px-2 h-10"
-          placeholder="ID wydania"
-          value={issueId}
-          onChangeText={setIssueId}
-          keyboardType="numeric"
-          placeholderTextColor={colors.muted}
-        />
-        <Button title="Zwróć" onPress={returnTool} />
+        <TextInput style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.card }]} className="flex-1 rounded-md px-2 h-10" placeholder="ID pracownika" value={employeeId} onChangeText={setEmployeeId} keyboardType="numeric" placeholderTextColor={colors.muted} />
+        <Pressable onPress={issueTool} style={[styles.smallButton, { backgroundColor: colors.primary }]}>
+          <Text style={styles.buttonText}>Wydaj 1 szt.</Text>
+        </Pressable>
       </View>
 
       <Modal visible={scanning} animationType="slide">
-        <View style={{ flex: 1, backgroundColor: colors.bg }}>
+        <View style={{ flex: 1, backgroundColor: colors.card }}>
           {camPermGranted === false ? (
-            <View style={styles.center} className="items-center justify-center p-4">
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 }}>
               <Text style={{ color: colors.text }}>Brak uprawnień do kamery.</Text>
-              <View style={{ height: 8 }} />
-              <Button title="Poproś o dostęp" onPress={requestCamPermission} />
+              <Pressable onPress={requestCamPermission} style={[styles.button, { backgroundColor: colors.primary, marginTop: 12 }]}> 
+                <Text style={styles.buttonText}>Poproś o dostęp</Text>
+              </Pressable>
               {!canAskAgain && (
-                <>
-                  <View style={{ height: 8 }} />
-                  <Button title="Otwórz ustawienia" onPress={() => { try { Linking.openSettings(); } catch {} }} />
-                </>
+                <Pressable onPress={() => { try { Linking.openSettings(); } catch {} }} style={[styles.button, { backgroundColor: colors.warning || '#f0ad4e', marginTop: 8 }]}> 
+                  <Text style={styles.buttonText}>Otwórz ustawienia</Text>
+                </Pressable>
               )}
-              <View style={{ height: 8 }} />
-              <Button title="Zamknij" onPress={() => setScanning(false)} />
+              <Pressable onPress={() => setScanning(false)} style={[styles.button, { backgroundColor: colors.muted }]}> 
+                <Text style={styles.buttonText}>Zamknij</Text>
+              </Pressable>
             </View>
           ) : camPermGranted === true && (CameraViewComp || BarcodeScannerComp) ? (
             CameraViewComp ? (
               <CameraViewComp
                 style={{ flex: 1 }}
                 facing="back"
-                barcodeScannerSettings={{
-                  barcodeTypes: ['qr', 'code128', 'ean13', 'ean8', 'upc_a', 'upc_e']
-                }}
+                barcodeScannerSettings={{ barcodeTypes: ['qr', 'code128', 'ean13', 'ean8', 'upc_a', 'upc_e'] }}
                 onBarcodeScanned={({ data, type }) => onBarCodeScanned({ type, data })}
               />
             ) : (
@@ -335,10 +286,17 @@ export default function IssueReturnScreen() {
               />
             )
           ) : (
-            <View style={styles.center} className="items-center justify-center p-4"><Text style={{ color: colors.text }}>Ładowanie skanera…</Text><Button title="Anuluj" onPress={() => setScanning(false)} /></View>
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+              <Text style={{ color: colors.text }}>Ładowanie skanera…</Text>
+              <Pressable onPress={() => setScanning(false)} style={[styles.button, { backgroundColor: colors.muted }]}>
+                <Text style={styles.buttonText}>Anuluj</Text>
+              </Pressable>
+            </View>
           )}
-          <View style={{ position: 'absolute', bottom: 24, left: 0, right: 0, alignItems: 'center' }} className="items-center">
-            <Button title="Anuluj" onPress={() => setScanning(false)} />
+          <View style={{ position: 'absolute', bottom: 24, left: 0, right: 0, alignItems: 'center' }}>
+            <Pressable onPress={() => setScanning(false)} style={[styles.button, { backgroundColor: colors.muted }]}> 
+              <Text style={styles.buttonText}>Anuluj</Text>
+            </Pressable>
           </View>
         </View>
       </Modal>
@@ -347,19 +305,13 @@ export default function IssueReturnScreen() {
 }
 
 const styles = StyleSheet.create({
-  wrapper: { flex: 1, backgroundColor: '#fff', padding: 16 },
-  title: { fontSize: 24, fontWeight: '700', marginBottom: 12 },
-  row: { flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 12 },
-  input: { flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 6, paddingHorizontal: 8, height: 40 },
-  card: { padding: 12, borderWidth: 1, borderColor: '#eee', borderRadius: 8, marginBottom: 12 },
-  toolName: { fontSize: 18, fontWeight: '600' },
-  toolMeta: { color: '#666' },
-  sectionTitle: { fontSize: 18, fontWeight: '600', marginBottom: 8 },
-  separator: { height: 1, backgroundColor: '#eee' },
-  item: { paddingVertical: 8 },
-  itemName: { fontWeight: '600' },
-  itemCode: { color: '#666' },
-  error: { color: 'red', marginBottom: 8 },
-  ok: { color: 'green', marginBottom: 8 },
-  muted: { color: '#666' }
+  wrapper: { flex: 1 },
+  row: { flexDirection: 'row', alignItems: 'center' },
+  title: { fontSize: 20, fontWeight: '700' },
+  input: { borderWidth: 1, backgroundColor: '#fff' },
+  card: { borderWidth: 1 },
+  sectionTitle: { fontSize: 16, fontWeight: '700' },
+  button: { paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8, alignItems: 'center' },
+  smallButton: { paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8, alignItems: 'center' },
+  buttonText: { color: '#fff', fontWeight: '600' },
 });

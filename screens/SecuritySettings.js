@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Switch, TextInput, Pressable, Alert, ScrollView } from 'react-native';
 import api from '../lib/api';
+import { useTheme } from '../lib/theme';
 
 export default function SecuritySettings() {
+  const { colors } = useTheme();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -79,49 +81,49 @@ export default function SecuritySettings() {
   };
 
   return (
-    <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.container}>
-      <Text style={styles.title}>🔒 Bezpieczeństwo</Text>
-      <Text style={styles.subtitle}>Polityka haseł, blokada logowań, sesje, 2FA</Text>
+    <ScrollView style={[styles.scrollContainer, { backgroundColor: colors.bg }]} contentContainerStyle={[styles.container, { backgroundColor: colors.bg }]}>
+      <Text style={[styles.title, { color: colors.text }]}>🔒 Bezpieczeństwo</Text>
+      <Text style={[styles.subtitle, { color: colors.muted }]}>Polityka haseł, blokada logowań, sesje, 2FA</Text>
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Polityka haseł</Text>
-        {error ? <Text style={{ color: '#b91c1c', marginBottom: 8 }}>{error}</Text> : null}
-        {loading ? <Text style={styles.subtitle}>Ładowanie…</Text> : null}
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Polityka haseł</Text>
+        {error ? <Text style={{ color: colors.danger, marginBottom: 8 }}>{error}</Text> : null}
+        {loading ? <Text style={[styles.subtitle, { color: colors.muted }]}>Ładowanie…</Text> : null}
         <View style={styles.row}>
-          <Text style={styles.label}>Wymagaj silnych haseł</Text>
+          <Text style={[styles.label, { color: colors.text }]}>Wymagaj silnych haseł</Text>
           <Switch value={strongPasswords} onValueChange={setStrongPasswords} />
         </View>
         <View style={styles.row}>
-          <Text style={styles.label}>Minimalna długość</Text>
-          <TextInput style={styles.input} value={minLength} onChangeText={setMinLength} keyboardType="numeric" />
+          <Text style={[styles.label, { color: colors.text }]}>Minimalna długość</Text>
+          <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} value={minLength} onChangeText={setMinLength} keyboardType="numeric" />
         </View>
-        <View style={styles.row}><Text style={styles.label}>Wymagaj wielkiej litery</Text><Switch value={requireUppercase} onValueChange={setRequireUppercase} /></View>
-        <View style={styles.row}><Text style={styles.label}>Wymagaj cyfry</Text><Switch value={requireNumber} onValueChange={setRequireNumber} /></View>
-        <View style={styles.row}><Text style={styles.label}>Wymagaj symbolu</Text><Switch value={requireSymbol} onValueChange={setRequireSymbol} /></View>
+        <View style={styles.row}><Text style={[styles.label, { color: colors.text }]}>Wymagaj wielkiej litery</Text><Switch value={requireUppercase} onValueChange={setRequireUppercase} /></View>
+        <View style={styles.row}><Text style={[styles.label, { color: colors.text }]}>Wymagaj cyfry</Text><Switch value={requireNumber} onValueChange={setRequireNumber} /></View>
+        <View style={styles.row}><Text style={[styles.label, { color: colors.text }]}>Wymagaj symbolu</Text><Switch value={requireSymbol} onValueChange={setRequireSymbol} /></View>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Blokada logowań</Text>
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Blokada logowań</Text>
         <View style={styles.row}>
-          <Text style={styles.label}>Ilość błędnych prób</Text>
-          <TextInput style={styles.input} value={lockoutThreshold} onChangeText={setLockoutThreshold} keyboardType="numeric" />
+          <Text style={[styles.label, { color: colors.text }]}>Ilość błędnych prób</Text>
+          <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} value={lockoutThreshold} onChangeText={setLockoutThreshold} keyboardType="numeric" />
         </View>
         <View style={styles.row}>
-          <Text style={styles.label}>Okno (min)</Text>
-          <TextInput style={styles.input} value={lockoutWindowMinutes} onChangeText={setLockoutWindowMinutes} keyboardType="numeric" />
+          <Text style={[styles.label, { color: colors.text }]}>Okno (min)</Text>
+          <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} value={lockoutWindowMinutes} onChangeText={setLockoutWindowMinutes} keyboardType="numeric" />
         </View>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Sesja</Text>
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Sesja</Text>
         <View style={styles.row}>
-          <Text style={styles.label}>Timeout sesji (min)</Text>
-          <TextInput style={styles.input} value={sessionTimeoutMinutes} onChangeText={setSessionTimeoutMinutes} keyboardType="numeric" />
+          <Text style={[styles.label, { color: colors.text }]}>Timeout sesji (min)</Text>
+          <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} value={sessionTimeoutMinutes} onChangeText={setSessionTimeoutMinutes} keyboardType="numeric" />
         </View>
         
       </View>
 
-      <Pressable style={styles.saveButton} onPress={save} disabled={saving}>
+      <Pressable style={[styles.saveButton, { backgroundColor: colors.primary }]} onPress={save} disabled={saving}>
         <Text style={{ color: '#fff', fontWeight: '600' }}>{saving ? 'Zapisywanie…' : 'Zapisz ustawienia'}</Text>
       </Pressable>
     </ScrollView>

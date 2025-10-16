@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Switch, Pressable, Alert } from 'react-native';
 import api from '../lib/api';
+import { useTheme } from '../lib/theme';
 
 export default function FeaturesSettings() {
+  const { colors } = useTheme();
   const [loading, setLoading] = useState(true);
   const [savingFeatures, setSavingFeatures] = useState(false);
   const [features, setFeatures] = useState({
@@ -47,18 +49,18 @@ export default function FeaturesSettings() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>🎛️ Funkcje</Text>
+    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+      <Text style={[styles.title, { color: colors.text }]}>🎛️ Funkcje</Text>
       {loading ? (
-        <Text style={styles.subtitle}>Ładowanie…</Text>
+        <Text style={[styles.subtitle, { color: colors.muted }]}>Ładowanie…</Text>
       ) : (
-        <View style={styles.card}>
-          <View style={styles.row}><Text style={styles.rowText}>Dziennik audytu</Text><Switch value={features.enableAuditLog} onValueChange={(v) => setFeatures({ ...features, enableAuditLog: v })} /></View>
-          <View style={styles.row}><Text style={styles.rowText}>Raporty</Text><Switch value={features.enableReports} onValueChange={(v) => setFeatures({ ...features, enableReports: v })} /></View>
-          <View style={styles.row}><Text style={styles.rowText}>Aplikacja mobilna</Text><Switch value={features.enableMobileApp} onValueChange={(v) => setFeatures({ ...features, enableMobileApp: v })} /></View>
-          <View style={styles.row}><Text style={styles.rowText}>Dostęp API</Text><Switch value={features.enableApiAccess} onValueChange={(v) => setFeatures({ ...features, enableApiAccess: v })} /></View>
-          <View style={styles.row}><Text style={styles.rowText}>Eksport danych</Text><Switch value={features.enableDataExport} onValueChange={(v) => setFeatures({ ...features, enableDataExport: v })} /></View>
-          <Pressable style={styles.button} onPress={saveFeatures} disabled={savingFeatures}>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.row}><Text style={[styles.rowText, { color: colors.text }]}>Dziennik audytu</Text><Switch value={features.enableAuditLog} onValueChange={(v) => setFeatures({ ...features, enableAuditLog: v })} /></View>
+          <View style={styles.row}><Text style={[styles.rowText, { color: colors.text }]}>Raporty</Text><Switch value={features.enableReports} onValueChange={(v) => setFeatures({ ...features, enableReports: v })} /></View>
+          <View style={styles.row}><Text style={[styles.rowText, { color: colors.text }]}>Aplikacja mobilna</Text><Switch value={features.enableMobileApp} onValueChange={(v) => setFeatures({ ...features, enableMobileApp: v })} /></View>
+          <View style={styles.row}><Text style={[styles.rowText, { color: colors.text }]}>Dostęp API</Text><Switch value={features.enableApiAccess} onValueChange={(v) => setFeatures({ ...features, enableApiAccess: v })} /></View>
+          <View style={styles.row}><Text style={[styles.rowText, { color: colors.text }]}>Eksport danych</Text><Switch value={features.enableDataExport} onValueChange={(v) => setFeatures({ ...features, enableDataExport: v })} /></View>
+          <Pressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={saveFeatures} disabled={savingFeatures}>
             <Text style={{ color: '#fff', fontWeight: '600' }}>{savingFeatures ? 'Zapisywanie…' : 'Zapisz ustawienia funkcji'}</Text>
           </Pressable>
         </View>

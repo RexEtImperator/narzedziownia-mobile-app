@@ -18,6 +18,7 @@
     "expo": "~54.0.13",
     "expo-barcode-scanner": "^13.0.1",
     "expo-camera": "~17.0.8",
+    "expo-notifications": "~0.32.12",
     "expo-status-bar": "~3.0.8",
     "nativewind": "next",
     "react": "19.1.0",
@@ -34,7 +35,6 @@
   "devDependencies": {
     "autoprefixer": "^10.4.21",
     "babel-preset-expo": "^54.0.4",
-    "eas-cli": "^16.23.0",
     "postcss": "^8.5.6"
   },
   "overrides": {

@@ -2,7 +2,7 @@
   "expo": {
     "name": "mobilna",
     "slug": "mobilna",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "extra": {
       "apiBaseUrl": "http://192.168.10.99:3000",
       "eas": {
@@ -19,7 +19,10 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Aplikacja potrzebuje dostępu do kamery, aby skanować kody QR i kreskowe."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -29,7 +32,8 @@
       "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.CAMERA"
-      ]
+      ],
+      "package": "com.dbrzezinsky.mobilna"
     },
     "web": {
       "bundler": "metro",

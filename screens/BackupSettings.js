@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput, Alert, Switch } from 'react-native';
 import api from '../lib/api';
+import { useTheme } from '../lib/theme';
 
 const BACKUP_FREQ_OPTIONS = [
   { label: 'Codziennie', value: 'daily' },
@@ -18,6 +19,7 @@ const DOW_OPTIONS = [
 ];
 
 export default function BackupSettings() {
+  const { colors } = useTheme();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [automaticBackup, setAutomaticBackup] = useState(true);
@@ -91,41 +93,61 @@ export default function BackupSettings() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>💾 Backup</Text>
+    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+      <Text style={[styles.title, { color: colors.text }]}>💾 Backup</Text>
       {loading ? (
-        <Text style={styles.subtitle}>Ładowanie…</Text>
+        <Text style={[styles.subtitle, { color: colors.muted }]}>Ładowanie…</Text>
       ) : (
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.row}>
-            <Text style={styles.rowText}>Automatyczny backup</Text>
+            <Text style={[styles.rowText, { color: colors.text }]}>Automatyczny backup</Text>
             <Switch value={automaticBackup} onValueChange={setAutomaticBackup} />
           </View>
 
-          <Text style={styles.label}>Częstotliwość backupu</Text>
+          <Text style={[styles.label, { color: colors.muted }]}>Częstotliwość backupu</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
             {BACKUP_FREQ_OPTIONS.map(opt => (
               <Pressable
                 key={opt.value}
-                style={[styles.chip, backupFrequency === opt.value && styles.chipSelected]}
+                style={[
+                  styles.chip,
+                  { borderColor: colors.border, backgroundColor: colors.card },
+                  backupFrequency === opt.value ? styles.chipSelected : null,
+                  backupFrequency === opt.value ? { backgroundColor: colors.primary, borderColor: colors.primary } : null,
+                ]}
                 onPress={() => setBackupFrequency(opt.value)}
               >
-                <Text style={[styles.chipText, backupFrequency === opt.value && styles.chipTextSelected]}>{opt.label}</Text>
+                <Text style={[
+                  styles.chipText,
+                  { color: colors.text },
+                  backupFrequency === opt.value ? styles.chipTextSelected : null,
+                  backupFrequency === opt.value ? { color: '#fff', fontWeight: '600' } : null,
+                ]}>{opt.label}</Text>
               </Pressable>
             ))}
           </View>
 
           {backupFrequency === 'weekly' && (
             <View style={{ marginTop: 16 }}>
-              <Text style={styles.label}>Dzień tygodnia</Text>
+              <Text style={[styles.label, { color: colors.muted }]}>Dzień tygodnia</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
                 {DOW_OPTIONS.map(opt => (
                   <Pressable
                     key={opt.value}
-                    style={[styles.chip, backupDayOfWeek === opt.value && styles.chipSelected]}
+                    style={[
+                      styles.chip,
+                      { borderColor: colors.border, backgroundColor: colors.card },
+                      backupDayOfWeek === opt.value ? styles.chipSelected : null,
+                      backupDayOfWeek === opt.value ? { backgroundColor: colors.primary, borderColor: colors.primary } : null,
+                    ]}
                     onPress={() => setBackupDayOfWeek(opt.value)}
                   >
-                    <Text style={[styles.chipText, backupDayOfWeek === opt.value && styles.chipTextSelected]}>{opt.label}</Text>
+                    <Text style={[
+                      styles.chipText,
+                      { color: colors.text },
+                      backupDayOfWeek === opt.value ? styles.chipTextSelected : null,
+                      backupDayOfWeek === opt.value ? { color: '#fff', fontWeight: '600' } : null,
+                    ]}>{opt.label}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -134,51 +156,51 @@ export default function BackupSettings() {
 
           {backupFrequency === 'monthly' && (
             <View style={{ marginTop: 16 }}>
-              <Text style={styles.label}>Dzień miesiąca (1–31)</Text>
+              <Text style={[styles.label, { color: colors.muted }]}>Dzień miesiąca (1–31)</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
                 value={String(backupDayOfMonth)}
                 onChangeText={(v) => {
                   const num = parseInt(v, 10);
                   setBackupDayOfMonth(isNaN(num) ? 1 : Math.max(1, Math.min(31, num)));
                 }}
                 keyboardType="numeric"
-                placeholderTextColor="#64748b"
+                placeholderTextColor={colors.muted}
               />
             </View>
           )}
 
           <View style={{ marginTop: 16 }}>
-            <Text style={styles.label}>Godzina (HH:MM)</Text>
+            <Text style={[styles.label, { color: colors.muted }]}>Godzina (HH:MM)</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
               value={String(backupTime)}
               onChangeText={setBackupTime}
               keyboardType="default"
               placeholder="02:00"
-              placeholderTextColor="#64748b"
+              placeholderTextColor={colors.muted}
             />
           </View>
 
           <View style={{ marginTop: 16 }}>
-            <Text style={styles.label}>Retencja kopii (dni)</Text>
+            <Text style={[styles.label, { color: colors.muted }]}>Retencja kopii (dni)</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
               value={String(backupRetentionDays)}
               onChangeText={(v) => {
                 const num = parseInt(v, 10);
                 setBackupRetentionDays(isNaN(num) ? 0 : Math.max(0, num));
               }}
               keyboardType="numeric"
-              placeholderTextColor="#64748b"
+              placeholderTextColor={colors.muted}
             />
           </View>
 
-          <Pressable style={styles.button} onPress={save} disabled={saving}>
+          <Pressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={save} disabled={saving}>
             <Text style={{ color: '#fff', fontWeight: '600' }}>{saving ? 'Zapisywanie…' : 'Zapisz ustawienia backupu'}</Text>
           </Pressable>
 
-          <Pressable style={[styles.button, { backgroundColor: '#0ea5e9', marginTop: 8 }]} onPress={runNow} disabled={runningNow}>
+          <Pressable style={[styles.button, { backgroundColor: colors.success, marginTop: 8 }]} onPress={runNow} disabled={runningNow}>
             <Text style={{ color: '#fff', fontWeight: '600' }}>{runningNow ? 'Uruchamianie…' : 'Backup teraz'}</Text>
           </Pressable>
         </View>

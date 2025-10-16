@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable, Alert, ScrollView } from 'react-native';
 import api from '../lib/api';
+import { useTheme } from '../lib/theme';
 
 export default function CategoriesScreen() {
+  const { colors } = useTheme();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -95,52 +97,52 @@ export default function CategoriesScreen() {
   };
 
   return (
-    <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.container}>
-      <Text style={styles.title}>🏷️ Kategorie</Text>
-      <Text style={styles.subtitle}>Zarządzanie kategoriami narzędzi</Text>
+    <ScrollView style={[styles.scrollContainer, { backgroundColor: colors.bg }]} contentContainerStyle={[styles.container, { backgroundColor: colors.bg }]}>
+      <Text style={[styles.title, { color: colors.text }]}>🏷️ Kategorie</Text>
+      <Text style={[styles.subtitle, { color: colors.muted }]}>Zarządzanie kategoriami narzędzi</Text>
 
-      <View style={styles.card}>
-        <Text style={styles.label}>Dodaj kategorię</Text>
-        <TextInput style={styles.input} placeholder="Nazwa" value={newName} onChangeText={setNewName} placeholderTextColor="#64748b" />
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.label, { color: colors.muted }]}>Dodaj kategorię</Text>
+        <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nazwa" value={newName} onChangeText={setNewName} placeholderTextColor={colors.muted} />
         
-        <Pressable style={styles.button} onPress={addCategory} disabled={savingNew}>
+        <Pressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={addCategory} disabled={savingNew}>
           <Text style={{ color: '#fff', fontWeight: '600' }}>{savingNew ? 'Zapisywanie…' : 'Dodaj'}</Text>
         </Pressable>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.label}>Szukaj</Text>
-        <TextInput style={styles.input} placeholder="Nazwa" value={search} onChangeText={setSearch} placeholderTextColor="#64748b" />
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.label, { color: colors.muted }]}>Szukaj</Text>
+        <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nazwa" value={search} onChangeText={setSearch} placeholderTextColor={colors.muted} />
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Lista kategorii</Text>
-        {loading ? <Text style={styles.subtitle}>Ładowanie…</Text> : null}
-        {error ? <Text style={{ color: '#b91c1c', marginBottom: 8 }}>{error}</Text> : null}
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Lista kategorii</Text>
+        {loading ? <Text style={[styles.subtitle, { color: colors.muted }]}>Ładowanie…</Text> : null}
+        {error ? <Text style={{ color: colors.danger, marginBottom: 8 }}>{error}</Text> : null}
         {filtered.map((c) => (
-          <View key={String(c?.id || c?.name)} style={{ borderBottomWidth: 1, borderBottomColor: '#e5e7eb', paddingVertical: 8 }}>
+          <View key={String(c?.id || c?.name)} style={{ borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 8 }}>
             {editingId === c?.id ? (
               <View>
-                <TextInput style={styles.input} value={editName} onChangeText={setEditName} />
+                <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} value={editName} onChangeText={setEditName} />
                 <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                  <Pressable style={[styles.button, { flex: 1 }]} onPress={saveEdit} disabled={savingEdit}><Text style={{ color: '#fff', fontWeight: '600' }}>{savingEdit ? 'Zapisywanie…' : 'Zapisz'}</Text></Pressable>
-                  <Pressable style={[styles.button, { flex: 1, backgroundColor: '#334155' }]} onPress={cancelEdit}><Text style={{ color: '#fff', fontWeight: '600' }}>Anuluj</Text></Pressable>
+                  <Pressable style={[styles.button, { flex: 1, backgroundColor: colors.primary }]} onPress={saveEdit} disabled={savingEdit}><Text style={{ color: '#fff', fontWeight: '600' }}>{savingEdit ? 'Zapisywanie…' : 'Zapisz'}</Text></Pressable>
+                  <Pressable style={[styles.button, { flex: 1, backgroundColor: colors.muted }]} onPress={cancelEdit}><Text style={{ color: '#fff', fontWeight: '600' }}>Anuluj</Text></Pressable>
                 </View>
               </View>
             ) : (
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <View>
-                  <Text style={{ fontSize: 16, color: '#0f172a', fontWeight: '600' }}>{c?.name}</Text>
+                  <Text style={{ fontSize: 16, color: colors.text, fontWeight: '600' }}>{c?.name}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <Pressable style={[styles.smallButton, { backgroundColor: '#0ea5e9' }]} onPress={() => startEdit(c)}><Text style={styles.smallButtonText}>Edytuj</Text></Pressable>
-                  <Pressable style={[styles.smallButton, { backgroundColor: '#ef4444' }]} onPress={() => removeCategory(c)}><Text style={styles.smallButtonText}>Usuń</Text></Pressable>
+                  <Pressable style={[styles.smallButton, { backgroundColor: colors.primary }]} onPress={() => startEdit(c)}><Text style={styles.smallButtonText}>Edytuj</Text></Pressable>
+                  <Pressable style={[styles.smallButton, { backgroundColor: colors.danger }]} onPress={() => removeCategory(c)}><Text style={styles.smallButtonText}>Usuń</Text></Pressable>
                 </View>
               </View>
             )}
           </View>
         ))}
-        {(!loading && filtered.length === 0) ? <Text style={{ color: '#64748b' }}>Brak kategorii</Text> : null}
+        {(!loading && filtered.length === 0) ? <Text style={{ color: colors.muted }}>Brak kategorii</Text> : null}
       </View>
     </ScrollView>
   );

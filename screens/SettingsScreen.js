@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
-import { View, Text, ScrollView, TextInput, Pressable, ActivityIndicator, Alert, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TextInput, Pressable, ActivityIndicator, Alert, StyleSheet, Switch } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import api from '../lib/api';
+import { useTheme } from '../lib/theme';
 
 const TZ_OPTIONS = [
   { label: 'Europa/Warszawa', value: 'Europe/Warsaw' },
@@ -17,6 +18,7 @@ const LANG_OPTIONS = [
 
 export default function SettingsScreen() {
   const navigation = useNavigation();
+  const { isDark, toggleDark, colors } = useTheme();
   const [loading, setLoading] = useState(true);
   const [savingGeneral, setSavingGeneral] = useState(false);
   const [general, setGeneral] = useState({
@@ -81,89 +83,100 @@ export default function SettingsScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
-        <Text style={styles.loadingText}>Ładowanie ustawień…</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: colors.bg }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.muted }]}>Ładowanie ustawień…</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView ref={scrollRef} style={styles.scrollContainer}>
+    <ScrollView ref={scrollRef} style={[styles.scrollContainer, { backgroundColor: colors.bg }]}>
       <View style={styles.pageWrapper}>
-      <Text style={styles.pageTitle}>Ustawienia</Text>
+      <Text style={[styles.pageTitle, { color: colors.text }]}>Ustawienia</Text>
 
       {/* Sekcje (lista nawigacyjna) */}
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Sekcje</Text>
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }] }>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Sekcje</Text>
         <View>
-          <Pressable style={styles.navItem} onPress={() => navigation.navigate('🔒Bezpieczeństwo')}>
-            <Text style={styles.navItemText}>🔒 Bezpieczeństwo</Text>
+          <Pressable style={[styles.navItem, { borderBottomColor: colors.border }]} onPress={() => navigation.navigate('🔒Bezpieczeństwo')}>
+            <Text style={[styles.navItemText, { color: colors.text }]}>🔒 Bezpieczeństwo</Text>
           </Pressable>
-          <Pressable style={styles.navItem} onPress={() => navigation.navigate('👥Użytkownicy')}>
-            <Text style={styles.navItemText}>👥 Użytkownicy</Text>
+          <Pressable style={[styles.navItem, { borderBottomColor: colors.border }]} onPress={() => navigation.navigate('👥Użytkownicy')}>
+            <Text style={[styles.navItemText, { color: colors.text }]}>👥 Użytkownicy</Text>
           </Pressable>
-          <Pressable style={styles.navItem} onPress={() => navigation.navigate('🎛️Funkcje')}>
-            <Text style={styles.navItemText}>🎛️ Funkcje</Text>
+          <Pressable style={[styles.navItem, { borderBottomColor: colors.border }]} onPress={() => navigation.navigate('🎛️Funkcje')}>
+            <Text style={[styles.navItemText, { color: colors.text }]}>🎛️ Funkcje</Text>
           </Pressable>
-          <Pressable style={styles.navItem} onPress={() => navigation.navigate('🏢Działy')}>
-            <Text style={styles.navItemText}>🏢 Działy</Text>
+          <Pressable style={[styles.navItem, { borderBottomColor: colors.border }]} onPress={() => navigation.navigate('🏢Działy')}>
+            <Text style={[styles.navItemText, { color: colors.text }]}>🏢 Działy</Text>
           </Pressable>
-          <Pressable style={styles.navItem} onPress={() => navigation.navigate('👔Stanowiska')}>
-            <Text style={styles.navItemText}>👔 Stanowiska</Text>
+          <Pressable style={[styles.navItem, { borderBottomColor: colors.border }]} onPress={() => navigation.navigate('👔Stanowiska')}>
+            <Text style={[styles.navItemText, { color: colors.text }]}>👔 Stanowiska</Text>
           </Pressable>
-          <Pressable style={styles.navItem} onPress={() => navigation.navigate('🏷️Kategorie')}>
-            <Text style={styles.navItemText}>🏷️ Kategorie</Text>
+          <Pressable style={[styles.navItem, { borderBottomColor: colors.border }]} onPress={() => navigation.navigate('🏷️Kategorie')}>
+            <Text style={[styles.navItemText, { color: colors.text }]}>🏷️ Kategorie</Text>
           </Pressable>
-          <Pressable style={styles.navItem} onPress={() => navigation.navigate('💾Backup')}>
-            <Text style={styles.navItemText}>💾 Backup</Text>
+          <Pressable style={[styles.navItem, { borderBottomColor: colors.border }]} onPress={() => navigation.navigate('💾Backup')}>
+            <Text style={[styles.navItemText, { color: colors.text }]}>💾 Backup</Text>
           </Pressable>
         </View>
       </View>
 
+      {/* Wygląd */}
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]} onLayout={registerSection('wyglad')}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Wygląd</Text>
+        <View style={styles.row}>
+          <Text style={[styles.rowText, { color: colors.text }]}>Tryb ciemny</Text>
+          <Switch value={isDark} onValueChange={toggleDark} />
+        </View>
+      </View>
+
       {/* Ogólne */}
-      <View style={styles.card} onLayout={registerSection('ogolne')}>
-        <Text style={styles.sectionTitle}>Ustawienia ogólne</Text>
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]} onLayout={registerSection('ogolne')}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Ustawienia ogólne</Text>
         <View className="flex-row gap-3">
           <View className="flex-1 mb-3"> 
-            <Text style={styles.label}>Nazwa aplikacji</Text>
+            <Text style={[styles.label, { color: colors.muted }]}>Nazwa aplikacji</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
               value={general.appName}
               onChangeText={(v) => setGeneral({ ...general, appName: v })}
               placeholder="System Zarządzania"
-              placeholderTextColor="#64748b"
+              placeholderTextColor={colors.muted}
             />
           </View>
           <View className="flex-1 mb-3"> 
-            <Text style={styles.label}>Nazwa firmy</Text>
+            <Text style={[styles.label, { color: colors.muted }]}>Nazwa firmy</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
               value={general.companyName}
               onChangeText={(v) => setGeneral({ ...general, companyName: v })}
               placeholder="Moja Firma"
-              placeholderTextColor="#64748b"
+              placeholderTextColor={colors.muted}
             />
           </View>
         </View>
 
         <View className="flex-row gap-3">
           <View className="flex-1 mb-3"> 
-            <Text style={styles.label}>Strefa czasowa</Text>
+            <Text style={[styles.label, { color: colors.muted }]}>Strefa czasowa</Text>
             <View className="flex-row flex-wrap gap-2">
               {TZ_OPTIONS.map(opt => (
                 <Pressable
                   key={opt.value}
                   style={[
                     styles.optionChip,
-                    general.timezone === opt.value && styles.optionChipSelected,
+                    { backgroundColor: colors.card, borderColor: colors.border },
+                    general.timezone === opt.value && [{ borderColor: colors.primary }, { backgroundColor: isDark ? '#1f2937' : '#eef2ff' }],
                   ]}
                   onPress={() => setGeneral({ ...general, timezone: opt.value })}
                 >
                  <Text
                    style={[
                      styles.optionChipText,
-                     general.timezone === opt.value && styles.optionChipTextSelected,
+                     { color: colors.text },
+                     general.timezone === opt.value && [{ color: colors.primary, fontWeight: '600' }],
                    ]}
                  >
                    {opt.label}
@@ -176,21 +189,23 @@ export default function SettingsScreen() {
 
         <View className="flex-row gap-3">
           <View className="flex-1 mb-3"> 
-            <Text style={styles.label}>Język</Text>
+            <Text style={[styles.label, { color: colors.muted }]}>Język</Text>
             <View className="flex-row flex-wrap gap-2">
               {LANG_OPTIONS.map(opt => (
                 <Pressable
                   key={opt.value}
                   style={[
                     styles.optionChip,
-                    general.language === opt.value && styles.optionChipSelected,
+                    { backgroundColor: colors.card, borderColor: colors.border },
+                    general.language === opt.value && [{ borderColor: colors.primary }, { backgroundColor: isDark ? '#1f2937' : '#eef2ff' }],
                   ]}
                   onPress={() => setGeneral({ ...general, language: opt.value })}
                 >
                   <Text
                     style={[
                       styles.optionChipText,
-                      general.language === opt.value && styles.optionChipTextSelected,
+                      { color: colors.text },
+                      general.language === opt.value && [{ color: colors.primary, fontWeight: '600' }],
                     ]}
                   >
                     {opt.label}
@@ -201,13 +216,13 @@ export default function SettingsScreen() {
           </View>
 
           <View className="flex-1 mb-3"> 
-            <Text style={styles.label}>Format daty</Text>
+            <Text style={[styles.label, { color: colors.muted }]}>Format daty</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
               value={general.dateFormat}
               onChangeText={(v) => setGeneral({ ...general, dateFormat: v })}
               placeholder="DD/MM/YYYY"
-              placeholderTextColor="#64748b"
+              placeholderTextColor={colors.muted}
             />
           </View>
         </View>
@@ -215,8 +230,9 @@ export default function SettingsScreen() {
         <Pressable
           style={({ pressed }) => [
             styles.button,
+            { backgroundColor: colors.primary },
             savingGeneral && styles.buttonDisabled,
-            pressed && styles.buttonPressed,
+            pressed && { opacity: 0.9 },
           ]}
           onPress={saveGeneral}
           disabled={savingGeneral}

@@ -1,12 +1,20 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable, ScrollView } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import api from '../lib/api';
+import { useTheme } from '../lib/theme';
 
 export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [stats, setStats] = useState({ employees: 0, departments: 0, positions: 0, tools: 0 });
   const [tools, setTools] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [toolHistory, setToolHistory] = useState([]);
+  const [bhpHistory, setBhpHistory] = useState([]);
+  const navigation = useNavigation();
+  const { colors } = useTheme();
 
   useEffect(() => {
     const load = async () => {
@@ -14,11 +22,12 @@ export default function DashboardScreen() {
       setError('');
       try {
         await api.init();
-        const [deps, poss, emps, tls] = await Promise.all([
+        const [deps, poss, emps, tls, bhp] = await Promise.all([
           api.get('/api/departments'),
           api.get('/api/positions'),
           api.get('/api/employees'),
           api.get('/api/tools'),
+          api.get('/api/bhp'),
         ]);
         setStats({
           employees: Array.isArray(emps) ? emps.length : 0,
@@ -27,7 +36,244 @@ export default function DashboardScreen() {
           tools: Array.isArray(tls) ? tls.length : (Array.isArray(tls?.data) ? tls.data.length : 0),
         });
         const list = Array.isArray(tls) ? tls : (Array.isArray(tls?.data) ? tls.data : []);
+        const bhpList = Array.isArray(bhp) ? bhp : (Array.isArray(bhp?.data) ? bhp.data : []);
         setTools(list.slice(0, 20));
+
+        // Build issue/return history
+        const employees = Array.isArray(emps) ? emps : (Array.isArray(emps?.data) ? emps.data : []);
+        const empMap = new Map();
+        for (const e of employees) {
+          const name = [e?.first_name, e?.last_name].filter(Boolean).join(' ') || e?.name || '—';
+          empMap.set(e?.id, name);
+        }
+        const toolMap = new Map();
+        for (const t of list) {
+          toolMap.set(t?.id, t);
+        }
+        const bhpMap = new Map();
+        for (const b of bhpList) {
+          bhpMap.set(b?.id, b);
+        }
+
+        // Helper to robustly extract arrays from various response shapes
+        const toArray = (resp) => {
+          try {
+            if (Array.isArray(resp)) return resp;
+            const candidates = ['data', 'rows', 'items', 'list', 'result', 'content'];
+            for (const key of candidates) {
+              const val = resp?.[key];
+              if (Array.isArray(val)) return val;
+              if (val && typeof val === 'object') {
+                const nestedCandidates = ['data', 'rows', 'items', 'list', 'content'];
+                for (const n of nestedCandidates) {
+                  const nested = val?.[n];
+                  if (Array.isArray(nested)) return nested;
+                }
+              }
+            }
+          } catch {}
+          return [];
+        };
+
+        // Normalize fields from issue event
+        const mapToolIssue = (ev) => {
+          const toolId = ev?.tool_id ?? ev?.toolId ?? ev?.tool?.id ?? ev?.item_id ?? ev?.itemId;
+          const tool = toolMap.get(toolId);
+          const toolName = tool?.name || tool?.tool_name || ev?.tool_name || ev?.name || 'Narzędzie';
+          const employeeIdVal = ev?.employee_id ?? ev?.employeeId ?? ev?.employee?.id;
+          const employeeName = empMap.get(employeeIdVal) || `${ev?.employee_first_name || ''} ${ev?.employee_last_name || ''}`.trim() || ev?.employee_name || '—';
+          const issued = ev?.issued_at ?? ev?.issuedAt ?? ev?.issued_on ?? ev?.issue_date ?? ev?.date ?? ev?.timestamp ?? ev?.created_at;
+          const returned = ev?.returned_at ?? ev?.returnedAt ?? ev?.returned_on ?? ev?.return_date ?? ev?.completed_at;
+          const ts = parseDate(returned) || parseDate(issued);
+          const type = returned ? 'return' : 'issue';
+          const filterValue = tool?.inventory_number || tool?.serial_number || tool?.qr_code || tool?.barcode || tool?.code || tool?.sku || ev?.tool_code || toolName;
+          return { id: ev?.id ?? ev?.issue_id ?? ev?.log_id ?? `${toolId || 'tool'}-${issued || returned || ''}`, type, toolName, employeeName, quantity: ev?.quantity || 1, timestamp: ts, filterValue, source: 'tools' };
+        };
+
+        // Fetch tool issues history (up to 6)
+        try {
+          const toolHistoryRes = await api.get('/api/tool-issues?limit=6');
+          const arr = Array.isArray(toolHistoryRes?.data) ? toolHistoryRes.data : (Array.isArray(toolHistoryRes) ? toolHistoryRes : []);
+          const mapped = arr.map(issue => {
+            const action = issue?.status === 'wydane' ? 'wydanie' : 'zwrot';
+            const rawIssued = issue?.issued_at;
+            const rawReturned = issue?.returned_at;
+            const ts = parseDate((issue?.status === 'zwrócone' && rawReturned) ? rawReturned : rawIssued);
+            const employeeName = `${issue?.employee_first_name || ''} ${issue?.employee_last_name || ''}`.trim() || '—';
+            const rawLabel = (issue?.status === 'zwrócone' && rawReturned) ? rawReturned : rawIssued;
+            let normalizedRaw = (typeof rawLabel === 'string' ? rawLabel.trim() : '');
+            if (normalizedRaw) normalizedRaw = normalizedRaw.replace(/(\d+)\s*h\s*temu/i, (_, num) => `${num} godz temu`);
+            const agoText = ts ? formatAgo(ts) : (normalizedRaw || '—');
+            return {
+              id: issue?.id,
+              action,
+              toolName: issue?.tool_name || 'Narzędzie',
+              employeeName,
+              quantity: issue?.quantity || 1,
+              timestamp: ts,
+              agoText,
+              filterValue: issue?.tool_name || '',
+            };
+          });
+          setToolHistory(mapped);
+        } catch (e) {
+          setToolHistory([]);
+        }
+
+        // Fetch BHP issues history (up to 6; ignore lack of permissions)
+        try {
+          const bhpHistoryRes = await api.get('/api/bhp-issues?limit=6');
+          const arr = Array.isArray(bhpHistoryRes?.data) ? bhpHistoryRes.data : (Array.isArray(bhpHistoryRes) ? bhpHistoryRes : []);
+          const mapped = arr.map(issue => {
+            const action = issue?.status === 'wydane' ? 'wydanie' : 'zwrot';
+            const rawIssued = issue?.issued_at;
+            const rawReturned = issue?.returned_at;
+            const ts = parseDate((issue?.status === 'zwrócone' && rawReturned) ? rawReturned : rawIssued);
+            const employeeName = `${issue?.employee_first_name || ''} ${issue?.employee_last_name || ''}`.trim() || '—';
+            const bhpLabel = issue?.bhp_model ? `${issue.bhp_model} (${issue?.bhp_inventory_number || 'brak nr'})` : `Nr ewid.: ${issue?.bhp_inventory_number || 'nieznany'}`;
+            const rawLabel = (issue?.status === 'zwrócone' && rawReturned) ? rawReturned : rawIssued;
+            let normalizedRaw = (typeof rawLabel === 'string' ? rawLabel.trim() : '');
+            if (normalizedRaw) normalizedRaw = normalizedRaw.replace(/(\d+)\s*h\s*temu/i, (_, num) => `${num} godz temu`);
+            const agoText = ts ? formatAgo(ts) : (normalizedRaw || '—');
+            return {
+              id: issue?.id,
+              action,
+              bhpLabel,
+              employeeName,
+              timestamp: ts,
+              agoText,
+              filterValue: issue?.bhp_inventory_number || issue?.bhp_model || '',
+            };
+          });
+          setBhpHistory(mapped);
+        } catch (e) {
+          setBhpHistory([]);
+        }
+
+        let issues = [];
+        // 1) Primary endpoint
+        try {
+          const ti = await api.get('/api/tool_issues');
+          const arr = toArray(ti);
+          issues = arr.map(mapToolIssue);
+        } catch {}
+        // 2) Alternate endpoints (various backend conventions)
+        try {
+          if (!issues || issues.length === 0) {
+            const alt1 = await api.get('/api/tools/issues');
+            const arr1 = toArray(alt1);
+            issues = arr1.map(mapToolIssue);
+          }
+        } catch {}
+        try {
+          if (!issues || issues.length === 0) {
+            const alt2 = await api.get('/api/issues/tools');
+            const arr2 = toArray(alt2);
+            issues = arr2.map(mapToolIssue);
+          }
+        } catch {}
+        try {
+          if (!issues || issues.length === 0) {
+            const alt3 = await api.get('/api/issues?type=tool');
+            const arr3 = toArray(alt3);
+            issues = arr3.map(mapToolIssue);
+          }
+        } catch {}
+
+        // Fallback: derive issues from /api/tools (current issued tools)
+        if (!issues || issues.length === 0) {
+          issues = list
+            .filter(t => !!(t?.issued_at || t?.issuedAt || t?.issued_on || t?.issue_date || t?.last_issue_at))
+            .map(t => ({
+              id: t?.id,
+              type: 'issue',
+              toolName: t?.name || t?.tool_name || 'Narzędzie',
+              employeeName: empMap.get(t?.issued_to_employee_id ?? t?.issuedToEmployeeId) || '—',
+              quantity: 1,
+              timestamp: parseDate(t?.issued_at ?? t?.issuedAt ?? t?.issued_on ?? t?.issue_date ?? t?.last_issue_at),
+              filterValue: t?.inventory_number || t?.serial_number || t?.qr_code || t?.barcode || t?.code || t?.sku || (t?.name || t?.tool_name),
+              source: 'tools',
+            }));
+        }
+
+        // BHP issues/returns
+        const mapBhpIssue = (ev) => {
+          const bhpId = ev?.bhp_id ?? ev?.bhpId ?? ev?.item_id ?? ev?.itemId ?? ev?.bhp?.id;
+          const bhpItem = bhpMap.get(bhpId);
+          const baseName = bhpItem?.manufacturer && bhpItem?.model ? `${bhpItem.manufacturer} ${bhpItem.model}` : (bhpItem?.name || ev?.bhp_name || 'Sprzęt BHP');
+          const displayName = baseName || bhpItem?.inventory_number || ev?.bhp_code || 'Sprzęt BHP';
+          const employeeIdVal = ev?.employee_id ?? ev?.employeeId ?? ev?.employee?.id;
+          const employeeName = empMap.get(employeeIdVal) || `${ev?.employee_first_name || ''} ${ev?.employee_last_name || ''}`.trim() || ev?.employee_name || '—';
+          const issued = ev?.issued_at ?? ev?.issuedAt ?? ev?.issued_on ?? ev?.issue_date ?? ev?.date ?? ev?.timestamp ?? ev?.created_at;
+          const returned = ev?.returned_at ?? ev?.returnedAt ?? ev?.returned_on ?? ev?.return_date ?? ev?.completed_at;
+          const ts = parseDate(returned) || parseDate(issued);
+          const type = returned ? 'return' : 'issue';
+          const filterValue = bhpItem?.inventory_number || bhpItem?.serial_number || ev?.bhp_code || String(bhpId || '');
+          return { id: `bhp-${ev?.id ?? ev?.issue_id ?? ev?.log_id ?? `${bhpId || 'bhp'}-${issued || returned || ''}`}`, type, toolName: displayName, employeeName, quantity: ev?.quantity || 1, timestamp: ts, filterValue, source: 'bhp' };
+        };
+
+        try {
+          const bi1 = await api.get('/api/bhp_issues');
+          const bhpArr = toArray(bi1);
+          if (bhpArr && bhpArr.length) {
+            const mapped = bhpArr.map(mapBhpIssue);
+            issues = [...issues, ...mapped];
+          }
+        } catch {}
+        // Alternate endpoint for BHP issues if needed
+        try {
+          if (!issues.find(i => String(i.id || '').startsWith('bhp-'))) {
+            const bi2 = await api.get('/api/bhp/issues');
+            const bhpArr2 = toArray(bi2);
+            const mapped2 = bhpArr2.map(mapBhpIssue);
+            issues = [...issues, ...mapped2];
+          }
+        } catch {}
+
+        // 3) Optional audit logs fallback (if backend records actions there)
+        try {
+          if (!issues || issues.length === 0) {
+            const logs = await api.get('/api/audit_logs');
+            const arr = toArray(logs);
+            const mapped = arr
+              .filter(l => {
+                const act = String(l?.action || '').toLowerCase();
+                return act.includes('issue') || act.includes('return');
+              })
+              .map(l => {
+                let detailsObj = null;
+                if (typeof l?.details === 'string') {
+                  try { detailsObj = JSON.parse(l.details); } catch {}
+                } else if (typeof l?.details === 'object' && l?.details) {
+                  detailsObj = l.details;
+                }
+                const toolId = detailsObj?.tool_id ?? detailsObj?.toolId ?? null;
+                const bhpId = detailsObj?.bhp_id ?? detailsObj?.bhpId ?? null;
+                const tool = toolMap.get(toolId);
+                const bhpItem = bhpMap.get(bhpId);
+                const isReturn = String(l?.action || '').toLowerCase().includes('return');
+                const ts = parseDate(l?.timestamp) || parseDate(detailsObj?.time) || parseDate(detailsObj?.issued_at) || parseDate(detailsObj?.returned_at);
+                const employeeIdVal = detailsObj?.employee_id ?? detailsObj?.employeeId;
+                const employeeName = empMap.get(employeeIdVal) || detailsObj?.employee_name || '—';
+                const name = tool?.name || bhpItem?.name || detailsObj?.tool_name || detailsObj?.bhp_name || 'Zdarzenie';
+                const filterValue = tool?.inventory_number || bhpItem?.inventory_number || detailsObj?.code || name;
+                return { id: l?.id ?? `${name}-${l?.timestamp || ''}`, type: isReturn ? 'return' : 'issue', toolName: name, employeeName, quantity: detailsObj?.quantity || 1, timestamp: ts, filterValue, source: 'audit' };
+              });
+            if (mapped.length) {
+              issues = [...issues, ...mapped];
+            }
+          }
+        } catch {}
+
+        // Deduplicate by id+type+timestamp
+        const seen = new Set();
+        const unique = [];
+        for (const it of issues) {
+          const key = `${String(it.id)}|${it.type}|${String(it.timestamp || '')}`;
+          if (!seen.has(key)) { seen.add(key); unique.push(it); }
+        }
+        unique.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        setHistory(unique.slice(0, 50));
       } catch (e) {
         setError(e.message || 'Błąd pobierania danych');
       } finally {
@@ -39,94 +285,253 @@ export default function DashboardScreen() {
 
   if (loading) {
     return (
-      <View style={styles.container} className="flex-1 items-center justify-center bg-slate-50">
-        <ActivityIndicator size="large" />
-        <Text style={styles.muted} className="mt-2 text-slate-500">Ładowanie…</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: colors.bg }]} className="flex-1 items-center justify-center">
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.muted }]} className="mt-2">Ładowanie…</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.wrapper} className="flex-1 bg-slate-50 p-4">
-      <View style={styles.headerRow} className="flex-row items-center justify-between mb-4">
-        <Text style={styles.title} className="text-2xl font-bold text-slate-900">Panel główny</Text>
-        <View style={styles.badge} className="bg-indigo-50 rounded-full py-1 px-3"><Text style={styles.badgeText} className="text-indigo-600 font-semibold">Podgląd</Text></View>
-      </View>
-      {error ? <Text style={styles.error} className="text-red-500 mb-2">{error}</Text> : null}
+    <ScrollView style={[styles.wrapper, { backgroundColor: colors.bg }]} className="flex-1 p-4" contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
+      {error ? <Text style={[styles.error, { color: colors.danger }]} className="mb-2">{error}</Text> : null}
 
-      <View style={styles.statsRow} className="flex-row flex-wrap gap-3">
-        <View style={[styles.card, styles.cardShadow]}>
-          <View style={styles.cardHeader} className="flex-row items-center mb-2">
-            <View style={[styles.iconBox, { backgroundColor: '#4f46e5' }]} className="w-7 h-7 rounded-lg mr-2" />
-            <Text style={styles.cardTitle} className="text-slate-700 font-semibold">Pracownicy</Text>
+      {/* KPI cards */}
+      <View style={styles.kpiRow} className="flex-row flex-wrap gap-3">
+        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.kpiHeader} className="items-center">
+            <Ionicons name="construct" size={22} color="#fb923c" />
+            <Text style={[styles.kpiValue, { color: colors.orange }]} className="text-2xl font-bold">{stats.tools}</Text>
           </View>
-          <Text style={styles.cardValue} className="text-xl font-bold text-slate-900">{stats.employees}</Text>
         </View>
-        <View style={[styles.card, styles.cardShadow]}>
-          <View style={styles.cardHeader} className="flex-row items-center mb-2">
-            <View style={[styles.iconBox, { backgroundColor: '#6366f1' }]} className="w-7 h-7 rounded-lg mr-2" />
-            <Text style={styles.cardTitle} className="text-slate-700 font-semibold">Działy</Text>
+
+        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.kpiHeader} className="items-center">
+            <Ionicons name="medkit" size={22} color="#4ade80" />
+            <Text style={[styles.kpiValue, { color: colors.green }]} className="text-2xl font-bold">{computeBhpCount(tools)}</Text>
           </View>
-          <Text style={styles.cardValue} className="text-xl font-bold text-slate-900">{stats.departments}</Text>
         </View>
-        <View style={[styles.card, styles.cardShadow]}>
-          <View style={styles.cardHeader} className="flex-row items-center mb-2">
-            <View style={[styles.iconBox, { backgroundColor: '#22c55e' }]} className="w-7 h-7 rounded-lg mr-2" />
-            <Text style={styles.cardTitle} className="text-slate-700 font-semibold">Stanowiska</Text>
+
+        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.kpiHeader} className="items-center">
+            <Ionicons name="people" size={22} color="#c084fc" />
+            <Text style={[styles.kpiValue, { color: colors.purple }]} className="text-2xl font-bold">{stats.employees}</Text>
           </View>
-          <Text style={styles.cardValue} className="text-xl font-bold text-slate-900">{stats.positions}</Text>
         </View>
-        <View style={[styles.card, styles.cardShadow]}>
-          <View style={styles.cardHeader} className="flex-row items-center mb-2">
-            <View style={[styles.iconBox, { backgroundColor: '#0ea5e9' }]} className="w-7 h-7 rounded-lg mr-2" />
-            <Text style={styles.cardTitle} className="text-slate-700 font-semibold">Narzędzia</Text>
+
+        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]} className="content-center">
+          <View style={styles.kpiHeader} className="items-center">
+            <Ionicons name="time" size={22} color="#f87171" />
+            <Text style={[styles.kpiValue, { color: colors.red }]} className="text-2xl font-bold">{computeOverdueCount(tools)}</Text>
           </View>
-          <Text style={styles.cardValue} className="text-xl font-bold text-slate-900">{stats.tools}</Text>
         </View>
       </View>
 
-      <View style={[styles.sectionCard, styles.cardShadow]} className="mt-4 p-3 rounded-xl bg-white border border-slate-200 shadow-sm">
-        <View style={styles.sectionHeader} className="flex-row items-center mb-2">
-          <View style={[styles.iconBox, { backgroundColor: '#4f46e5' }]} />
-          <Text style={styles.sectionTitle} className="text-lg font-semibold text-slate-900">Historia narzędzi (ostatnie)</Text>
+      {/* Quick actions */}
+      <View style={styles.section} className="mb-6">
+        <View style={styles.sectionHeaderRow} className="flex-row items-center gap-2 mb-3">
+          <View style={[styles.flashIcon, { backgroundColor: colors.card }]} className="w-8 h-8 rounded-xl items-center justify-center">
+            <Ionicons name="flash" size={18} color="#10b981" />
+          </View>
+          <Text style={[styles.sectionTitle, { color: colors.text }]} className="text-xl font-semibold">Szybkie akcje</Text>
         </View>
-        <FlatList
-          data={tools}
-          keyExtractor={(item) => String(item.id || item.tool_id || Math.random())}
-          ItemSeparatorComponent={() => <View style={styles.separator} className="h-px bg-slate-200" />}
-          renderItem={({ item }) => (
-            <View style={styles.item} className="py-2">
-              <Text style={styles.itemName} className="font-semibold text-slate-900">{item.name || item.tool_name || '—'}</Text>
-              <Text style={styles.itemCode} className="text-slate-600">{item.code || item.inventory_number || ''}</Text>
-            </View>
-          )}
-        />
+        <View style={styles.quickRow} className="flex-row flex-wrap gap-3">
+          <Pressable style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => navigation.navigate('Pracownicy')}>
+            <Text style={[styles.quickTitle, { color: colors.text }]}>Dodaj pracownika</Text>
+            <Text style={[styles.quickDesc, { color: colors.muted }]}>Utwórz nowy profil pracownika</Text>
+          </Pressable>
+          <Pressable style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => navigation.navigate('Wydaj/Zwrot', { screen: 'IssueScreen' })}>
+            <Text style={[styles.quickTitle, { color: colors.text }]}>Szybkie wydanie</Text>
+            <Text style={[styles.quickDesc, { color: colors.muted }]}>Skanuj kod narzędzia</Text>
+          </Pressable>
+          <Pressable style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => navigation.navigate('Wydaj/Zwrot', { screen: 'ReturnScreen' })}>
+            <Text style={[styles.quickTitle, { color: colors.text }]}>Szybki zwrot</Text>
+            <Text style={[styles.quickDesc, { color: colors.muted }]}>Zwróć wydane narzędzia</Text>
+          </Pressable>
+        </View>
       </View>
-    </View>
+
+      {/* Historia wydań/zwrotów narzędzi */}
+      <View style={[styles.section, { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, borderRadius: 12, padding: 12 }]}> 
+        <View style={styles.historyHeader} className="flex-row items-center justify-between mb-3">
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={[styles.clockIcon, { backgroundColor: '#4338ca' }]} className="w-8 h-8 rounded-xl items-center justify-center"><Ionicons name="time" size={18} color="#fff" /></View>
+            <Text style={[styles.sectionTitle, { color: colors.text }]} className="text-xl font-semibold">Historia narzędzi</Text>
+            <View style={[styles.pill, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }]} className="px-3 py-1 rounded-full"><Text style={[styles.pillText, { color: colors.muted }]}>Ostatnie 6</Text></View>
+          </View>
+        </View>
+        {toolHistory && toolHistory.length > 0 ? (
+          <FlatList
+            data={toolHistory}
+            scrollEnabled={false}
+            keyExtractor={(item) => String(item.id || Math.random())}
+            ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: colors.border }} />}
+            renderItem={({ item }) => (
+              <View style={{ paddingVertical: 12, flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 12, backgroundColor: item.action === 'wydanie' ? '#ef4444' : '#10b981' }}>
+                  <Ionicons name={item.action === 'wydanie' ? 'add' : 'arrow-undo'} size={18} color="#fff" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: colors.text, fontWeight: '600' }}>
+                    {item.action === 'wydanie' ? 'Wydano narzędzie: ' : 'Zwrócono narzędzie: '}
+                    <Pressable onPress={() => navigation.navigate('Narzędzia', { filter: item?.filterValue || item?.toolName })}>
+                      <Text style={{ color: colors.primary }}>{item.toolName}</Text>
+                    </Pressable>
+                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Ionicons name="person" size={14} color={colors.muted} />
+                      <Text style={{ color: colors.muted }}>{item.employeeName}</Text>
+                    </View>
+                    <Text style={{ color: colors.muted }}>Ilość: {item.quantity}</Text>
+                  </View>
+                </View>
+                <Text style={{ color: colors.muted }}>{item.agoText ?? formatAgo(item.timestamp)}</Text>
+              </View>
+            )}
+          />
+        ) : (
+          <View style={{ padding: 16, alignItems: 'center' }}>
+            <Text style={{ color: colors.muted }}>Brak wydań/zwrotów</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Historia wydań/zwrotów BHP */}
+      <View style={[styles.section, { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, borderRadius: 12, padding: 12 }]}> 
+        <View style={styles.historyHeader} className="flex-row items-center justify-between mb-3">
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={[styles.clockIcon, { backgroundColor: '#16a34a' }]} className="w-8 h-8 rounded-xl items-center justify-center"><Ionicons name="time" size={18} color="#fff" /></View>
+            <Text style={[styles.sectionTitle, { color: colors.text }]} className="text-xl">Historia BHP</Text>
+            <View style={[styles.pill, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }]} className="px-3 py-1 rounded-full"><Text style={[styles.pillText, { color: colors.muted }]}>Ostatnie 6</Text></View>
+          </View>
+        </View>
+        {bhpHistory && bhpHistory.length > 0 ? (
+          <FlatList
+            data={bhpHistory}
+            scrollEnabled={false}
+            keyExtractor={(item) => String(item.id || Math.random())}
+            ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: colors.border }} />}
+            renderItem={({ item }) => (
+              <View style={{ paddingVertical: 12, flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 12, backgroundColor: item.action === 'wydanie' ? '#ef4444' : '#10b981' }}>
+                  <Ionicons name={item.action === 'wydanie' ? 'add' : 'arrow-undo'} size={18} color="#fff" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: colors.text, fontWeight: '600' }}>
+                    {item.action === 'wydanie' ? 'Wydano sprzęt BHP: ' : 'Zwrócono sprzęt BHP: '}
+                    <Pressable onPress={() => navigation.navigate('BHP', { filter: item?.filterValue || item?.bhpLabel })}>
+                      <Text style={{ color: colors.primary }}>{item.bhpLabel}</Text>
+                    </Pressable>
+                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Ionicons name="person" size={14} color={colors.muted} />
+                      <Text style={{ color: colors.muted }}>{item.employeeName}</Text>
+                    </View>
+                  </View>
+                </View>
+                <Text style={{ color: colors.muted }}>{item.agoText ?? formatAgo(item.timestamp)}</Text>
+              </View>
+            )}
+          />
+        ) : (
+          <View style={{ padding: 16, alignItems: 'center' }}>
+            <Text style={{ color: colors.muted }}>Brak wydań/zwrotów</Text>
+          </View>
+        )}
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: { flex: 1, backgroundColor: '#F8FAFC', padding: 16 },
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F8FAFC' },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  title: { fontSize: 24, fontWeight: '700', color: '#0f172a' },
-  badge: { backgroundColor: '#EEF2FF', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 },
-  badgeText: { color: '#4f46e5', fontWeight: '600' },
-  statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  card: { flexGrow: 1, flexBasis: '45%', padding: 14, borderRadius: 12, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e2e8f0' },
-  cardShadow: { shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  iconBox: { width: 28, height: 28, borderRadius: 8, marginRight: 8 },
-  cardTitle: { color: '#334155', fontWeight: '600' },
-  cardValue: { fontSize: 22, fontWeight: '700', color: '#0f172a' },
-  sectionCard: { marginTop: 16, padding: 14, borderRadius: 12, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e2e8f0' },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#0f172a' },
-  separator: { height: 1, backgroundColor: '#e2e8f0' },
-  item: { paddingVertical: 8 },
-  itemName: { fontWeight: '600', color: '#0f172a' },
-  itemCode: { color: '#475569' },
-  muted: { marginTop: 8, color: '#64748b' },
-  error: { color: '#ef4444', marginBottom: 8 }
+  wrapper: { flex: 1, backgroundColor: '#0b1220', padding: 16 },
+  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0b1220' },
+  loadingText: { marginTop: 8, color: '#cbd5e1' },
+  error: { color: '#ef4444' },
+  kpiRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 16 },
+  kpiCard: { flexGrow: 1, flexBasis: 'auto', padding: 10, borderRadius: 16, backgroundColor: '#111827', borderWidth: 1, borderColor: '#1f2937' },
+  kpiHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  kpiValue: { color: '#34d399', fontSize: 30, fontWeight: '700'},
+  section: { marginBottom: 16 },
+  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  flashIcon: { backgroundColor: '#0f172a', borderRadius: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#e5e7eb' },
+  quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  quickCard: { flexGrow: 1, flexBasis: '47%', backgroundColor: '#111827', borderColor: '#1f2937', borderWidth: 1, borderRadius: 16, padding: 16 },
+  quickIcon: { backgroundColor: '#0f172a', borderRadius: 12 },
+  quickTitle: { fontSize: 16, fontWeight: '600', color: '#e5e7eb'},
+  quickDesc: { color: '#9ca3af' },
+  historyHeader: {},
+  clockIcon: { backgroundColor: '#0f172a', borderRadius: 12 },
+  pill: { backgroundColor: '#0f172a', borderRadius: 999, paddingHorizontal: 8 },
+  pillText: { color: '#e5e7eb', fontWeight: '600' }
 });
+
+function computeBhpCount(list) {
+  try {
+    const arr = Array.isArray(list) ? list : [];
+    return arr.filter(t => {
+      const name = (t?.category || t?.category_name || '').toString().toLowerCase();
+      return name.includes('bhp');
+    }).length;
+  } catch {
+    return 0;
+  }
+}
+
+function computeOverdueCount(list) {
+  try {
+    const arr = Array.isArray(list) ? list : [];
+    const now = Date.now();
+    return arr.filter(t => {
+      if (t?.overdue === true || t?.is_overdue === true) return true;
+      const dt = t?.inspection_date || t?.inspectionDate || t?.nextReviewAt || t?.next_review_at || t?.next_check_at;
+      if (!dt) return false;
+      const time = Date.parse(dt);
+      return Number.isFinite(time) && time < now;
+    }).length;
+  } catch {
+    return 0;
+  }
+}
+
+function parseDate(s) {
+  if (s === null || s === undefined) return null;
+  if (typeof s === 'number') {
+    const ms = s < 100000000000 ? s * 1000 : s; // seconds vs ms
+    return ms;
+  }
+  const str = String(s).trim();
+  if (!str) return null;
+  // pure digits string
+  if (/^\d+$/.test(str)) {
+    const num = Number(str);
+    const ms = num < 100000000000 ? num * 1000 : num;
+    return ms;
+  }
+  // Normalize common SQL format "YYYY-MM-DD HH:mm:ss"
+  let iso = str.replace(' ', 'T');
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(iso)) {
+    const tZ = Date.parse(iso + 'Z');
+    if (Number.isFinite(tZ)) return tZ;
+  }
+  const t = Date.parse(iso);
+  return Number.isFinite(t) ? t : null;
+}
+
+function formatAgo(ts) {
+  if (!ts) return '—';
+  const diff = Date.now() - ts;
+  const sec = Math.floor(diff / 1000);
+  if (sec < 30) return 'Przed chwilą';
+  if (sec < 60) return `${sec} sek temu`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min} min temu`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr} godz temu`;
+  const d = Math.floor(hr / 24);
+  if (d === 1) return 'Wczoraj';
+  return `${d} dni temu`;
+}
