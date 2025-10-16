@@ -4,7 +4,10 @@
     "slug": "mobilna",
     "version": "1.0.0",
     "extra": {
-      "apiBaseUrl": "http://192.168.10.99:3000"
+      "apiBaseUrl": "http://192.168.10.99:3000",
+      "eas": {
+        "projectId": "2b0d8aaa-dada-4b64-a737-03f7c55b9012"
+      }
     },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -23,15 +26,18 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
     },
-  "web": {
+    "web": {
       "bundler": "metro",
       "favicon": "./assets/favicon.png"
-  },
+    },
     "plugins": [
-      
       "expo-barcode-scanner"
-    ]
+    ],
+    "owner": "dbrzezinsky"
   }
 }
