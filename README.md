@@ -28,7 +28,9 @@ Aplikacja mobilna (React Native + Expo) do obsługi systemu Narzędziowni: logow
 - Wymaga urządzenia wspierającego biometrię oraz co najmniej jednego zapisanego odcisku palca/biometrii.
 - Po pierwszym udanym logowaniu aplikacja zapisuje nazwę użytkownika i hasło w bezpiecznym schowku (`expo-secure-store`) oraz włącza opcję logowania biometrycznego.
 - Na ekranie `Logowanie` pojawi się przycisk „Zaloguj odciskiem palca”. Po potwierdzeniu biometrii aplikacja automatycznie zaloguje użytkownika, bez wpisywania danych.
-- Aby całkowicie wyczyścić zapamiętane dane logowania, można wyczyścić dane aplikacji lub usunąć biometryczne dane urządzenia. (Opcja czyszczenia z poziomu aplikacji może zostać dodana w przyszłości.)
+- Aby całkowicie wyczyścić zapamiętane dane logowania, można wyczyścić dane aplikacji lub usunąć biometryczne dane urządzenia.
+- Sekcja „Logowanie biometryczne” w `Ustawieniach użytkownika` jest dostępna tylko na urządzeniach mobilnych (Expo Go/dev build). W wersji web jest ukryta i biometrię blokujemy komunikatem.
+- Włączenie biometrii wymaga wcześniejszego tradycyjnego logowania, aby zapisać dane w `SecureStore`.
 
 ## Struktura projektu
 - `App.js` – konfiguracja nawigacji i ekranów

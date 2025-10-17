@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Button, StyleSheet, Pressable, Switch } from 'react-native';
+import { View, Text, Button, StyleSheet, Pressable, Switch, Platform, ScrollView } from 'react-native';
 import api from '../lib/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import { useTheme } from '../lib/theme';
 import { initNotifications, sendImmediate, saveSettings, getSettings, rescheduleFromSettings, disableAllNotifications, clearAcknowledgements } from '../lib/notifications';
+import * as LocalAuthentication from 'expo-local-authentication';
+import * as SecureStore from 'expo-secure-store';
 
 export default function UserSettingsScreen() {
   const { colors } = useTheme();
@@ -13,6 +15,9 @@ export default function UserSettingsScreen() {
   const [notifReady, setNotifReady] = useState(false);
   const [reviewsEnabled, setReviewsEnabled] = useState(false);
   const [expiredEnabled, setExpiredEnabled] = useState(false);
+  const [bioAvailable, setBioAvailable] = useState(false);
+  const [bioEnrolled, setBioEnrolled] = useState(false);
+  const [bioEnabled, setBioEnabled] = useState(false);
   const navigation = useNavigation();
 
   const styles = StyleSheet.create({
@@ -38,6 +43,20 @@ export default function UserSettingsScreen() {
         const s = await getSettings();
         setReviewsEnabled(!!s.reviewsEnabled);
         setExpiredEnabled(!!s.expiredEnabled);
+      } catch {}
+      // Biometria: sprawdź sprzęt, status i przełącznik
+      try {
+        const enabled = await AsyncStorage.getItem('@bio_enabled_v1');
+        setBioEnabled(enabled === '1');
+        if (Platform.OS !== 'web') {
+          const hasHw = await LocalAuthentication.hasHardwareAsync();
+          const enrolled = hasHw ? await LocalAuthentication.isEnrolledAsync() : false;
+          setBioAvailable(!!hasHw);
+          setBioEnrolled(!!enrolled);
+        } else {
+          setBioAvailable(false);
+          setBioEnrolled(false);
+        }
       } catch {}
     };
     check();
@@ -119,8 +138,58 @@ export default function UserSettingsScreen() {
     }
   };
 
+  const toggleBiometrics = async (value) => {
+    try {
+      if (Platform.OS === 'web') {
+        alert('Biometria nie jest dostępna w wersji web.');
+        setBioEnabled(false);
+        await AsyncStorage.setItem('@bio_enabled_v1', '0');
+        return;
+      }
+      if (value) {
+        const hasHw = await LocalAuthentication.hasHardwareAsync();
+        const enrolled = hasHw ? await LocalAuthentication.isEnrolledAsync() : false;
+        if (!hasHw || !enrolled) {
+          alert('Urządzenie nie wspiera biometrii lub brak zapisanych danych biometrycznych.');
+          setBioAvailable(!!hasHw);
+          setBioEnrolled(!!enrolled);
+          setBioEnabled(false);
+          await AsyncStorage.setItem('@bio_enabled_v1', '0');
+          return;
+        }
+        const savedUser = await SecureStore.getItemAsync('auth_username');
+        const savedPass = await SecureStore.getItemAsync('auth_password');
+        if (!savedUser || !savedPass) {
+          alert('Najpierw zaloguj się tradycyjnie, aby zapisać dane do logowania biometrycznego.');
+          setBioEnabled(false);
+          await AsyncStorage.setItem('@bio_enabled_v1', '0');
+          return;
+        }
+        await AsyncStorage.setItem('@bio_enabled_v1', '1');
+        setBioEnabled(true);
+        alert('Biometria włączona. Przy kolejnym logowaniu możesz użyć odcisku palca.');
+      } else {
+        await AsyncStorage.setItem('@bio_enabled_v1', '0');
+        setBioEnabled(false);
+        alert('Biometria wyłączona.');
+      }
+    } catch {}
+  };
+
+  const clearSavedCredentials = async () => {
+    try {
+      await SecureStore.deleteItemAsync('auth_username');
+      await SecureStore.deleteItemAsync('auth_password');
+      await AsyncStorage.removeItem('@bio_enabled_v1');
+      setBioEnabled(false);
+      alert('Usunięto zapisane dane logowania biometrycznego.');
+    } catch {
+      alert('Nie udało się usunąć zapisanych danych.');
+    }
+  };
+
   return (
-    <View className="flex-1 p-4" style={styles.wrapper}>
+    <ScrollView style={styles.wrapper} contentContainerStyle={{ paddingBottom: 32 }}>
       <Text style={styles.title}>Ustawienia użytkownika</Text>
       <Text style={styles.status}>{hasToken ? 'Zalogowano' : 'Niezalogowany'}</Text>
       {baseUrl ? <Text style={styles.api}>API: {baseUrl}</Text> : null}
@@ -153,7 +222,29 @@ export default function UserSettingsScreen() {
           </Pressable>
         </View>
       </View>
-    </View>
+
+      {Platform.OS !== 'web' ? (
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card, marginTop: 16 }]}> 
+          <Text style={styles.sectionTitle}>Logowanie biometryczne</Text>
+          <Text style={{ color: colors.muted, marginBottom: 8 }}>
+            Po pierwszym zwykłym zalogowaniu zapisujemy login i hasło w pamięci szyfrowanej.
+            Włączenie poniższego przełącznika pozwoli logować się odciskiem palca na wspieranych urządzeniach.
+          </Text>
+          <View style={[styles.row, { marginBottom: 8 }]}> 
+            <Text style={styles.label}>Używaj biometrii</Text>
+            <Switch value={bioEnabled} onValueChange={toggleBiometrics} thumbColor={bioEnabled ? colors.primary : colors.border} trackColor={{ true: colors.primary, false: colors.border }} />
+          </View>
+          <Text style={{ color: colors.muted, marginBottom: 12 }}>
+            Sprzęt: {bioAvailable ? 'Tak' : 'Nie'} • Zapis biometrii: {bioEnrolled ? 'Tak' : 'Nie'}
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+            <Pressable onPress={clearSavedCredentials} style={[styles.button, { backgroundColor: colors.muted }]}> 
+              <Text style={styles.buttonText}>Usuń zapisane dane</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+    </ScrollView>
   );
 }
 

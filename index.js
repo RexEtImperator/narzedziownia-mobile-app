@@ -1,5 +1,10 @@
 import { registerRootComponent } from 'expo';
-import './global.css';
+import { Platform } from 'react-native';
+
+// Load CSS only on web to avoid Metro bundling issues on native
+if (Platform.OS === 'web') {
+  require('./global.css');
+}
 
 import App from './App';
 

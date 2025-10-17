@@ -1,8 +1,10 @@
-// Web shim for expo-barcode-scanner to avoid native module errors on web
 import React from 'react';
+import { View, Text } from 'react-native';
 
-export const BarCodeScanner = (props) => null;
-
-BarCodeScanner.requestPermissionsAsync = async () => ({ status: 'denied', granted: false });
-
-export default { BarCodeScanner };
+export default function BarCodeScannerWeb({ style }) {
+  return (
+    <View style={[{ alignItems: 'center', justifyContent: 'center', backgroundColor: '#111827' }, style]}>
+      <Text style={{ color: '#fff' }}>Skaner dostępny tylko na urządzeniach mobilnych</Text>
+    </View>
+  );
+}

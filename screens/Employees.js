@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ScrollView, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ScrollView, TextInput, TouchableOpacity, Pressable, Modal, Alert } from 'react-native';
 import { useTheme } from '../lib/theme';
 import api from '../lib/api';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function EmployeesScreen() {
   const { colors } = useTheme();
@@ -13,6 +14,16 @@ export default function EmployeesScreen() {
   const [filterPosition, setFilterPosition] = useState('all');
   const [showDeptDropdown, setShowDeptDropdown] = useState(false);
   const [showPosDropdown, setShowPosDropdown] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState(null);
+  const [editEmpFields, setEditEmpFields] = useState({ first_name: '', last_name: '', brand_number: '', phone: '', department: '', position: '', department_id: null, position_id: null });
+  const [editEmpLoading, setEditEmpLoading] = useState(false);
+  const [editEmpError, setEditEmpError] = useState('');
+  const [departments, setDepartments] = useState([]);
+  const [positions, setPositions] = useState([]);
+  const [showDeptSelect, setShowDeptSelect] = useState(false);
+  const [showPosSelect, setShowPosSelect] = useState(false);
+  const [searchRaw, setSearchRaw] = useState('');
+  const [focusedSearchInput, setFocusedSearchInput] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -20,8 +31,17 @@ export default function EmployeesScreen() {
       setError('');
       try {
         await api.init();
-        const data = await api.get('/api/employees');
-        setEmployees(Array.isArray(data) ? data : []);
+        const [emps, deps, poss] = await Promise.all([
+          api.get('/api/employees'),
+          api.get('/api/departments'),
+          api.get('/api/positions'),
+        ]);
+        const empsList = Array.isArray(emps) ? emps : (Array.isArray(emps?.data) ? emps.data : []);
+        const depsList = Array.isArray(deps) ? deps : (Array.isArray(deps?.data) ? deps.data : []);
+        const possList = Array.isArray(poss) ? poss : (Array.isArray(poss?.data) ? poss.data : []);
+        setEmployees(empsList);
+        setDepartments(depsList);
+        setPositions(possList);
       } catch (e) {
         setError(e.message || 'Błąd pobierania pracowników');
         setEmployees([]);
@@ -31,6 +51,15 @@ export default function EmployeesScreen() {
     };
     load();
   }, []);
+
+  // Debounce wyszukiwania
+  useEffect(() => {
+    const id = setTimeout(() => setSearchTerm(searchRaw), 300);
+    return () => clearTimeout(id);
+  }, [searchRaw]);
+
+  // Synchronizuj surowe pole z parametrami filtra, jeśli ustawione gdzie indziej
+  useEffect(() => { setSearchRaw(searchTerm || ''); }, [searchTerm]);
 
   // Zbiór nazw działów i stanowisk do filtrowania (jak w web)
   const departmentNames = Array.from(new Set((employees || []).map(e => e?.department || e?.department_name).filter(Boolean))).sort((a, b) => a.localeCompare(b));
@@ -52,18 +81,97 @@ export default function EmployeesScreen() {
     return brandA - brandB;
   });
 
+  const openEdit = (employee) => {
+    const e = employee || {};
+    setEditingEmployee(e);
+    setEditEmpError('');
+    setEditEmpLoading(false);
+    setEditEmpFields({
+      first_name: e?.first_name || '',
+      last_name: e?.last_name || '',
+      brand_number: e?.brand_number || '',
+      phone: e?.phone || '',
+      department: e?.department || e?.department_name || '',
+      position: e?.position || e?.position_name || '',
+      department_id: e?.department_id ?? e?.departmentId ?? e?.department?.id ?? null,
+      position_id: e?.position_id ?? e?.positionId ?? e?.position?.id ?? null,
+    });
+  };
+
+  const closeEdit = () => {
+    setEditingEmployee(null);
+    setEditEmpError('');
+    setEditEmpLoading(false);
+  };
+
+  const saveEmployee = async () => {
+    if (!editingEmployee) return;
+    setEditEmpError('');
+    try {
+      setEditEmpLoading(true);
+      await api.init();
+      const id = editingEmployee?.id;
+      const payload = {
+        first_name: editEmpFields.first_name,
+        last_name: editEmpFields.last_name,
+        brand_number: editEmpFields.brand_number,
+        phone: editEmpFields.phone,
+        department_id: editEmpFields.department_id,
+        position_id: editEmpFields.position_id,
+      };
+      const updated = await api.put(`/api/employees/${id}`, payload);
+      const dep = departments.find(d => String(d?.id) === String(payload.department_id));
+      const pos = positions.find(p => String(p?.id) === String(payload.position_id));
+      const depName = dep?.name ?? dep?.department_name;
+      const posName = pos?.name ?? pos?.position_name;
+      setEmployees(prev => prev.map(e => e.id === id ? {
+        ...e,
+        ...payload,
+        department: depName ?? e.department,
+        department_name: depName ?? e.department_name,
+        position: posName ?? e.position,
+        position_name: posName ?? e.position_name,
+        ...(typeof updated === 'object' ? updated : {}),
+      } : e));
+      closeEdit();
+    } catch (e) {
+      setEditEmpError(e?.message || 'Błąd zapisu pracownika');
+    } finally {
+      setEditEmpLoading(false);
+    }
+  };
+
+  const deleteEmployee = (employee) => {
+    const id = employee?.id;
+    if (!id) return;
+    Alert.alert('Usuń pracownika', `Czy na pewno usunąć ${employee?.first_name || ''} ${employee?.last_name || ''}?`, [
+      { text: 'Anuluj', style: 'cancel' },
+      { text: 'Usuń', style: 'destructive', onPress: async () => {
+        try {
+          await api.init();
+          await api.delete(`/api/employees/${id}`);
+          setEmployees(prev => prev.filter(e => e.id !== id));
+        } catch (e) {
+          setError(e?.message || 'Błąd usuwania pracownika');
+        }
+      }},
+    ]);
+  };
+
   return (
     <View style={[styles.wrapper, { backgroundColor: colors.bg }]} className="flex-1 p-4">
       <Text style={[styles.title, { color: colors.text }]} className="text-2xl font-bold mb-3">Pracownicy</Text>
       {/* Sekcja wyszukiwarki i filtrów */}
       <View style={styles.filterRow} className="flex-row items-center gap-2 mb-2">
         <TextInput
-          style={[styles.filterInput, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
+          style={[styles.filterInput, { borderColor: focusedSearchInput ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]}
           className="flex-1 border border-slate-300 rounded-md px-2 h-10"
           placeholder="Szukaj: imię, nazwisko, telefon, nr służbowy"
-          value={searchTerm}
-          onChangeText={setSearchTerm}
+          value={searchRaw}
+          onChangeText={setSearchRaw}
           placeholderTextColor={colors.muted}
+          onFocus={() => setFocusedSearchInput(true)}
+          onBlur={() => setFocusedSearchInput(false)}
         />
       </View>
       <View style={styles.filterRow} className="flex-row items-center gap-2 mb-2">
@@ -77,11 +185,11 @@ export default function EmployeesScreen() {
       {showDeptDropdown && (
         <View style={[styles.dropdown, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md mb-2">
           <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setFilterDepartment('all'); setShowDeptDropdown(false); }}>
-            <Text>Wszystkie działy</Text>
+            <Text style={{ color: colors.text }}>Wszystkie działy</Text>
           </TouchableOpacity>
           {departmentNames.map(dep => (
             <TouchableOpacity key={String(dep)} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setFilterDepartment(dep); setShowDeptDropdown(false); }}>
-              <Text>{dep}</Text>
+              <Text style={{ color: colors.text }}>{dep}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -89,43 +197,101 @@ export default function EmployeesScreen() {
       {showPosDropdown && (
         <View style={[styles.dropdown, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md mb-2">
           <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setFilterPosition('all'); setShowPosDropdown(false); }}>
-            <Text>Wszystkie stanowiska</Text>
+            <Text style={{ color: colors.text }}>Wszystkie stanowiska</Text>
           </TouchableOpacity>
           {positionNames.map(pos => (
             <TouchableOpacity key={String(pos)} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setFilterPosition(pos); setShowPosDropdown(false); }}>
-              <Text>{pos}</Text>
+              <Text style={{ color: colors.text }}>{pos}</Text>
             </TouchableOpacity>
           ))}
         </View>
       )}
       {error ? <Text style={[styles.error, { color: colors.danger }]} className="mb-2">{error}</Text> : null}
       {loading ? <Text style={[styles.muted, { color: colors.muted }]}>Ładowanie…</Text> : (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={{ minWidth: 900 }}>
-            <View style={[styles.tableHeader, styles.tableRow, { backgroundColor: colors.card }]} className="rounded-t-md flex-row py-2 px-2">
-              <Text style={[styles.th, styles.colName, { color: colors.text }]} className="font-bold">Imię i nazwisko</Text>
-              <Text style={[styles.th, styles.colBrand, { color: colors.text }]} className="font-bold">Numer służbowy</Text>
-              <Text style={[styles.th, styles.colPhone, { color: colors.text }]} className="font-bold">Telefon</Text>
-              <Text style={[styles.th, styles.colDept, { color: colors.text }]} className="font-bold">Dział</Text>
-              <Text style={[styles.th, styles.colPos, { color: colors.text }]} className="font-bold">Stanowisko</Text>
+        <FlatList
+          data={filteredEmployees}
+          keyExtractor={(item) => String(item.id)}
+          ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: colors.border }]} />}
+          contentContainerStyle={{ paddingVertical: 8 }}
+          renderItem={({ item }) => (
+            <View style={[styles.tile, { backgroundColor: colors.card, borderColor: colors.border }]} className="rounded-lg p-3 mb-3">
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.toolName, { color: colors.text }]} className="text-lg font-semibold">{item.first_name} {item.last_name}</Text>
+                  <Text style={[styles.toolMeta, { color: colors.muted }]}>Numer służbowy: {item.brand_number || '—'} • Telefon: {item.phone || '—'}</Text>
+                  <Text style={[styles.toolMeta, { color: colors.muted }]}>Dział: {item.department || item.department_name || '—'} • Stanowisko: {item.position || item.position_name || item.position_id || '—'}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <Pressable accessibilityLabel={`Edytuj pracownika ${item?.id}`} onPress={() => openEdit(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
+                    <Ionicons name="create-outline" size={20} color={colors.text} />
+                  </Pressable>
+                  <Pressable accessibilityLabel={`Usuń pracownika ${item?.id}`} onPress={() => deleteEmployee(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
+                    <Ionicons name="trash-outline" size={20} color={colors.danger || '#e11d48'} />
+                  </Pressable>
+                </View>
+              </View>
             </View>
-            <FlatList
-              data={filteredEmployees}
-              keyExtractor={(item) => String(item.id)}
-              ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: colors.border }]} className="h-px" />}
-              renderItem={({ item }) => (
-                <View style={styles.tableRow} className="flex-row py-2 px-2">
-                  <Text style={[styles.td, styles.colName, { color: colors.text }]}>{item.first_name} {item.last_name}</Text>
-                  <Text style={[styles.td, styles.colBrand, { color: colors.text }]}>{item.brand_number || '-'}</Text>
-                  <Text style={[styles.td, styles.colPhone, { color: colors.text }]}>{item.phone || '-'}</Text>
-                  <Text style={[styles.td, styles.colDept, { color: colors.text }]}>{item.department || item.department_name || '-'}</Text>
-                  <Text style={[styles.td, styles.colPos, { color: colors.text }]}>{item.position || item.position_name || item.position_id || '-'}</Text>
+          )}
+        />
+      )}
+
+      {/* Modal edycji pracownika */}
+      <Modal visible={!!editingEmployee} animationType="slide" transparent onRequestClose={closeEdit}>
+        <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay || 'rgba(0,0,0,0.5)' }]}> 
+          <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Edytuj pracownika</Text>
+            {editEmpError ? <Text style={{ color: colors.danger }}>{editEmpError}</Text> : null}
+            <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ gap: 8 }}>
+              <TextInput style={[styles.filterInput, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Imię" placeholderTextColor={colors.muted} value={editEmpFields.first_name} onChangeText={v => setEditEmpFields(f => ({ ...f, first_name: v }))} />
+              <TextInput style={[styles.filterInput, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nazwisko" placeholderTextColor={colors.muted} value={editEmpFields.last_name} onChangeText={v => setEditEmpFields(f => ({ ...f, last_name: v }))} />
+              <TextInput style={[styles.filterInput, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Numer służbowy" placeholderTextColor={colors.muted} value={editEmpFields.brand_number} onChangeText={v => setEditEmpFields(f => ({ ...f, brand_number: v }))} keyboardType="numeric" />
+              <TextInput style={[styles.filterInput, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Telefon" placeholderTextColor={colors.muted} value={editEmpFields.phone} onChangeText={v => setEditEmpFields(f => ({ ...f, phone: v }))} keyboardType="phone-pad" />
+              <Pressable style={[{ borderColor: colors.border, backgroundColor: colors.card, borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, height: 36, justifyContent: 'center', marginBottom: 8 }]} className="border rounded-md px-2 h-9 justify-center" onPress={() => setShowDeptSelect(v => !v)}>
+                <Text style={{ color: colors.text }}>{
+                  (departments.find(d => String(d?.id) === String(editEmpFields?.department_id))?.name
+                    || departments.find(d => String(d?.department_id) === String(editEmpFields?.department_id))?.name
+                    || editEmpFields.department
+                    || 'Wybierz dział')
+                }</Text>
+              </Pressable>
+              {showDeptSelect && (
+                <View style={[{ borderColor: colors.border, backgroundColor: colors.card, borderWidth: 1, borderRadius: 6, marginBottom: 8 }]} className="border rounded-md mb-2">
+                  {departments.map(dep => (
+                    <Pressable key={String(dep?.id ?? dep?.department_id)} style={[{ borderBottomColor: colors.border, borderBottomWidth: 1, paddingVertical: 8, paddingHorizontal: 8 }]} className="py-2 px-2" onPress={() => { setEditEmpFields(f => ({ ...f, department_id: dep?.id ?? dep?.department_id })); setShowDeptSelect(false); }}>
+                      <Text>{dep?.name || dep?.department_name || String(dep?.id ?? dep?.department_id)}</Text>
+                    </Pressable>
+                  ))}
                 </View>
               )}
-            />
+              <Pressable style={[{ borderColor: colors.border, backgroundColor: colors.card, borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, height: 36, justifyContent: 'center', marginBottom: 8 }]} className="border rounded-md px-2 h-9 justify-center" onPress={() => setShowPosSelect(v => !v)}>
+                <Text style={{ color: colors.text }}>{
+                  (positions.find(p => String(p?.id) === String(editEmpFields?.position_id))?.name
+                    || positions.find(p => String(p?.position_id) === String(editEmpFields?.position_id))?.name
+                    || editEmpFields.position
+                    || 'Wybierz stanowisko')
+                }</Text>
+              </Pressable>
+              {showPosSelect && (
+                <View style={[{ borderColor: colors.border, backgroundColor: colors.card, borderWidth: 1, borderRadius: 6, marginBottom: 8 }]} className="border rounded-md mb-2">
+                  {positions.map(pos => (
+                    <Pressable key={String(pos?.id ?? pos?.position_id)} style={[{ borderBottomColor: colors.border, borderBottomWidth: 1, paddingVertical: 8, paddingHorizontal: 8 }]} className="py-2 px-2" onPress={() => { setEditEmpFields(f => ({ ...f, position_id: pos?.id ?? pos?.position_id })); setShowPosSelect(false); }}>
+                      <Text>{pos?.name || pos?.position_name || String(pos?.id ?? pos?.position_id)}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </ScrollView>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+              <Pressable onPress={closeEdit} style={({ pressed }) => [{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.85 : 1 }]}>
+                <Text style={{ color: colors.text }}>Anuluj</Text>
+              </Pressable>
+              <Pressable disabled={editEmpLoading} onPress={saveEmployee} style={({ pressed }) => [{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 }]}>
+                <Text style={{ color: '#fff' }}>{editEmpLoading ? 'Zapisywanie…' : 'Zapisz'}</Text>
+              </Pressable>
+            </View>
           </View>
-        </ScrollView>
-      )}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -142,13 +308,10 @@ const styles = StyleSheet.create({
   separator: { height: 1, backgroundColor: '#eee' },
   error: { color: 'red', marginBottom: 8 },
   muted: { color: '#666' },
-  tableHeader: { backgroundColor: '#f8fafc', borderTopLeftRadius: 6, borderTopRightRadius: 6 },
-  tableRow: { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 8 },
-  th: { fontWeight: '700', color: '#111827' },
-  td: { color: '#374151' },
-  colName: { width: 220 },
-  colBrand: { width: 160 },
-  colPhone: { width: 160 },
-  colDept: { width: 180 },
-  colPos: { width: 180 }
+  tile: { borderWidth: 1, borderColor: '#eee', borderRadius: 12, padding: 12, marginBottom: 12, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+  toolName: { fontSize: 18, fontWeight: '600', marginBottom: 6 },
+  toolMeta: { color: '#666', marginTop: 4 },
+  modalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
+  modalCard: { width: '100%', maxWidth: 480, borderWidth: 1, borderColor: '#eee', borderRadius: 12, padding: 12 },
+  modalTitle: { fontSize: 16, fontWeight: '700', marginBottom: 8 }
 });

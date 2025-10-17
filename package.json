@@ -1,6 +1,6 @@
 {
   "name": "mobilna",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "main": "index.js",
   "scripts": {
     "start": "expo start",
@@ -19,6 +19,7 @@
     "expo-barcode-scanner": "^13.0.1",
     "expo-camera": "~17.0.8",
     "expo-local-authentication": "~17.0.7",
+    "expo-navigation-bar": "~5.0.8",
     "expo-notifications": "~0.32.12",
     "expo-secure-store": "~15.0.7",
     "expo-status-bar": "~3.0.8",
