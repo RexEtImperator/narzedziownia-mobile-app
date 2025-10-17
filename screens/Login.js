@@ -1,15 +1,23 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, Image } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, Image, Platform } from 'react-native';
 import api from '../lib/api';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../lib/theme';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as LocalAuthentication from 'expo-local-authentication';
+import * as SecureStore from 'expo-secure-store';
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [bioAvailable, setBioAvailable] = useState(false);
+  const [bioEnrolled, setBioEnrolled] = useState(false);
+  const [bioEnabled, setBioEnabled] = useState(false);
+  const [bioReady, setBioReady] = useState(false);
+  const [bioLoading, setBioLoading] = useState(false);
   const navigation = useNavigation();
   const { colors, isDark, toggleDark } = useTheme();
 
@@ -40,6 +48,23 @@ export default function LoginScreen() {
     const bootstrap = async () => {
       await api.init();
       // Przekierowanie po tokenie obsługuje App.js; bez ręcznego navigate.
+      // Przygotuj biometrię i sprawdź, czy mamy zapamiętane dane logowania
+      try {
+        if (Platform.OS !== 'web') {
+          const hasHw = await LocalAuthentication.hasHardwareAsync();
+          const enrolled = hasHw ? await LocalAuthentication.isEnrolledAsync() : false;
+          setBioAvailable(!!hasHw);
+          setBioEnrolled(!!enrolled);
+        } else {
+          setBioAvailable(false);
+          setBioEnrolled(false);
+        }
+        const enabled = await AsyncStorage.getItem('@bio_enabled_v1');
+        setBioEnabled(enabled === '1');
+        const savedUser = await SecureStore.getItemAsync('auth_username');
+        const savedPass = await SecureStore.getItemAsync('auth_password');
+        setBioReady(!!savedUser && !!savedPass);
+      } catch {}
     };
     bootstrap();
   }, []);
@@ -51,11 +76,67 @@ export default function LoginScreen() {
       const res = await api.post('/api/login', { username, password });
       if (res && (res.token || res.accessToken)) {
         await api.setToken(res.token || res.accessToken);
-        // App.js przełączy nawidgację na zakładki po ustawieniu tokena.
+        // Po pierwszym zalogowaniu zapisz dane dla logowania biometrycznego (jeśli dostępne)
+        try {
+          if (Platform.OS !== 'web') {
+            const hasHw = await LocalAuthentication.hasHardwareAsync();
+            const enrolled = hasHw ? await LocalAuthentication.isEnrolledAsync() : false;
+            if (hasHw && enrolled) {
+              await SecureStore.setItemAsync('auth_username', String(username || ''));
+              await SecureStore.setItemAsync('auth_password', String(password || ''));
+              await AsyncStorage.setItem('@bio_enabled_v1', '1');
+              setBioEnabled(true);
+              setBioReady(true);
+            }
+          }
+        } catch {}
+        // App.js przełączy nawigację na zakładki po ustawieniu tokena.
       }
     } catch (e) {
       setError(e.message || 'Błąd logowania');
     } finally {
+      setLoading(false);
+    }
+  };
+
+  const loginWithBiometrics = async () => {
+    setBioLoading(true);
+    setError('');
+    try {
+      if (Platform.OS === 'web') {
+        setError('Biometria nie jest dostępna w wersji web');
+        return;
+      }
+      const supported = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = supported ? await LocalAuthentication.isEnrolledAsync() : false;
+      if (!supported || !enrolled) {
+        setError('Urządzenie nie wspiera biometrii lub brak zapisanych danych biometrycznych');
+        return;
+      }
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Potwierdź odciskiem palca',
+        cancelLabel: 'Anuluj',
+        disableDeviceFallback: false,
+      });
+      if (!result.success) {
+        setError('Nie udało się potwierdzić biometrii');
+        return;
+      }
+      const savedUser = await SecureStore.getItemAsync('auth_username');
+      const savedPass = await SecureStore.getItemAsync('auth_password');
+      if (!savedUser || !savedPass) {
+        setError('Brak zapamiętanych danych logowania');
+        return;
+      }
+      setLoading(true);
+      const res = await api.post('/api/login', { username: savedUser, password: savedPass });
+      if (res && (res.token || res.accessToken)) {
+        await api.setToken(res.token || res.accessToken);
+      }
+    } catch (e) {
+      setError(e.message || 'Błąd logowania biometrycznego');
+    } finally {
+      setBioLoading(false);
       setLoading(false);
     }
   };
@@ -102,19 +183,33 @@ export default function LoginScreen() {
           />
         </View>
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+      <Pressable
+        style={({ pressed }) => [
+          styles.button,
+          loading && styles.buttonDisabled,
+          pressed && styles.buttonPressed,
+        ]}
+        onPress={handleLogin}
+        disabled={loading}
+      >
+        <Text style={styles.buttonText}>{loading ? 'Logowanie...' : 'Zaloguj się'}</Text>
+      </Pressable>
+
+      {(bioEnabled && bioAvailable && bioEnrolled && bioReady) ? (
         <Pressable
           style={({ pressed }) => [
             styles.button,
-            loading && styles.buttonDisabled,
+            (bioLoading || loading) && styles.buttonDisabled,
             pressed && styles.buttonPressed,
           ]}
-          onPress={handleLogin}
-          disabled={loading}
+          onPress={loginWithBiometrics}
+          disabled={bioLoading || loading}
         >
-          <Text style={styles.buttonText}>{loading ? 'Logowanie...' : 'Zaloguj się'}</Text>
+          <Text style={styles.buttonText}>{bioLoading ? 'Sprawdzanie...' : 'Zaloguj odciskiem palca'}</Text>
         </Pressable>
-      </View>
+      ) : null}
+    </View>
 
       {/* Floating Dark Mode Toggle */}
       <Pressable

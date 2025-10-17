@@ -24,6 +24,12 @@ Aplikacja mobilna (React Native + Expo) do obsługi systemu Narzędziowni: logow
 - Po sukcesie token jest zapisywany i dołączany w nagłówku `Authorization: Bearer <token>` dla kolejnych zapytań.
 - Jeśli token istnieje, aplikacja automatycznie przekierowuje na ekran `Dashboard`.
 
+### Logowanie odciskiem palca
+- Wymaga urządzenia wspierającego biometrię oraz co najmniej jednego zapisanego odcisku palca/biometrii.
+- Po pierwszym udanym logowaniu aplikacja zapisuje nazwę użytkownika i hasło w bezpiecznym schowku (`expo-secure-store`) oraz włącza opcję logowania biometrycznego.
+- Na ekranie `Logowanie` pojawi się przycisk „Zaloguj odciskiem palca”. Po potwierdzeniu biometrii aplikacja automatycznie zaloguje użytkownika, bez wpisywania danych.
+- Aby całkowicie wyczyścić zapamiętane dane logowania, można wyczyścić dane aplikacji lub usunąć biometryczne dane urządzenia. (Opcja czyszczenia z poziomu aplikacji może zostać dodana w przyszłości.)
+
 ## Struktura projektu
 - `App.js` – konfiguracja nawigacji i ekranów
 - `lib/api.js` – klient API z automatycznym dołączaniem tokena
