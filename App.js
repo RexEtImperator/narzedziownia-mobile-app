@@ -21,8 +21,6 @@ import DepartmentsScreen from './screens/Departments';
 import PositionsScreen from './screens/Positions';
 
 import UserSettingsScreen from './screens/UserSettings';
-import IssueScreen from './screens/IssueScreen';
-import ReturnScreen from './screens/ReturnScreen';
 import { ThemeProvider, useTheme } from './lib/theme';
 import { initializeAndRestore } from './lib/notifications';
 import Constants from 'expo-constants';
@@ -75,7 +73,7 @@ function CustomTabBar({ state, descriptors, navigation, onPressScan }) {
           let iconName = 'ellipse-outline';
           switch (route.name) {
             case 'Dashboard': iconName = isFocused ? 'home' : 'home-outline'; break;
-            case 'Wydaj/Zwrot': iconName = isFocused ? 'swap-horizontal' : 'swap-horizontal'; break;
+            case 'Zwróć': iconName = isFocused ? 'swap-horizontal' : 'swap-horizontal'; break;
             case 'Narzędzia': iconName = isFocused ? 'construct' : 'construct-outline'; break;
             default: iconName = isFocused ? 'ellipse' : 'ellipse-outline';
           }
@@ -124,7 +122,7 @@ function MainTabs({ openActionSheet }) {
       tabBar={(props) => <CustomTabBar {...props} onPressScan={openActionSheet} />}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
-      <Tab.Screen name="Wydaj/Zwrot" component={IssueStack} options={{ headerShown: false }} />
+      <Tab.Screen name="Zwróć" component={ScanScreen} options={{ headerShown: false }} />
       <Tab.Screen name="Narzędzia" component={ToolsScreen} />
       <Tab.Screen name="Pracownicy" component={EmployeesScreen} />
       <Tab.Screen name="Ustawienia" component={SettingsStack} options={{ headerShown: false }} />

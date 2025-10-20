@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, Platform, Linking, ToastAndroid } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform, Linking, ToastAndroid, Vibration } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../lib/api';
+import * as Haptics from 'expo-haptics'
 
 export default function ScanScreen() {
   const route = useRoute();
@@ -31,6 +32,115 @@ export default function ScanScreen() {
   const [multiScan, setMultiScan] = useState(false);
   const [scannedItems, setScannedItems] = useState([]);
   const lastScanRef = useRef({ code: null, at: 0 });
+  // Lista aktywnych wydań do zwrotu
+  const [returnItems, setReturnItems] = useState([]);
+  const [returnListLoading, setReturnListLoading] = useState(false);
+  const [returnListError, setReturnListError] = useState('');
+  const [singleQty, setSingleQty] = useState(1);
+
+  // Pomocnicza: wydobądź tablicę z różnych kształtów odpowiedzi
+  const toArray = (resp) => {
+    try {
+      if (Array.isArray(resp)) return resp;
+      const candidates = ['data', 'rows', 'items', 'list', 'result', 'content'];
+      for (const key of candidates) {
+        const val = resp?.[key];
+        if (Array.isArray(val)) return val;
+        if (val && typeof val === 'object') {
+          const nestedCandidates = ['data', 'rows', 'items', 'list', 'content'];
+          for (const n of nestedCandidates) {
+            const nested = val?.[n];
+            if (Array.isArray(nested)) return nested;
+          }
+        }
+      }
+    } catch {}
+    return [];
+  };
+
+  // Pobierz listę wydań do zwrotu
+  const loadReturnList = async () => {
+    setReturnListLoading(true);
+    setReturnListError('');
+    try {
+      await api.init();
+      // Równolegle pobierz pracowników i narzędzia (do mapowania nazw)
+      let employeesResp = null, toolsResp = null;
+      try { employeesResp = await api.get('/api/employees'); } catch {}
+      try { toolsResp = await api.get('/api/tools'); } catch {}
+      const emps = Array.isArray(employeesResp) ? employeesResp : (Array.isArray(employeesResp?.data) ? employeesResp.data : []);
+      const empMap = new Map();
+      for (const e of emps) {
+        const name = [e?.first_name, e?.last_name].filter(Boolean).join(' ') || e?.name || '—';
+        empMap.set(e?.id, name);
+      }
+      const toolsList = Array.isArray(toolsResp) ? toolsResp : (Array.isArray(toolsResp?.data) ? toolsResp.data : []);
+      const toolMap = new Map();
+      for (const t of toolsList) {
+        toolMap.set(t?.id, t);
+      }
+
+      let rawIssues = [];
+      try { const ti = await api.get('/api/tool_issues'); rawIssues = toArray(ti); } catch {}
+      try { if (!rawIssues.length) { const alt1 = await api.get('/api/tools/issues'); rawIssues = toArray(alt1); } } catch {}
+      try { if (!rawIssues.length) { const alt2 = await api.get('/api/issues/tools'); rawIssues = toArray(alt2); } } catch {}
+      try { if (!rawIssues.length) { const alt3 = await api.get('/api/issues?type=tool'); rawIssues = toArray(alt3); } } catch {}
+
+      let mapped = rawIssues.map(ev => {
+        const returned = ev?.returned_at ?? ev?.returnedAt ?? ev?.returned_on ?? ev?.return_date ?? ev?.completed_at;
+        const toolId = ev?.tool_id ?? ev?.toolId ?? ev?.tool?.id ?? ev?.item_id ?? ev?.itemId;
+        const t = toolMap.get(toolId);
+        const toolName = t?.name || t?.tool_name || ev?.tool_name || ev?.name || 'Narzędzie';
+        const code = t?.inventory_number || t?.serial_number || t?.qr_code || t?.barcode || t?.code || t?.sku || ev?.tool_code || '';
+        const empId = ev?.employee_id ?? ev?.employeeId ?? ev?.employee?.id;
+        const empName = empMap.get(empId) || `${ev?.employee_first_name || ''} ${ev?.employee_last_name || ''}`.trim() || ev?.employee_name || '—';
+        return { id: ev?.id ?? ev?.issue_id ?? ev?.log_id ?? `${toolId || 'tool'}-issue`, returned, tool_name: toolName, employee_name: empName, tool_code: code, tool_id: toolId, employee_id: empId };
+      }).filter(x => !x.returned);
+
+      if (!mapped.length && toolsList.length) {
+        const derived = toolsList
+          .filter(t => !!(t?.issued_to_employee_id ?? t?.issuedToEmployeeId))
+          .map(t => ({
+            id: t?.id,
+            tool_name: t?.name || t?.tool_name || 'Narzędzie',
+            employee_id: t?.issued_to_employee_id ?? t?.issuedToEmployeeId,
+            employee_name: empMap.get(t?.issued_to_employee_id ?? t?.issuedToEmployeeId) || '—',
+            tool_code: t?.inventory_number || t?.serial_number || t?.qr_code || t?.barcode || t?.code || t?.sku || '',
+            tool_id: t?.id,
+          }));
+        mapped = derived;
+      }
+
+      setReturnItems(mapped);
+    } catch (e) {
+      setReturnListError(e?.message || 'Błąd ładowania listy zwrotów');
+      setReturnItems([]);
+    } finally {
+      setReturnListLoading(false);
+    }
+  };
+
+  useEffect(() => { loadReturnList(); }, []);
+
+  // Dodaj wybrany kod z listy „Do zwrotu” do wielo-skanu
+  const preAddByCode = async (code) => {
+    const val = String(code || '').trim();
+    if (!val) return;
+    const isDup = scannedItems.some((it) => String(it.code) === val);
+    if (isDup) { showDupNotice(); return; }
+    try {
+      const res = await api.get(`/api/tools/search?code=${encodeURIComponent(val)}`);
+      if (res && res.id) {
+        let det = null; try { det = await api.get(`/api/tools/${res.id}/details`); } catch {}
+        setScannedItems((prev) => [...prev, { code: val, tool: res || null, details: det || null }]);
+        setMultiScan(true);
+      } else {
+        setError('Nie znaleziono narzędzia');
+      }
+    } catch (e) {
+      setError(e?.message || 'Błąd pobierania narzędzia');
+    }
+  };
 
   useEffect(() => {
     const openScanner = async () => {
@@ -93,6 +203,11 @@ export default function ScanScreen() {
     const msg = 'Kod już dodany';
     if (Platform.OS === 'android') {
       try { ToastAndroid.show(msg, ToastAndroid.SHORT); } catch {}
+    }
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch (e) {
+      try { if (Platform.OS !== 'web') Vibration.vibrate(20); } catch {}
     }
     setDupInfo(msg);
     setTimeout(() => setDupInfo(''), 1000);
@@ -188,6 +303,7 @@ export default function ScanScreen() {
     setCodeValue('');
     setScanning(true);
     setScannedItems([]);
+    setSingleQty(1);
   };
   // Multi-skan: operacje zbiorcze + sterowanie ilością
   const clearScannedList = () => { setScannedItems([]); setMessage(''); setError(''); };
@@ -253,7 +369,8 @@ export default function ScanScreen() {
           });
           if (!issue) { fail++; continue; }
           try {
-            await api.post(`/api/tools/${t.id}/return`, { issue_id: issue.id });
+            const q = (it.qty || 1);
+            await api.post(`/api/tools/${t.id}/return`, { issue_id: issue.id, quantity: q, qty: q });
             ok++;
           } catch { fail++; }
         } else { fail++; }
@@ -262,6 +379,7 @@ export default function ScanScreen() {
     } catch (e) {
       setError(e?.message || 'Nie udało się wykonać zbiorczej operacji');
     } finally {
+      try { await loadReturnList(); } catch {}
       setTimeout(() => { resetScanner(); }, 1200);
     }
   };
@@ -271,11 +389,11 @@ export default function ScanScreen() {
     if (!tool?.id || !selectedEmployee?.id) return;
     setMessage(''); setError('');
     try {
-      await api.post(`/api/tools/${tool.id}/issue`, { employee_id: selectedEmployee.id, quantity: 1 });
+      const q = singleQty || 1;
+      await api.post(`/api/tools/${tool.id}/issue`, { employee_id: selectedEmployee.id, quantity: q, qty: q });
       const det = await api.get(`/api/tools/${tool.id}/details`);
       setToolDetails(det || null);
       setMessage('Wydano narzędzie');
-      // Po udanej akcji: krótka pauza i reset skanera
       setTimeout(resetScanner, 1200);
     } catch (e) {
       setError(e?.message || 'Nie udało się wydać narzędzia');
@@ -295,11 +413,12 @@ export default function ScanScreen() {
         return fn && ln && fn === (selectedEmployee.first_name || '').trim() && ln === (selectedEmployee.last_name || '').trim();
       });
       if (!issue) { setError('Brak aktywnego wydania dla wybranego pracownika'); return; }
-      await api.post(`/api/tools/${tool.id}/return`, { issue_id: issue.id });
+      const q = singleQty || 1;
+      await api.post(`/api/tools/${tool.id}/return`, { issue_id: issue.id, quantity: q, qty: q });
       const det = await api.get(`/api/tools/${tool.id}/details`);
       setToolDetails(det || null);
       setMessage('Przyjęto narzędzie');
-      // Po udanej akcji: krótka pauza i reset skanera
+      try { await loadReturnList(); } catch {}
       setTimeout(resetScanner, 1200);
     } catch (e) {
       setError(e?.message || 'Nie udało się przyjąć narzędzia');
@@ -383,6 +502,15 @@ export default function ScanScreen() {
               {scannedItems.map((it) => (
                 <View key={it.code} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, paddingHorizontal: 8, backgroundColor: '#eef2ff', borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb' }}>
                   <Text style={{ color: '#374151', fontWeight: '600' }}>{it.code}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Pressable onPress={() => decrementQty(it.code)} style={{ paddingHorizontal: 8, paddingVertical: 2, backgroundColor: '#e5e7eb', borderRadius: 6 }}>
+                      <Text style={{ color: '#111827' }}>-</Text>
+                    </Pressable>
+                    <Text style={{ color: '#374151', fontWeight: '600' }}>{it.qty || 1}</Text>
+                    <Pressable onPress={() => incrementQty(it.code)} style={{ paddingHorizontal: 8, paddingVertical: 2, backgroundColor: '#e5e7eb', borderRadius: 6 }}>
+                      <Text style={{ color: '#111827' }}>+</Text>
+                    </Pressable>
+                  </View>
                   <Pressable onPress={() => removeCode(it.code)} style={{ paddingHorizontal: 6, paddingVertical: 2, backgroundColor: '#fca5a5', borderRadius: 6 }}>
                     <Text style={{ color: '#111827' }}>x</Text>
                   </Pressable>
@@ -454,6 +582,51 @@ export default function ScanScreen() {
 
 
       </View>
+      {/* Sekcja: lista aktywnych wydań do zwrotu */}
+      <View style={styles.sectionBox}>
+        <Text style={styles.sectionTitle}>Do zwrotu</Text>
+        {returnListLoading ? (
+          <Text style={{ color: '#6b7280' }}>Ładowanie…</Text>
+        ) : returnListError ? (
+          <Text style={{ color: '#b91c1c' }}>Błąd: {String(returnListError)}</Text>
+        ) : (returnItems && returnItems.length > 0 ? (
+          <View style={styles.returnList}>
+            {returnItems.map((itm) => (
+              <View 
+                key={`${itm.id || itm.issue_id || itm.tool_id}-${itm.employee_id || 'emp'}`} 
+                style={styles.returnItem}
+              >
+                <View style={styles.returnItemLeft}>
+                  <Text style={styles.returnItemTitle}>{itm.tool_name || 'Narzędzie'}</Text>
+                  <Text style={styles.returnItemMeta}>{itm.employee_name || '—'}</Text>
+                  {itm.tool_code ? (
+                    <View style={styles.codeChip}>
+                      <Text style={styles.codeChipText}>{itm.tool_code}</Text>
+                    </View>
+                  ) : null}
+                </View>
+                {itm.tool_code ? (
+                  <Pressable 
+                    onPress={() => preAddByCode(itm.tool_code)} 
+                    style={({ pressed }) => [
+                      styles.primaryBtn, 
+                      styles.smallBtn, 
+                      pressed && styles.btnPressed
+                    ]}
+                  >
+                    <View style={styles.btnRow}>
+                      <Ionicons name="return-down-back" size={16} color="#fff" />
+                      <Text style={styles.btnText}>Zwróć</Text>
+                    </View>
+                  </Pressable>
+                ) : null}
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Text style={{ color: '#6b7280' }}>Brak aktywnych wydań do zwrotu.</Text>
+        ))}
+      </View>
     </View>
   );
 }
@@ -479,4 +652,15 @@ const styles = StyleSheet.create({
   btnPressed: { backgroundColor: '#4338ca' },
   btnDisabled: { opacity: 0.5 },
   btnMuted: { backgroundColor: '#6b7280' },
-});
+  sectionBox: { marginBottom: 12 },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 8 },
+  returnList: { gap: 8 },
+  returnItem: { backgroundColor: '#f3f4f6', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  returnItemLeft: { flex: 1 },
+  returnItemTitle: { fontSize: 16, fontWeight: '600', color: '#111827' },
+  returnItemMeta: { color: '#6b7280', fontSize: 12, marginTop: 2 },
+  codeChip: { alignSelf: 'flex-start', marginTop: 6, backgroundColor: '#eef2ff', borderRadius: 8, paddingVertical: 4, paddingHorizontal: 8, borderWidth: 1, borderColor: '#e5e7eb' },
+  codeChipText: { color: '#374151', fontWeight: '600' },
+  smallBtn: { paddingVertical: 8, paddingHorizontal: 12 },
+  btnRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+ });
