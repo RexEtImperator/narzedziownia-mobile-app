@@ -19,13 +19,14 @@ import ToolsScreen from './screens/Tools';
 import EmployeesScreen from './screens/Employees';
 import DepartmentsScreen from './screens/Departments';
 import PositionsScreen from './screens/Positions';
-import IssueReturnScreen from './screens/IssueReturn';
+
 import UserSettingsScreen from './screens/UserSettings';
 import IssueScreen from './screens/IssueScreen';
 import ReturnScreen from './screens/ReturnScreen';
 import { ThemeProvider, useTheme } from './lib/theme';
 import { initializeAndRestore } from './lib/notifications';
 import Constants from 'expo-constants';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 const Tab = createBottomTabNavigator();
 const SettingsStackNav = createNativeStackNavigator();
@@ -53,7 +54,6 @@ function SettingsStack() {
 function IssueStack() {
   return (
     <IssueStackNav.Navigator screenOptions={{ headerShown: false }}>
-      <IssueStackNav.Screen name="IssueReturn" component={IssueReturnScreen} />
       <IssueStackNav.Screen name="IssueScreen" component={IssueScreen} />
       <IssueStackNav.Screen name="ReturnScreen" component={ReturnScreen} />
     </IssueStackNav.Navigator>
@@ -119,12 +119,8 @@ function CustomTabBar({ state, descriptors, navigation, onPressScan }) {
 function MainTabs({ openActionSheet }) {
   return (
     <Tab.Navigator
-      initialRouteName={'Dashboard'}
-      screenOptions={{
-        // Kolory tabów (dla fallbacku gdyby użył się domyślny tabBar)
-        tabBarActiveTintColor: useTheme().colors.primary,
-        tabBarInactiveTintColor: useTheme().colors.muted,
-      }}
+      initialRouteName="Dashboard"
+      screenOptions={{ headerShown: false }}
       tabBar={(props) => <CustomTabBar {...props} onPressScan={openActionSheet} />}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
@@ -140,19 +136,13 @@ function MainTabs({ openActionSheet }) {
 function AppContent() {
   const { navTheme, isDark, colors } = useTheme();
   const [hasToken, setHasToken] = useState(false);
-  const [actionSheetVisible, setActionSheetVisible] = useState(false);
-  const [sheetAnim] = useState(new Animated.Value(0));
+  // Stubs to keep Modal code inert; action sheet removed
+  const actionSheetVisible = false;
+  const sheetAnim = new Animated.Value(0);
   const openActionSheet = () => {
-    try {
-      setActionSheetVisible(true);
-      Animated.timing(sheetAnim, { toValue: 1, duration: 200, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
-    } catch {}
+    try { navigationRef?.navigate?.('Scanner'); } catch {}
   };
-  const closeActionSheet = () => {
-    Animated.timing(sheetAnim, { toValue: 0, duration: 180, easing: Easing.in(Easing.quad), useNativeDriver: true }).start(({ finished }) => {
-      if (finished) setActionSheetVisible(false);
-    });
-  };
+  const closeActionSheet = () => {};
 
   useEffect(() => {
     let unsubscribe = () => {};
@@ -273,9 +263,13 @@ function AppContent() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AppContent />
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+          <AppContent />
+        </SafeAreaView>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
 

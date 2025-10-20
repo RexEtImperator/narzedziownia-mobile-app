@@ -67,16 +67,11 @@ export default function UserSettingsScreen() {
     await api.setToken(null);
     await AsyncStorage.removeItem('token');
     setHasToken(false);
-    // Przenieś użytkownika na ekran logowania, aby nie widział danych ze stanu
+    // Nie resetujemy ręcznie nawigacji — App.js przełączy na ekran logowania po zmianie tokena
     try {
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: 'Logowanie' }],
-        })
-      );
+      // Opcjonalnie przejdź do ekranu logowania, jeśli aktualny navigator to root
+      navigation.dispatch({ type: 'NAVIGATE', payload: { name: 'Login' } });
     } catch {}
-    alert('Wylogowano');
   };
 
   const testConnection = async () => {

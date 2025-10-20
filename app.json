@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "mobilna",
-    "slug": "mobilna",
+    "name": "Narzędziownia",
+    "slug": "narzedziownia",
     "version": "1.2.0",
     "extra": {
       "apiBaseUrl": "http://192.168.10.99:3000",
@@ -33,15 +33,20 @@
       "permissions": [
         "android.permission.CAMERA"
       ],
-      "package": "com.dbrzezinsky.mobilna"
+      "package": "com.dbrzezinsky.narzedziownia"
     },
     "web": {
       "bundler": "metro",
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-barcode-scanner",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Aplikacja potrzebuje dostępu do kamery, aby skanować kody QR i kreskowe."
+        }
+      ]
     ],
     "owner": "dbrzezinsky"
   }

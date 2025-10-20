@@ -17,67 +17,57 @@ export default function ReturnScreen() {
   const [canAskAgain, setCanAskAgain] = useState(true);
   const [cameraModuleError, setCameraModuleError] = useState('');
   const [CameraViewComp, setCameraViewComp] = useState(null);
-  const [BarcodeScannerComp, setBarcodeScannerComp] = useState(null);
 
   useEffect(() => { api.init(); }, []);
 
   const openScanner = async () => {
     if (Platform.OS === 'web') { return openWebImageScanner(); }
-    // Spróbuj expo-camera
+    // Tylko expo-camera (bez fallbacku)
     try {
       const mod = await import('expo-camera');
-      const { CameraView, requestCameraPermissionsAsync } = mod || {};
-      if (CameraView && requestCameraPermissionsAsync) {
+      const { CameraView, Camera } = mod || {};
+      if (CameraView && Camera && Camera.requestCameraPermissionsAsync) {
         setCameraViewComp(() => CameraView);
-        const res = await requestCameraPermissionsAsync();
+        const res = await Camera.requestCameraPermissionsAsync();
         const granted = res?.granted || res?.status === 'granted';
         setCanAskAgain(res?.canAskAgain !== false);
         setCamPermGranted(granted);
         if (granted) { setScanning(true); setError(''); return; }
         else { setError('Brak zgody na dostęp do kamery'); return; }
+      } else {
+        setCameraModuleError('Moduł kamery niedostępny: expo-camera bez CameraView');
+        setCamPermGranted(false);
       }
-    } catch (e) { /* spróbuj fallback */ }
-    // Fallback: expo-barcode-scanner
-    try {
-      const mod2 = await import('expo-barcode-scanner');
-      const { BarCodeScanner } = mod2 || {};
-      if (!BarCodeScanner) { setError('Moduł kamery niedostępny'); setCameraModuleError('Moduł kamery niedostępny'); return; }
-      const perm = await BarCodeScanner.requestPermissionsAsync();
-      const granted = perm?.granted || perm?.status === 'granted';
-      setCanAskAgain(perm?.canAskAgain !== false);
-      setCamPermGranted(granted);
-      if (!granted) { setError('Brak zgody na dostęp do kamery'); return; }
-      setBarcodeScannerComp(() => BarCodeScanner);
-      setError('');
-      setScanning(true);
-    } catch (e2) { const msg = `Moduł kamery niedostępny: ${e2?.message || 'nieznany'}`; setError(msg); setCameraModuleError(msg); }
+    } catch (e2) {
+      const msg = `Moduł kamery niedostępny: ${e2?.message || 'expo-camera'}`;
+      setError(msg);
+      setCameraModuleError(msg);
+      setCamPermGranted(false);
+    }
   };
 
   const requestCamPermission = async () => {
     try {
       const mod = await import('expo-camera');
-      const { requestCameraPermissionsAsync } = mod || {};
-      if (requestCameraPermissionsAsync) {
-        const res = await requestCameraPermissionsAsync();
+      const { Camera } = mod || {};
+      if (Camera?.requestCameraPermissionsAsync) {
+        const res = await Camera.requestCameraPermissionsAsync();
         const granted = res?.granted || res?.status === 'granted';
         setCanAskAgain(res?.canAskAgain !== false);
         setCamPermGranted(granted);
         setError(granted ? '' : 'Brak zgody na dostęp do kamery');
         if (granted) { await openScanner(); }
         return;
+      } else {
+        setCameraModuleError('Moduł kamery niedostępny: expo-camera bez Camera.requestCameraPermissionsAsync');
+        setCamPermGranted(false);
       }
-    } catch (e) { /* fallback poniżej */ }
-    try {
-      const mod2 = await import('expo-barcode-scanner');
-      const { BarCodeScanner } = mod2 || {};
-      if (!BarCodeScanner) { setError('Moduł kamery niedostępny'); setCameraModuleError('Moduł kamery niedostępny'); return; }
-      const perm = await BarCodeScanner.requestPermissionsAsync();
-      const granted = perm?.granted || perm?.status === 'granted';
-      setCanAskAgain(perm?.canAskAgain !== false);
-      setCamPermGranted(granted);
-      setError(granted ? '' : 'Brak zgody na dostęp do kamery');
-      if (granted) { await openScanner(); }
-    } catch (e2) { const msg = `Moduł kamery niedostępny: ${e2?.message || 'nieznany'}`; setError(msg); setCameraModuleError(msg); }
+    } catch (e2) {
+      const msg = `Moduł kamery niedostępny: ${e2?.message || 'expo-camera'}`;
+      setError(msg);
+      setCameraModuleError(msg);
+      setCamPermGranted(false);
+    }
   };
 
   const ensureJsQrLoaded = () => new Promise((resolve, reject) => {
@@ -149,6 +139,8 @@ export default function ReturnScreen() {
       setMessage('Zwrócono narzędzie');
       const det = await api.get(`/api/tools/${foundTool.id}/details`);
       setDetails(det);
+      // Auto: odśwież skanowanie po sukcesie, aby zeskanować kolejny kod
+      setTimeout(() => { try { setIssueId(''); setScanning(true); } catch {} }, 1200);
     } catch (e) { setError(e.message || 'Błąd zwrotu'); }
     finally { setLoading(false); }
   };
@@ -251,21 +243,13 @@ export default function ReturnScreen() {
                 <Text style={styles.buttonText}>Zamknij</Text>
               </Pressable>
             </View>
-          ) : camPermGranted === true && (CameraViewComp || BarcodeScannerComp) ? (
-            CameraViewComp ? (
-              <CameraViewComp
-                style={{ flex: 1 }}
-                facing="back"
-                barcodeScannerSettings={{ barcodeTypes: ['qr', 'code128', 'ean13', 'ean8', 'upc_a', 'upc_e'] }}
-                onBarcodeScanned={({ data, type }) => onBarCodeScanned({ type, data })}
-              />
-            ) : (
-              <BarcodeScannerComp
-                style={{ flex: 1 }}
-                barCodeTypes={['qr', 'code128', 'ean13', 'ean8', 'upc_a', 'upc_e']}
-                onBarCodeScanned={({ data, type }) => onBarCodeScanned({ type, data })}
-              />
-            )
+          ) : camPermGranted === true && CameraViewComp ? (
+            <CameraViewComp
+              style={{ flex: 1 }}
+              facing="back"
+              barcodeScannerSettings={{ barcodeTypes: ['qr', 'code128', 'ean13', 'ean8', 'upc_a', 'upc_e'] }}
+              onBarcodeScanned={({ data, type }) => onBarCodeScanned({ type, data })}
+            />
           ) : (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 }}>
               <Text style={{ color: colors.text }}>Ładowanie skanera…</Text>

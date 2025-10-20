@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, Image, Platform } from 'react-native';
 import api from '../lib/api';
 import { useNavigation } from '@react-navigation/native';
@@ -20,6 +20,7 @@ export default function LoginScreen() {
   const [bioLoading, setBioLoading] = useState(false);
   const navigation = useNavigation();
   const { colors, isDark, toggleDark } = useTheme();
+  const autoPromptedRef = useRef(false);
 
   const styles = StyleSheet.create({
     container: { flex: 1, padding: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg, position: 'relative' },
@@ -32,7 +33,7 @@ export default function LoginScreen() {
     error: { color: colors.danger, marginBottom: 12, marginTop: 8 },
     logoWrapper: { alignItems: 'center', marginBottom: 16 },
     logoBox: { width: 448, height: 128, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-    logoImage: { width: 200, height: 200 },
+    logoImage: { width: 129, height: 200 },
     description: { fontSize: 12, color: colors.muted },
     card: { width: '90%', maxWidth: 420, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 16 },
     field: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
@@ -68,6 +69,15 @@ export default function LoginScreen() {
     };
     bootstrap();
   }, []);
+
+  // Auto-prompt biometrii przy ponownym logowaniu
+  useEffect(() => {
+    const shouldPrompt = !autoPromptedRef.current && bioEnabled && bioAvailable && bioEnrolled && bioReady && !loading && !bioLoading && Platform.OS !== 'web';
+    if (shouldPrompt) {
+      autoPromptedRef.current = true;
+      loginWithBiometrics();
+    }
+  }, [bioEnabled, bioAvailable, bioEnrolled, bioReady, loading, bioLoading]);
 
   const handleLogin = async () => {
     setLoading(true);

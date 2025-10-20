@@ -1,11 +1,11 @@
 {
-  "name": "mobilna",
+  "name": "narzedziownia",
   "version": "1.2.0",
   "main": "index.js",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "start:lan": "set EXPO_PUBLIC_API_BASE_URL=http://192.168.10.99:3000 && expo start --port 8082",
     "web:lan": "set EXPO_PUBLIC_API_BASE_URL=http://192.168.10.99:3000 && expo start --web --port 8081"
@@ -16,7 +16,6 @@
     "@react-navigation/native": "^7.1.18",
     "@react-navigation/native-stack": "^7.3.27",
     "expo": "~54.0.13",
-    "expo-barcode-scanner": "^13.0.1",
     "expo-camera": "~17.0.8",
     "expo-local-authentication": "~17.0.7",
     "expo-navigation-bar": "~5.0.8",
