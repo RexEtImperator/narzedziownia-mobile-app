@@ -4,17 +4,32 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../lib/api';
 import { useTheme } from '../lib/theme';
+import AddEmployeeModal from './AddEmployeeModal';
+import AddToolModal from './AddToolModal';
+import AddBHPModal from './AddBHPModal';
+import Constants from 'expo-constants';
 
 export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [stats, setStats] = useState({ employees: 0, departments: 0, positions: 0, tools: 0 });
+  const [stats, setStats] = useState({ employees: 0, departments: 0, positions: 0, tools: 0, bhp: 0 });
   const [tools, setTools] = useState([]);
   const [history, setHistory] = useState([]);
   const [toolHistory, setToolHistory] = useState([]);
   const [bhpHistory, setBhpHistory] = useState([]);
+  const [addEmpVisible, setAddEmpVisible] = useState(false);
+  const [addToolVisible, setAddToolVisible] = useState(false);
+  const [addBHPVisible, setAddBHPVisible] = useState(false);
   const navigation = useNavigation();
   const { colors } = useTheme();
+  const [overdueTipOpen, setOverdueTipOpen] = useState(false);
+  // Paginacja historii
+  const [toolHistoryLimit, setToolHistoryLimit] = useState(6);
+  const [bhpHistoryLimit, setBhpHistoryLimit] = useState(6);
+  const [toolHistoryLoadingMore, setToolHistoryLoadingMore] = useState(false);
+  const [bhpHistoryLoadingMore, setBhpHistoryLoadingMore] = useState(false);
+  const [toolHistoryHasMore, setToolHistoryHasMore] = useState(false);
+  const [bhpHistoryHasMore, setBhpHistoryHasMore] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -34,10 +49,14 @@ export default function DashboardScreen() {
           departments: Array.isArray(deps) ? deps.length : 0,
           positions: Array.isArray(poss) ? poss.length : 0,
           tools: Array.isArray(tls) ? tls.length : (Array.isArray(tls?.data) ? tls.data.length : 0),
+          bhp: Array.isArray(bhp) ? bhp.length : (Array.isArray(bhp?.data) ? bhp.data.length : 0),
         });
         const list = Array.isArray(tls) ? tls : (Array.isArray(tls?.data) ? tls.data : []);
         const bhpList = Array.isArray(bhp) ? bhp : (Array.isArray(bhp?.data) ? bhp.data : []);
         setTools(list.slice(0, 20));
+        const overdueToolsCount = computeOverdueCount(list);
+        const overdueBhpCount = computeOverdueCount(bhpList);
+        setStats(s => ({ ...s, overdueInspections: (overdueToolsCount + overdueBhpCount), overdueToolsCount, overdueBhpCount }));
 
         // Build issue/return history
         const employees = Array.isArray(emps) ? emps : (Array.isArray(emps?.data) ? emps.data : []);
@@ -90,96 +109,34 @@ export default function DashboardScreen() {
           return { id: ev?.id ?? ev?.issue_id ?? ev?.log_id ?? `${toolId || 'tool'}-${issued || returned || ''}`, type, toolName, employeeName, quantity: ev?.quantity || 1, timestamp: ts, filterValue, source: 'tools' };
         };
 
-        // Fetch tool issues history (up to 6)
-        try {
-          const toolHistoryRes = await api.get('/api/tool-issues?limit=6');
-          const arr = Array.isArray(toolHistoryRes?.data) ? toolHistoryRes.data : (Array.isArray(toolHistoryRes) ? toolHistoryRes : []);
-          const mapped = arr.map(issue => {
-            const action = issue?.status === 'wydane' ? 'wydanie' : 'zwrot';
-            const rawIssued = issue?.issued_at;
-            const rawReturned = issue?.returned_at;
-            const ts = parseDate((issue?.status === 'zwrócone' && rawReturned) ? rawReturned : rawIssued);
-            const employeeName = `${issue?.employee_first_name || ''} ${issue?.employee_last_name || ''}`.trim() || '—';
-            const rawLabel = (issue?.status === 'zwrócone' && rawReturned) ? rawReturned : rawIssued;
-            let normalizedRaw = (typeof rawLabel === 'string' ? rawLabel.trim() : '');
-            if (normalizedRaw) normalizedRaw = normalizedRaw.replace(/(\d+)\s*h\s*temu/i, (_, num) => `${num} godz temu`);
-            const agoText = ts ? formatAgo(ts) : (normalizedRaw || '—');
-            return {
-              id: issue?.id,
-              action,
-              toolName: issue?.tool_name || 'Narzędzie',
-              employeeName,
-              quantity: issue?.quantity || 1,
-              timestamp: ts,
-              agoText,
-              filterValue: issue?.tool_name || '',
-            };
-          });
-          setToolHistory(mapped);
-        } catch (e) {
-          setToolHistory([]);
+        // Fetch tool issues history (up to toolHistoryLimit)
+        const historyDisabled = ['true','1','yes'].includes(String(process.env.EXPO_PUBLIC_DISABLE_HISTORY_FETCH ?? Constants?.expoConfig?.extra?.EXPO_PUBLIC_DISABLE_HISTORY_FETCH ?? '').toLowerCase());
+        if (!historyDisabled) {
+          try {
+            const { items, hasMore } = await fetchToolHistory(toolHistoryLimit);
+            setToolHistory(items);
+            setToolHistoryHasMore(hasMore);
+          } catch (e) { setToolHistory([]); setToolHistoryHasMore(false); }
         }
-
-        // Fetch BHP issues history (up to 6; ignore lack of permissions)
-        try {
-          const bhpHistoryRes = await api.get('/api/bhp-issues?limit=6');
-          const arr = Array.isArray(bhpHistoryRes?.data) ? bhpHistoryRes.data : (Array.isArray(bhpHistoryRes) ? bhpHistoryRes : []);
-          const mapped = arr.map(issue => {
-            const action = issue?.status === 'wydane' ? 'wydanie' : 'zwrot';
-            const rawIssued = issue?.issued_at;
-            const rawReturned = issue?.returned_at;
-            const ts = parseDate((issue?.status === 'zwrócone' && rawReturned) ? rawReturned : rawIssued);
-            const employeeName = `${issue?.employee_first_name || ''} ${issue?.employee_last_name || ''}`.trim() || '—';
-            const bhpLabel = issue?.bhp_model ? `${issue.bhp_model} (${issue?.bhp_inventory_number || 'brak nr'})` : `Nr ewid.: ${issue?.bhp_inventory_number || 'nieznany'}`;
-            const rawLabel = (issue?.status === 'zwrócone' && rawReturned) ? rawReturned : rawIssued;
-            let normalizedRaw = (typeof rawLabel === 'string' ? rawLabel.trim() : '');
-            if (normalizedRaw) normalizedRaw = normalizedRaw.replace(/(\d+)\s*h\s*temu/i, (_, num) => `${num} godz temu`);
-            const agoText = ts ? formatAgo(ts) : (normalizedRaw || '—');
-            return {
-              id: issue?.id,
-              action,
-              bhpLabel,
-              employeeName,
-              timestamp: ts,
-              agoText,
-              filterValue: issue?.bhp_inventory_number || issue?.bhp_model || '',
-            };
-          });
-          setBhpHistory(mapped);
-        } catch (e) {
-          setBhpHistory([]);
+        // Fetch BHP issues history (up to bhpHistoryLimit)
+        if (!historyDisabled) {
+          try {
+            const { items, hasMore } = await fetchBhpHistory(bhpHistoryLimit);
+            setBhpHistory(items);
+            setBhpHistoryHasMore(hasMore);
+          } catch (e) { setBhpHistory([]); setBhpHistoryHasMore(false); }
         }
 
         let issues = [];
         // 1) Primary endpoint
-        try {
-          const ti = await api.get('/api/tool_issues');
-          const arr = toArray(ti);
-          issues = arr.map(mapToolIssue);
-        } catch {}
-        // 2) Alternate endpoints (various backend conventions)
-        try {
-          if (!issues || issues.length === 0) {
-            const alt1 = await api.get('/api/tools/issues');
-            const arr1 = toArray(alt1);
-            issues = arr1.map(mapToolIssue);
-          }
-        } catch {}
-        try {
-          if (!issues || issues.length === 0) {
-            const alt2 = await api.get('/api/issues/tools');
-            const arr2 = toArray(alt2);
-            issues = arr2.map(mapToolIssue);
-          }
-        } catch {}
-        try {
-          if (!issues || issues.length === 0) {
-            const alt3 = await api.get('/api/issues?type=tool');
-            const arr3 = toArray(alt3);
-            issues = arr3.map(mapToolIssue);
-          }
-        } catch {}
-
+        if (!historyDisabled) {
+          try {
+            const ti = await api.get('/api/tool_issues');
+            const arr = toArray(ti);
+            issues = arr.map(mapToolIssue);
+          } catch {}
+        }
+        
         // Fallback: derive issues from /api/tools (current issued tools)
         if (!issues || issues.length === 0) {
           issues = list
@@ -212,59 +169,52 @@ export default function DashboardScreen() {
           return { id: `bhp-${ev?.id ?? ev?.issue_id ?? ev?.log_id ?? `${bhpId || 'bhp'}-${issued || returned || ''}`}`, type, toolName: displayName, employeeName, quantity: ev?.quantity || 1, timestamp: ts, filterValue, source: 'bhp' };
         };
 
-        try {
-          const bi1 = await api.get('/api/bhp_issues');
-          const bhpArr = toArray(bi1);
-          if (bhpArr && bhpArr.length) {
-            const mapped = bhpArr.map(mapBhpIssue);
-            issues = [...issues, ...mapped];
-          }
-        } catch {}
-        // Alternate endpoint for BHP issues if needed
-        try {
-          if (!issues.find(i => String(i.id || '').startsWith('bhp-'))) {
-            const bi2 = await api.get('/api/bhp/issues');
-            const bhpArr2 = toArray(bi2);
-            const mapped2 = bhpArr2.map(mapBhpIssue);
-            issues = [...issues, ...mapped2];
-          }
-        } catch {}
-
-        // 3) Optional audit logs fallback (if backend records actions there)
-        try {
-          if (!issues || issues.length === 0) {
-            const logs = await api.get('/api/audit_logs');
-            const arr = toArray(logs);
-            const mapped = arr
-              .filter(l => {
-                const act = String(l?.action || '').toLowerCase();
-                return act.includes('issue') || act.includes('return');
-              })
-              .map(l => {
-                let detailsObj = null;
-                if (typeof l?.details === 'string') {
-                  try { detailsObj = JSON.parse(l.details); } catch {}
-                } else if (typeof l?.details === 'object' && l?.details) {
-                  detailsObj = l.details;
-                }
-                const toolId = detailsObj?.tool_id ?? detailsObj?.toolId ?? null;
-                const bhpId = detailsObj?.bhp_id ?? detailsObj?.bhpId ?? null;
-                const tool = toolMap.get(toolId);
-                const bhpItem = bhpMap.get(bhpId);
-                const isReturn = String(l?.action || '').toLowerCase().includes('return');
-                const ts = parseDate(l?.timestamp) || parseDate(detailsObj?.time) || parseDate(detailsObj?.issued_at) || parseDate(detailsObj?.returned_at);
-                const employeeIdVal = detailsObj?.employee_id ?? detailsObj?.employeeId;
-                const employeeName = empMap.get(employeeIdVal) || detailsObj?.employee_name || '—';
-                const name = tool?.name || bhpItem?.name || detailsObj?.tool_name || detailsObj?.bhp_name || 'Zdarzenie';
-                const filterValue = tool?.inventory_number || bhpItem?.inventory_number || detailsObj?.code || name;
-                return { id: l?.id ?? `${name}-${l?.timestamp || ''}`, type: isReturn ? 'return' : 'issue', toolName: name, employeeName, quantity: detailsObj?.quantity || 1, timestamp: ts, filterValue, source: 'audit' };
-              });
-            if (mapped.length) {
+        if (!historyDisabled) {
+          try {
+            const bi1 = await api.get('/api/bhp_issues');
+            const bhpArr = toArray(bi1);
+            if (bhpArr && bhpArr.length) {
+              const mapped = bhpArr.map(mapBhpIssue);
               issues = [...issues, ...mapped];
             }
-          }
-        } catch {}
-
+          } catch {}
+        }
+        // 3) Optional audit logs fallback (if backend records actions there)
+        if (!historyDisabled) {
+          try {
+            if (!issues || issues.length === 0) {
+              const logs = await api.get('/api/audit_logs');
+              const arr = toArray(logs);
+              const mapped = arr
+                .filter(l => {
+                  const act = String(l?.action || '').toLowerCase();
+                  return act.includes('issue') || act.includes('return');
+                })
+                .map(l => {
+                  let detailsObj = null;
+                  if (typeof l?.details === 'string') {
+                    try { detailsObj = JSON.parse(l.details); } catch {}
+                  } else if (typeof l?.details === 'object' && l?.details) {
+                    detailsObj = l.details;
+                  }
+                  const toolId = detailsObj?.tool_id ?? detailsObj?.toolId ?? null;
+                  const bhpId = detailsObj?.bhp_id ?? detailsObj?.bhpId ?? null;
+                  const tool = toolMap.get(toolId);
+                  const bhpItem = bhpMap.get(bhpId);
+                  const isReturn = String(l?.action || '').toLowerCase().includes('return');
+                  const ts = parseDate(l?.timestamp) || parseDate(detailsObj?.time) || parseDate(detailsObj?.issued_at) || parseDate(detailsObj?.returned_at);
+                  const employeeIdVal = detailsObj?.employee_id ?? detailsObj?.employeeId;
+                  const employeeName = empMap.get(employeeIdVal) || detailsObj?.employee_name || '—';
+                  const name = tool?.name || bhpItem?.name || detailsObj?.tool_name || detailsObj?.bhp_name || 'Zdarzenie';
+                  const filterValue = tool?.inventory_number || bhpItem?.inventory_number || detailsObj?.code || name;
+                  return { id: l?.id ?? `${name}-${l?.timestamp || ''}`, type: isReturn ? 'return' : 'issue', toolName: name, employeeName, quantity: detailsObj?.quantity || 1, timestamp: ts, filterValue, source: 'audit' };
+                });
+              if (mapped.length) {
+                issues = [...issues, ...mapped];
+              }
+            }
+          } catch {}
+        }
         // Deduplicate by id+type+timestamp
         const seen = new Set();
         const unique = [];
@@ -295,6 +245,13 @@ export default function DashboardScreen() {
   return (
     <ScrollView style={[styles.wrapper, { backgroundColor: colors.bg }]} className="flex-1 p-4" contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
       {error ? <Text style={[styles.error, { color: colors.danger }]} className="mb-2">{error}</Text> : null}
+      {overdueTipOpen && (
+        <Pressable
+          onPress={() => setOverdueTipOpen(false)}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9 }}
+          accessibilityLabel="Zamknij tooltip przeterminowań"
+        />
+      )}
 
       {/* KPI cards */}
       <View style={styles.kpiRow} className="flex-row flex-wrap gap-3">
@@ -308,7 +265,7 @@ export default function DashboardScreen() {
         <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.kpiHeader} className="items-center">
             <Ionicons name="medkit" size={22} color="#4ade80" />
-            <Text style={[styles.kpiValue, { color: colors.green }]} className="text-2xl font-bold">{computeBhpCount(tools)}</Text>
+            <Text style={[styles.kpiValue, { color: colors.green }]} className="text-2xl font-bold">{stats.bhp}</Text>
           </View>
         </View>
 
@@ -322,8 +279,22 @@ export default function DashboardScreen() {
         <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]} className="content-center">
           <View style={styles.kpiHeader} className="items-center">
             <Ionicons name="time" size={22} color="#f87171" />
-            <Text style={[styles.kpiValue, { color: colors.red }]} className="text-2xl font-bold">{computeOverdueCount(tools)}</Text>
+            <Pressable onPress={() => setOverdueTipOpen(v => !v)} style={({ pressed }) => [{ marginLeft: 6, opacity: pressed ? 0.8 : 1 }]}>
+              <Text style={[styles.kpiValue, { color: colors.red }]} className="text-2xl font-bold">{stats.overdueInspections ?? computeOverdueCount(tools)}</Text>
+            </Pressable>
           </View>
+          {overdueTipOpen && (
+            <View style={{ position: 'absolute', top: 6, right: 6, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12, zIndex: 10, minWidth: 150, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontWeight: '600', color: colors.text, fontSize: 14 }}>Narzędzia:</Text>
+                <Text style={{ color: colors.text, fontSize: 14 }}>{stats.overdueToolsCount ?? 0}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                <Text style={{ fontWeight: '600', color: colors.text, fontSize: 14 }}>BHP:</Text>
+                <Text style={{ color: colors.text, fontSize: 14 }}>{stats.overdueBhpCount ?? 0}</Text>
+              </View>
+            </View>
+          )}
         </View>
       </View>
 
@@ -336,17 +307,17 @@ export default function DashboardScreen() {
           <Text style={[styles.sectionTitle, { color: colors.text }]} className="text-xl font-semibold">Szybkie akcje</Text>
         </View>
         <View style={styles.quickRow} className="flex-row flex-wrap gap-3">
-          <Pressable style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => navigation.navigate('Pracownicy')}>
+          <Pressable style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => setAddEmpVisible(true)}>
             <Text style={[styles.quickTitle, { color: colors.text }]}>Dodaj pracownika</Text>
             <Text style={[styles.quickDesc, { color: colors.muted }]}>Utwórz nowy profil pracownika</Text>
           </Pressable>
-          <Pressable style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => navigation.navigate('Wydaj/Zwrot', { screen: 'IssueScreen' })}>
-            <Text style={[styles.quickTitle, { color: colors.text }]}>Szybkie wydanie</Text>
-            <Text style={[styles.quickDesc, { color: colors.muted }]}>Skanuj kod narzędzia</Text>
+          <Pressable style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => setAddToolVisible(true)}>
+            <Text style={[styles.quickTitle, { color: colors.text }]}>Dodaj narzędzie</Text>
+            <Text style={[styles.quickDesc, { color: colors.muted }]}>Do bazy danych</Text>
           </Pressable>
-          <Pressable style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => navigation.navigate('Wydaj/Zwrot', { screen: 'ReturnScreen' })}>
-            <Text style={[styles.quickTitle, { color: colors.text }]}>Szybki zwrot</Text>
-            <Text style={[styles.quickDesc, { color: colors.muted }]}>Zwróć wydane narzędzia</Text>
+          <Pressable style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => setAddBHPVisible(true)}>
+            <Text style={[styles.quickTitle, { color: colors.text }]}>Dodaj sprzęt BHP</Text>
+            <Text style={[styles.quickDesc, { color: colors.muted }]}>Do bazy danych</Text>
           </Pressable>
         </View>
       </View>
@@ -395,6 +366,26 @@ export default function DashboardScreen() {
             <Text style={{ color: colors.muted }}>Brak wydań/zwrotów</Text>
           </View>
         )}
+        {toolHistoryHasMore && (
+          <Pressable
+            disabled={toolHistoryLoadingMore}
+            onPress={async () => {
+              try {
+                setToolHistoryLoadingMore(true);
+                const next = toolHistoryLimit + 6;
+                setToolHistoryLimit(next);
+                const { items, hasMore } = await fetchToolHistory(next);
+                setToolHistory(items);
+                setToolHistoryHasMore(hasMore);
+              } finally {
+                setToolHistoryLoadingMore(false);
+              }
+            }}
+            style={{ marginTop: 8, alignSelf: 'center' }}
+          >
+            <Text style={{ color: colors.primary }}>{toolHistoryLoadingMore ? 'Ładowanie…' : 'Zobacz więcej'}</Text>
+          </Pressable>
+        )}
       </View>
 
       {/* Historia wydań/zwrotów BHP */}
@@ -440,17 +431,40 @@ export default function DashboardScreen() {
             <Text style={{ color: colors.muted }}>Brak wydań/zwrotów</Text>
           </View>
         )}
+        {bhpHistoryHasMore && (
+          <Pressable
+            disabled={bhpHistoryLoadingMore}
+            onPress={async () => {
+              try {
+                setBhpHistoryLoadingMore(true);
+                const next = bhpHistoryLimit + 6;
+                setBhpHistoryLimit(next);
+                const { items, hasMore } = await fetchBhpHistory(next);
+                setBhpHistory(items);
+                setBhpHistoryHasMore(hasMore);
+              } finally {
+                setBhpHistoryLoadingMore(false);
+              }
+            }}
+            style={{ marginTop: 8, alignSelf: 'center' }}
+          >
+            <Text style={{ color: colors.primary }}>{bhpHistoryLoadingMore ? 'Ładowanie…' : 'Zobacz więcej'}</Text>
+          </Pressable>
+        )}
       </View>
+      <AddEmployeeModal visible={addEmpVisible} onClose={() => setAddEmpVisible(false)} onCreated={() => { try { setStats(s => ({ ...s, employees: (s.employees || 0) + 1 })); } catch {} }} />
+      <AddToolModal visible={addToolVisible} onClose={() => setAddToolVisible(false)} onCreated={() => { try { setStats(s => ({ ...s, tools: (s.tools || 0) + 1 })); } catch {} }} />
+      <AddBHPModal visible={addBHPVisible} onClose={() => setAddBHPVisible(false)} onCreated={async () => { try { await api.init(); const list = await api.get('/api/bhp'); const count = Array.isArray(list) ? list.length : (Array.isArray(list?.data) ? list.data.length : 0); setStats(s => ({ ...s, bhp: count })); } catch {} }} />
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
+ 
+ const styles = StyleSheet.create({
   wrapper: { flex: 1, backgroundColor: '#0b1220', padding: 16 },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0b1220' },
   loadingText: { marginTop: 8, color: '#cbd5e1' },
   error: { color: '#ef4444' },
-  kpiRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 16 },
+  kpiRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
   kpiCard: { flexGrow: 1, flexBasis: 'auto', padding: 10, borderRadius: 16, backgroundColor: '#111827', borderWidth: 1, borderColor: '#1f2937' },
   kpiHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   kpiValue: { color: '#34d399', fontSize: 30, fontWeight: '700'},
@@ -459,7 +473,7 @@ const styles = StyleSheet.create({
   flashIcon: { backgroundColor: '#0f172a', borderRadius: 12 },
   sectionTitle: { fontSize: 16, fontWeight: '600', color: '#e5e7eb' },
   quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  quickCard: { flexGrow: 1, flexBasis: '47%', backgroundColor: '#111827', borderColor: '#1f2937', borderWidth: 1, borderRadius: 16, padding: 16 },
+  quickCard: { flexGrow: 1, flexBasis: 'auto', backgroundColor: '#111827', borderColor: '#1f2937', borderWidth: 1, borderRadius: 16, padding: 16 },
   quickIcon: { backgroundColor: '#0f172a', borderRadius: 12 },
   quickTitle: { fontSize: 16, fontWeight: '600', color: '#e5e7eb'},
   quickDesc: { color: '#9ca3af' },
@@ -468,18 +482,6 @@ const styles = StyleSheet.create({
   pill: { backgroundColor: '#0f172a', borderRadius: 999, paddingHorizontal: 8 },
   pillText: { color: '#e5e7eb', fontWeight: '600' }
 });
-
-function computeBhpCount(list) {
-  try {
-    const arr = Array.isArray(list) ? list : [];
-    return arr.filter(t => {
-      const name = (t?.category || t?.category_name || '').toString().toLowerCase();
-      return name.includes('bhp');
-    }).length;
-  } catch {
-    return 0;
-  }
-}
 
 function computeOverdueCount(list) {
   try {
@@ -534,4 +536,74 @@ function formatAgo(ts) {
   const d = Math.floor(hr / 24);
   if (d === 1) return 'Wczoraj';
   return `${d} dni temu`;
+}
+
+// Helpers: fetch tool and BHP history with fallbacks aligned to web source
+async function fetchToolHistory(limit) {
+  const endpointOrder = [
+    `/api/tool-issues?limit=${limit}`,
+    `/api/tool-issues`,
+    `/api/tool_issues?limit=${limit}`,
+    `/api/tool_issues`
+  ];
+  for (const path of endpointOrder) {
+    try {
+      const resp = await api.get(path);
+      const arr = toArray(resp);
+      if (arr && arr.length) {
+        const mapped = arr.map((ev) => {
+          const toolId = ev?.tool_id ?? ev?.toolId ?? ev?.tool?.id ?? ev?.item_id ?? ev?.itemId;
+          const tool = toolMap.get(toolId);
+          const toolName = tool?.name || tool?.tool_name || ev?.tool_name || ev?.name || 'Narzędzie';
+          const employeeIdVal = ev?.employee_id ?? ev?.employeeId ?? ev?.employee?.id;
+          const employeeName = empMap.get(employeeIdVal) || `${ev?.employee_first_name || ''} ${ev?.employee_last_name || ''}`.trim() || ev?.employee_name || '—';
+          const issued = ev?.issued_at ?? ev?.issuedAt ?? ev?.issued_on ?? ev?.issue_date ?? ev?.date ?? ev?.timestamp ?? ev?.created_at;
+          const returned = ev?.returned_at ?? ev?.returnedAt ?? ev?.returned_on ?? ev?.return_date ?? ev?.completed_at;
+          const ts = parseDate(returned) || parseDate(issued);
+          const type = returned ? 'return' : 'issue';
+          const filterValue = tool?.inventory_number || tool?.serial_number || tool?.qr_code || tool?.barcode || tool?.code || tool?.sku || ev?.tool_code || toolName;
+          return { id: ev?.id ?? ev?.issue_id ?? ev?.log_id ?? `${toolId || 'tool'}-${issued || returned || ''}`, type, toolName, employeeName, quantity: ev?.quantity || 1, timestamp: ts, filterValue, source: 'tools' };
+        }).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        const slice = mapped.slice(0, limit);
+        const hasMore = (arr.length >= limit) || (mapped.length > slice.length) || Boolean(resp?.has_more ?? resp?.hasMore ?? resp?.data?.has_more);
+        return { items: slice, hasMore };
+      }
+    } catch {}
+  }
+  return { items: [], hasMore: false };
+}
+
+async function fetchBhpHistory(limit) {
+  const endpointOrder = [
+    `/api/bhp-issues?limit=${limit}`,
+    `/api/bhp-issues`,
+    `/api/bhp_issues?limit=${limit}`,
+    `/api/bhp_issues`
+  ];
+  for (const path of endpointOrder) {
+    try {
+      const resp = await api.get(path);
+      const arr = toArray(resp);
+      if (arr && arr.length) {
+        const mapped = arr.map((ev) => {
+          const bhpId = ev?.bhp_id ?? ev?.bhpId ?? ev?.item_id ?? ev?.itemId ?? ev?.bhp?.id;
+          const bhpItem = bhpMap.get(bhpId);
+          const baseName = bhpItem?.manufacturer && bhpItem?.model ? `${bhpItem.manufacturer} ${bhpItem.model}` : (bhpItem?.name || ev?.bhp_name || 'Sprzęt BHP');
+          const displayName = baseName || bhpItem?.inventory_number || ev?.bhp_code || 'Sprzęt BHP';
+          const employeeIdVal = ev?.employee_id ?? ev?.employeeId ?? ev?.employee?.id;
+          const employeeName = empMap.get(employeeIdVal) || `${ev?.employee_first_name || ''} ${ev?.employee_last_name || ''}`.trim() || ev?.employee_name || '—';
+          const issued = ev?.issued_at ?? ev?.issuedAt ?? ev?.issued_on ?? ev?.issue_date ?? ev?.date ?? ev?.timestamp ?? ev?.created_at;
+          const returned = ev?.returned_at ?? ev?.returnedAt ?? ev?.returned_on ?? ev?.return_date ?? ev?.completed_at;
+          const ts = parseDate(returned) || parseDate(issued);
+          const type = returned ? 'return' : 'issue';
+          const filterValue = bhpItem?.inventory_number || bhpItem?.serial_number || ev?.bhp_code || String(bhpId || '');
+          return { id: `bhp-${ev?.id ?? ev?.issue_id ?? ev?.log_id ?? `${bhpId || 'bhp'}-${issued || returned || ''}`}`, type, toolName: displayName, employeeName, quantity: ev?.quantity || 1, timestamp: ts, filterValue, source: 'bhp' };
+        }).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        const slice = mapped.slice(0, limit);
+        const hasMore = (arr.length >= limit) || (mapped.length > slice.length) || Boolean(resp?.has_more ?? resp?.hasMore ?? resp?.data?.has_more);
+        return { items: slice, hasMore };
+      }
+    } catch {}
+  }
+  return { items: [], hasMore: false };
 }

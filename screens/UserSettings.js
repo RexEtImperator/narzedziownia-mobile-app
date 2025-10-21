@@ -7,6 +7,7 @@ import { useTheme } from '../lib/theme';
 import { initNotifications, sendImmediate, saveSettings, getSettings, rescheduleFromSettings, disableAllNotifications, clearAcknowledgements } from '../lib/notifications';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
+import { showSnackbar } from '../lib/snackbar';
 
 export default function UserSettingsScreen() {
   const { colors } = useTheme();
@@ -79,15 +80,15 @@ export default function UserSettingsScreen() {
       await api.init();
       const res = await api.get('/api/employees');
       if (Array.isArray(res)) {
-        alert('Połączono z API (autoryzacja OK).');
+        showSnackbar({ type: 'success', text: 'Połączono z API (autoryzacja OK).' });
       } else {
-        alert('Połączono z API.');
+        showSnackbar({ type: 'success', text: 'Połączono z API.' });
       }
     } catch (e) {
       if (e.status === 401 || e.status === 403) {
-        alert('Połączono z API, ale brak autoryzacji — zaloguj się.');
+        showSnackbar({ type: 'warn', text: 'Połączono z API, ale brak autoryzacji — zaloguj się.' });
       } else {
-        alert(`Brak połączenia z API: ${e.message || 'nieznany błąd'}`);
+        showSnackbar({ type: 'error', text: `Brak połączenia z API: ${e.message || 'nieznany błąd'}` });
       }
     }
   };
@@ -121,15 +122,15 @@ export default function UserSettingsScreen() {
     await disableAllNotifications();
     setReviewsEnabled(false);
     setExpiredEnabled(false);
-    alert('Wyłączono wszystkie zaplanowane powiadomienia i zapisano ustawienia.');
+    showSnackbar({ type: 'success', text: 'Wyłączono wszystkie zaplanowane powiadomienia i zapisano ustawienia.' });
   };
 
   const clearAcks = async () => {
     try {
       await clearAcknowledgements({ reschedule: true });
-      alert('Wyczyszczono potwierdzenia powiadomień. Harmonogram został odświeżony.');
+      showSnackbar({ type: 'success', text: 'Wyczyszczono potwierdzenia powiadomień. Harmonogram został odświeżony.' });
     } catch (e) {
-      alert('Nie udało się wyczyścić potwierdzeń.');
+      showSnackbar({ type: 'error', text: e?.message || 'Nie udało się wyczyścić potwierdzeń.' });
     }
   };
 

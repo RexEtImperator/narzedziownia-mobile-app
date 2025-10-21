@@ -4,6 +4,8 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../lib/api';
 import * as Haptics from 'expo-haptics'
+import { showSnackbar } from '../lib/snackbar';
+import Constants from 'expo-constants';
 
 export default function ScanScreen() {
   const route = useRoute();
@@ -64,6 +66,7 @@ export default function ScanScreen() {
     setReturnListError('');
     try {
       await api.init();
+      const historyDisabled = String(process.env.EXPO_PUBLIC_DISABLE_HISTORY_FETCH || '').toLowerCase() === 'true';
       // Równolegle pobierz pracowników i narzędzia (do mapowania nazw)
       let employeesResp = null, toolsResp = null;
       try { employeesResp = await api.get('/api/employees'); } catch {}
@@ -81,10 +84,9 @@ export default function ScanScreen() {
       }
 
       let rawIssues = [];
-      try { const ti = await api.get('/api/tool_issues'); rawIssues = toArray(ti); } catch {}
-      try { if (!rawIssues.length) { const alt1 = await api.get('/api/tools/issues'); rawIssues = toArray(alt1); } } catch {}
-      try { if (!rawIssues.length) { const alt2 = await api.get('/api/issues/tools'); rawIssues = toArray(alt2); } } catch {}
-      try { if (!rawIssues.length) { const alt3 = await api.get('/api/issues?type=tool'); rawIssues = toArray(alt3); } } catch {}
+      if (!historyDisabled) {
+        try { const ti = await api.get('/api/tool_issues'); rawIssues = toArray(ti); } catch {}
+      }
 
       let mapped = rawIssues.map(ev => {
         const returned = ev?.returned_at ?? ev?.returnedAt ?? ev?.returned_on ?? ev?.return_date ?? ev?.completed_at;
@@ -201,9 +203,9 @@ export default function ScanScreen() {
 
   const showDupNotice = () => {
     const msg = 'Kod już dodany';
-    if (Platform.OS === 'android') {
-      try { ToastAndroid.show(msg, ToastAndroid.SHORT); } catch {}
-    }
+    try {
+      showSnackbar({ type: 'warn', text: msg, duration: 1500 });
+    } catch {}
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (e) {
@@ -342,6 +344,7 @@ export default function ScanScreen() {
     } catch (e) {
       setError(e?.message || 'Nie udało się wykonać zbiorczej operacji');
     } finally {
+      try { await loadReturnList(); } catch {}
       setTimeout(() => { resetScanner(); }, 1200);
     }
   };
@@ -394,6 +397,7 @@ export default function ScanScreen() {
       const det = await api.get(`/api/tools/${tool.id}/details`);
       setToolDetails(det || null);
       setMessage('Wydano narzędzie');
+      try { await loadReturnList(); } catch {}
       setTimeout(resetScanner, 1200);
     } catch (e) {
       setError(e?.message || 'Nie udało się wydać narzędzia');

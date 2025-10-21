@@ -16,6 +16,7 @@ import BackupSettings from './screens/BackupSettings';
 import LoginScreen from './screens/Login';
 import DashboardScreen from './screens/Dashboard';
 import ToolsScreen from './screens/Tools';
+import BhpScreen from './screens/bhpscreen';
 import EmployeesScreen from './screens/Employees';
 import DepartmentsScreen from './screens/Departments';
 import PositionsScreen from './screens/Positions';
@@ -25,6 +26,7 @@ import { ThemeProvider, useTheme } from './lib/theme';
 import { initializeAndRestore } from './lib/notifications';
 import Constants from 'expo-constants';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { subscribe as subscribeSnackbar } from './lib/snackbar';
 
 const Tab = createBottomTabNavigator();
 const SettingsStackNav = createNativeStackNavigator();
@@ -73,8 +75,8 @@ function CustomTabBar({ state, descriptors, navigation, onPressScan }) {
           let iconName = 'ellipse-outline';
           switch (route.name) {
             case 'Dashboard': iconName = isFocused ? 'home' : 'home-outline'; break;
-            case 'Zwróć': iconName = isFocused ? 'swap-horizontal' : 'swap-horizontal'; break;
             case 'Narzędzia': iconName = isFocused ? 'construct' : 'construct-outline'; break;
+            case 'BHP': iconName = isFocused ? 'medkit' : 'medkit-outline'; break;
             default: iconName = isFocused ? 'ellipse' : 'ellipse-outline';
           }
           return (
@@ -122,7 +124,7 @@ function MainTabs({ openActionSheet }) {
       tabBar={(props) => <CustomTabBar {...props} onPressScan={openActionSheet} />}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
-      <Tab.Screen name="Zwróć" component={ScanScreen} options={{ headerShown: false }} />
+      <Tab.Screen name="BHP" component={BhpScreen} />
       <Tab.Screen name="Narzędzia" component={ToolsScreen} />
       <Tab.Screen name="Pracownicy" component={EmployeesScreen} />
       <Tab.Screen name="Ustawienia" component={SettingsStack} options={{ headerShown: false }} />
@@ -255,6 +257,7 @@ function AppContent() {
           </Animated.View>
         </Pressable>
       </Modal>
+      <SnackbarHost />
     </NavigationContainer>
   );
 }
@@ -277,3 +280,46 @@ const styles = StyleSheet.create({
 
 // Ref do nawigacji, aby wywołać przejścia z panelu
 export const navigationRef = createNavigationContainerRef();
+
+function SnackbarHost() {
+  const { colors } = useTheme();
+  const [visible, setVisible] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [type, setType] = useState('success');
+  const [duration, setDuration] = useState(2500);
+  const animRef = useState(() => new Animated.Value(0))[0];
+
+  useEffect(() => {
+    const unsub = subscribeSnackbar(({ message, type: t, duration: d }) => {
+      setMsg(message);
+      setType(t || 'success');
+      setDuration(Math.max(1000, d || 2500));
+      setVisible(true);
+      Animated.timing(animRef, { toValue: 1, duration: 180, useNativeDriver: true, easing: Easing.out(Easing.ease) }).start();
+      setTimeout(() => {
+        Animated.timing(animRef, { toValue: 0, duration: 160, useNativeDriver: true, easing: Easing.in(Easing.ease) }).start(({ finished }) => {
+          if (finished) setVisible(false);
+        });
+      }, Math.max(1000, d || 2500));
+    });
+    return () => { try { unsub(); } catch {} };
+  }, [animRef]);
+
+  if (!visible) return null;
+  const bg = type === 'error' ? '#ef4444' : type === 'warn' ? '#f59e0b' : colors.primary;
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 24, alignItems: 'center' }}>
+      <Animated.View style={{
+        transform: [{ translateY: animRef.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
+        opacity: animRef,
+        backgroundColor: bg,
+        borderRadius: 8,
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        maxWidth: '90%'
+      }}>
+        <Text style={{ color: '#fff' }}>{msg}</Text>
+      </Animated.View>
+    </View>
+  );
+}

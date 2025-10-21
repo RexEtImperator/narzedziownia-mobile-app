@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput, Alert, Switch } from 'react-native';
 import api from '../lib/api';
 import { useTheme } from '../lib/theme';
+import { showSnackbar } from '../lib/snackbar';
 
 const BACKUP_FREQ_OPTIONS = [
   { label: 'Codziennie', value: 'daily' },
@@ -60,7 +61,7 @@ export default function BackupSettings() {
       // Walidacja czasu HH:MM
       const timeOk = /^([01]?\d|2[0-3]):[0-5]\d$/.test(String(backupTime));
       if (!timeOk) {
-        Alert.alert('Nieprawidłowy czas', 'Podaj godzinę w formacie HH:MM, np. 02:00');
+        showSnackbar({ type: 'warn', text: 'Podaj godzinę w formacie HH:MM, np. 02:00' });
         return;
       }
       setSaving(true);
@@ -72,9 +73,9 @@ export default function BackupSettings() {
         backupDayOfMonth,
         backupRetentionDays,
       });
-      Alert.alert('Zapisano', 'Ustawienia kopii zapasowych zapisane.');
+      showSnackbar({ type: 'success', text: 'Ustawienia kopii zapasowych zapisane.' });
     } catch (e) {
-      Alert.alert('Błąd', e?.message || 'Nie udało się zapisać ustawień kopii zapasowych');
+      showSnackbar({ type: 'error', text: e?.message || 'Nie udało się zapisać ustawień kopii zapasowych' });
     } finally {
       setSaving(false);
     }
@@ -84,9 +85,9 @@ export default function BackupSettings() {
     try {
       setRunningNow(true);
       await api.post('/api/backup/run', {});
-      Alert.alert('Backup uruchomiony', 'Kopia zapasowa została uruchomiona.');
+      showSnackbar({ type: 'success', text: 'Kopia zapasowa została uruchomiona.' });
     } catch (e) {
-      Alert.alert('Błąd', e?.message || 'Nie udało się uruchomić kopii zapasowej');
+      showSnackbar({ type: 'error', text: e?.message || 'Nie udało się uruchomić kopii zapasowej' });
     } finally {
       setRunningNow(false);
     }

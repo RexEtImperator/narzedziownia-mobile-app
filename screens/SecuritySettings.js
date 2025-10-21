@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Switch, TextInput, Pressable, Alert, ScrollView } from 'react-native';
 import api from '../lib/api';
 import { useTheme } from '../lib/theme';
+import { showSnackbar } from '../lib/snackbar';
 
 export default function SecuritySettings() {
   const { colors } = useTheme();
@@ -68,12 +69,12 @@ export default function SecuritySettings() {
     try {
       setSaving(true);
       await api.put('/api/config/security', payload);
-      Alert.alert('Zapisano', 'Ustawienia bezpieczeństwa zostały zapisane');
+      showSnackbar({ type: 'success', text: 'Ustawienia bezpieczeństwa zostały zapisane' });
     } catch (e) {
       if (e && e.status === 404) {
-        Alert.alert('Endpoint nieobsługiwany', "Backend nie obsługuje '/api/config/security' (404). Zapis niedostępny.");
+        showSnackbar({ type: 'error', text: "Backend nie obsługuje '/api/config/security' (404). Zapis niedostępny." });
       } else {
-        Alert.alert('Błąd', e.message || 'Nie udało się zapisać ustawień');
+        showSnackbar({ type: 'error', text: e.message || 'Nie udało się zapisać ustawień' });
       }
     } finally {
       setSaving(false);

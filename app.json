@@ -2,9 +2,10 @@
   "expo": {
     "name": "Narzędziownia",
     "slug": "narzedziownia",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "extra": {
       "apiBaseUrl": "http://192.168.10.99:3000",
+      "EXPO_PUBLIC_DISABLE_HISTORY_FETCH": "false",
       "eas": {
         "projectId": "2b0d8aaa-dada-4b64-a737-03f7c55b9012"
       }

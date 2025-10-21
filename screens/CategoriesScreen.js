@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable, Alert, ScrollView } from 'react-native';
 import api from '../lib/api';
 import { useTheme } from '../lib/theme';
+import { showSnackbar } from '../lib/snackbar';
 
 export default function CategoriesScreen() {
   const { colors } = useTheme();
@@ -39,7 +40,7 @@ export default function CategoriesScreen() {
 
   const addCategory = async () => {
     if (!newName.trim()) {
-      Alert.alert('Brak nazwy', 'Podaj nazwę kategorii');
+      showSnackbar({ type: 'warn', text: 'Podaj nazwę kategorii' });
       return;
     }
     try {
@@ -48,7 +49,7 @@ export default function CategoriesScreen() {
       setNewName('');
       await load();
     } catch (e) {
-      Alert.alert('Błąd', e.message || 'Nie udało się dodać kategorii');
+      showSnackbar({ type: 'error', text: e.message || 'Nie udało się dodać kategorii' });
     } finally {
       setSavingNew(false);
     }
@@ -67,7 +68,7 @@ export default function CategoriesScreen() {
   const saveEdit = async () => {
     if (!editingId) return;
     if (!editName.trim()) {
-      Alert.alert('Brak nazwy', 'Podaj nazwę kategorii');
+      showSnackbar({ type: 'warn', text: 'Podaj nazwę kategorii' });
       return;
     }
     try {
@@ -76,7 +77,7 @@ export default function CategoriesScreen() {
       cancelEdit();
       await load();
     } catch (e) {
-      Alert.alert('Błąd', e.message || 'Nie udało się zapisać zmian');
+      showSnackbar({ type: 'error', text: e.message || 'Nie udało się zapisać zmian' });
     } finally {
       setSavingEdit(false);
     }
@@ -90,7 +91,7 @@ export default function CategoriesScreen() {
           await api.delete(`/api/categories/${encodeURIComponent(c?.id)}`);
           await load();
         } catch (e) {
-          Alert.alert('Błąd', e.message || 'Nie udało się usunąć kategorii');
+          showSnackbar({ type: 'error', text: e.message || 'Nie udało się usunąć kategorii' });
         }
       }}
     ]);

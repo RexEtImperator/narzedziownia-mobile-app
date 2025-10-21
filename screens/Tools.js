@@ -4,6 +4,8 @@ import { useRoute } from '@react-navigation/native';
 import { useTheme } from '../lib/theme';
 import api from '../lib/api.js';
 import { Ionicons } from '@expo/vector-icons';
+import AddToolModal from './AddToolModal';
+import { showSnackbar } from '../lib/snackbar';
 
 export default function ToolsScreen() {
   const { colors } = useTheme();
@@ -27,6 +29,7 @@ export default function ToolsScreen() {
   const [detailData, setDetailData] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
+  const [addToolVisible, setAddToolVisible] = useState(false);
 
   // Pomocnicze: wykryj i ukryj wartości typu data:image (zakodowane obrazy QR/kreskowe)
   const isDataUri = (val) => {
@@ -190,7 +193,7 @@ export default function ToolsScreen() {
 
   const deleteTool = async (tool) => {
     const id = tool?.id || tool?.tool_id;
-    if (!id) { Alert.alert('Usuwanie', 'Brak identyfikatora narzędzia'); return; }
+    if (!id) { showSnackbar({ type: 'error', text: 'Brak identyfikatora narzędzia' }); return; }
     Alert.alert('Usunąć narzędzie?', 'Operacja jest nieodwracalna.', [
       { text: 'Anuluj', style: 'cancel' },
       { text: 'Usuń', style: 'destructive', onPress: async () => {
@@ -201,6 +204,7 @@ export default function ToolsScreen() {
           setTools(prev => prev.filter(t => String(t?.id || t?.tool_id) !== String(id)));
         } catch (e) {
           setError(e?.message || 'Błąd usuwania');
+          showSnackbar({ type: 'error', text: e?.message || 'Błąd usuwania narzędzia' });
         } finally {
           setLoading(false);
         }
@@ -210,7 +214,16 @@ export default function ToolsScreen() {
 
   return (
     <View style={[styles.wrapper, { backgroundColor: colors.bg }]} className="flex-1 p-4">
-      <Text style={[styles.title, { color: colors.text }]} className="text-2xl font-bold mb-3">Narzędzia</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <Text style={[styles.title, { color: colors.text }]} className="text-2xl font-bold">Narzędzia</Text>
+        <Pressable
+          onPress={() => setAddToolVisible(true)}
+          accessibilityLabel="Dodaj narzędzie"
+          style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 }]}
+        >
+          <Ionicons name="add" size={22} color={colors.primary || colors.text} />
+        </Pressable>
+      </View>
       {/* Sekcja wyszukiwarki i filtrów */}
       <View style={styles.filterRow} className="flex-row items-center gap-2 mb-2">
         <TextInput
@@ -275,6 +288,7 @@ export default function ToolsScreen() {
           data={filteredTools}
           keyExtractor={(item) => String(item.id || item.tool_id || Math.random())}
           contentContainerStyle={{ paddingVertical: 8, paddingBottom: 24 }}
+          showsVerticalScrollIndicator={false}
           renderItem={({ item }) => {
             const computedStatus = (item?.quantity === 1 && (item?.service_quantity || 0) > 0) ? 'serwis' : (item?.status || '—');
             const id = item?.id || item?.tool_id;
@@ -329,7 +343,7 @@ export default function ToolsScreen() {
         <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay || 'rgba(0,0,0,0.5)' }]}>
           <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>Edytuj narzędzie</Text>
-            <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ gap: 8 }}>
+            <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ gap: 8 }} showsVerticalScrollIndicator={false}>
               <Text style={{ color: colors.muted }}>Nazwa</Text>
               <TextInput style={[styles.input, { borderColor: focusedField === 'name' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nazwa" value={editFields.name} onChangeText={(v) => setEditFields(s => ({ ...s, name: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('name')} onBlur={() => setFocusedField(null)} />
 
@@ -370,7 +384,7 @@ export default function ToolsScreen() {
             <Text style={[styles.modalTitle, { color: colors.text }]}>Szczegóły narzędzia</Text>
             {detailLoading ? <Text style={{ color: colors.muted }}>Ładowanie…</Text> : null}
             {detailError ? <Text style={{ color: colors.danger }}>{detailError}</Text> : null}
-            <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ gap: 6, paddingVertical: 8 }}>
+            <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ gap: 6, paddingVertical: 8 }} showsVerticalScrollIndicator={false}>
               <Text style={{ color: colors.text, fontWeight: '600', marginBottom: 6 }}>{detailTool?.name || detailTool?.tool_name || '—'}</Text>
               <Text style={{ color: colors.muted, marginTop: 4 }}>Nr ew.: {detailTool?.inventory_number || (isDataUri(detailTool?.code) ? '' : detailTool?.code) || (isDataUri(detailTool?.barcode) ? '' : detailTool?.barcode) || (isDataUri(detailTool?.qr_code) ? '' : detailTool?.qr_code) || '—'}</Text>
               <Text style={{ color: colors.muted, marginTop: 4 }}>SKU: {isDataUri(detailTool?.sku) ? '—' : (detailTool?.sku || '—')}</Text>
@@ -402,6 +416,17 @@ export default function ToolsScreen() {
           </View>
         </View>
       </Modal>
+
+      <AddToolModal
+        visible={addToolVisible}
+        onClose={() => setAddToolVisible(false)}
+        onCreated={(created) => {
+          try {
+            setTools(prev => created ? [created, ...prev] : prev);
+          } catch {}
+          setAddToolVisible(false);
+        }}
+      />
     </View>
   );
 }

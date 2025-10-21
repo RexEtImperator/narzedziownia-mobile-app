@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ScrollView, TextInput, TouchableOpacity, Pressable, Modal, Alert } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, FlatList, ScrollView, TouchableOpacity, Pressable, Alert, Modal } from 'react-native';
 import { useTheme } from '../lib/theme';
 import api from '../lib/api';
 import { Ionicons } from '@expo/vector-icons';
+import AddEmployeeModal from './AddEmployeeModal';
+import { showSnackbar } from '../lib/snackbar';
 
 export default function EmployeesScreen() {
   const { colors } = useTheme();
@@ -24,6 +26,17 @@ export default function EmployeesScreen() {
   const [showPosSelect, setShowPosSelect] = useState(false);
   const [searchRaw, setSearchRaw] = useState('');
   const [focusedSearchInput, setFocusedSearchInput] = useState(false);
+  const [addEmpVisible, setAddEmpVisible] = useState(false);
+
+  // Szybkie odświeżenie listy po dodaniu
+  const refreshEmployees = async () => {
+    try {
+      await api.init();
+      const emps = await api.get('/api/employees');
+      const empsList = Array.isArray(emps) ? emps : (Array.isArray(emps?.data) ? emps.data : []);
+      setEmployees(empsList);
+    } catch {}
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -143,7 +156,7 @@ export default function EmployeesScreen() {
 
   const deleteEmployee = (employee) => {
     const id = employee?.id;
-    if (!id) return;
+    if (!id) { showSnackbar({ type: 'warn', text: 'Brak identyfikatora pracownika' }); return; }
     Alert.alert('Usuń pracownika', `Czy na pewno usunąć ${employee?.first_name || ''} ${employee?.last_name || ''}?`, [
       { text: 'Anuluj', style: 'cancel' },
       { text: 'Usuń', style: 'destructive', onPress: async () => {
@@ -151,8 +164,10 @@ export default function EmployeesScreen() {
           await api.init();
           await api.delete(`/api/employees/${id}`);
           setEmployees(prev => prev.filter(e => e.id !== id));
+          showSnackbar({ type: 'success', text: 'Usunięto pracownika' });
         } catch (e) {
           setError(e?.message || 'Błąd usuwania pracownika');
+          showSnackbar({ type: 'error', text: e?.message || 'Błąd usuwania pracownika' });
         }
       }},
     ]);
@@ -160,7 +175,12 @@ export default function EmployeesScreen() {
 
   return (
     <View style={[styles.wrapper, { backgroundColor: colors.bg }]} className="flex-1 p-4">
-      <Text style={[styles.title, { color: colors.text }]} className="text-2xl font-bold mb-3">Pracownicy</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <Text style={[styles.title, { color: colors.text }]} className="text-2xl font-bold">Pracownicy</Text>
+        <Pressable accessibilityLabel="Dodaj nowego pracownika" onPress={() => setAddEmpVisible(true)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }, pressed && { opacity: 0.8 }]}>
+          <Ionicons name="add" size={22} color={colors.primary || colors.text} />
+        </Pressable>
+      </View>
       {/* Sekcja wyszukiwarki i filtrów */}
       <View style={styles.filterRow} className="flex-row items-center gap-2 mb-2">
         <TextInput
@@ -292,6 +312,7 @@ export default function EmployeesScreen() {
           </View>
         </View>
       </Modal>
+      <AddEmployeeModal visible={addEmpVisible} onClose={() => setAddEmpVisible(false)} onCreated={() => { setAddEmpVisible(false); refreshEmployees(); }} />
     </View>
   );
 }

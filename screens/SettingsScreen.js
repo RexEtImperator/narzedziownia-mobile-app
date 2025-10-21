@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TextInput, Pressable, ActivityIndicator, Alert,
 import { useNavigation } from '@react-navigation/native';
 import api from '../lib/api';
 import { useTheme } from '../lib/theme';
+import { showSnackbar } from '../lib/snackbar';
 
 const TZ_OPTIONS = [
   { label: 'Europa/Warszawa', value: 'Europe/Warsaw' },
@@ -71,15 +72,13 @@ export default function SettingsScreen() {
     try {
       setSavingGeneral(true);
       await api.put('/api/config/general', general);
-      Alert.alert('Zapisano', 'Ustawienia ogólne zapisane.');
+      showSnackbar({ type: 'success', text: 'Ustawienia ogólne zapisane.' });
     } catch (e) {
-      Alert.alert('Błąd', e?.message || 'Nie udało się zapisać ustawień ogólnych');
+      showSnackbar({ type: 'error', text: e?.message || 'Nie udało się zapisać ustawień ogólnych' });
     } finally {
       setSavingGeneral(false);
     }
   };
-
-  // Brak sekcji powiadomień; Funkcje przeniesione do osobnego ekranu
 
   if (loading) {
     return (
@@ -249,107 +248,24 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: {
-    backgroundColor: '#f8fafc',
-  },
-  pageWrapper: {
-    padding: 16,
-  },
-  pageTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#0f172a',
-    marginBottom: 12,
-  },
-  card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    padding: 16,
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    color: '#334155',
-    marginBottom: 6,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  rowText: {
-    fontSize: 16,
-    color: '#0f172a',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    color: '#0f172a',
-  },
-  optionChip: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 999,
-    backgroundColor: '#ffffff',
-  },
-  optionChipSelected: {
-    backgroundColor: '#eef2ff',
-    borderColor: '#6366f1',
-  },
-  optionChipText: {
-    color: '#0f172a',
-  },
-  optionChipTextSelected: {
-    color: '#3730a3',
-    fontWeight: '600',
-  },
-  button: {
-    marginTop: 8,
-    backgroundColor: '#4f46e5',
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  buttonPressed: {
-    backgroundColor: '#4338ca',
-  },
-  navItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  navItemText: {
-    fontSize: 16,
-    color: '#0f172a',
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f8fafc',
-  },
-  loadingText: {
-    marginTop: 8,
-    color: '#475569',
-  },
+scrollContainer:{backgroundColor:'#f8fafc',},pageWrapper:{padding:16,},
+pageTitle:{fontSize:24,fontWeight:'700',color:'#0f172a',marginBottom:16,},
+sectionTitle:{fontSize:18,fontWeight:'600',color:'#0f172a',marginBottom:12,},
+card:{backgroundColor:'#ffffff',borderRadius:12,borderWidth:1,borderColor:'#e5e7eb',padding:16,marginBottom:16,},
+label:{fontSize:14,color:'#334155',marginBottom:6,},
+row:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12,},
+rowText:{fontSize:16,color:'#0f172a',},
+input:{borderWidth:1,borderColor:'#cbd5e1',backgroundColor:'#ffffff',borderRadius:10,paddingHorizontal:12,paddingVertical:10,fontSize:16,color:'#0f172a',},
+optionChip:{paddingVertical:8,paddingHorizontal:12,borderWidth:1,borderColor:'#cbd5e1',borderRadius:999,backgroundColor:'#ffffff',},
+optionChipSelected:{backgroundColor:'#eef2ff',borderColor:'#6366f1',},
+optionChipText:{color:'#0f172a',},
+optionChipTextSelected:{color:'#3730a3',fontWeight:'600',},
+button:{marginTop:8,backgroundColor:'#4f46e5',paddingVertical:12,borderRadius:10,alignItems:'center',},
+buttonDisabled:{opacity:.7,},
+buttonPressed:{backgroundColor:'#4338ca',},
+navItem:{paddingVertical:12,borderBottomWidth:1,borderBottomColor:'#e5e7eb',},
+navItemText:{fontSize:16,color:'#0f172a',},
+loadingContainer:{flex:1,alignItems:'center',justifyContent:'center',backgroundColor:'#f8fafc',},
+loadingText:{marginTop:8,color:'#475569',}
 });
 // StyleSheet usunięty — ekrany korzystają z klas Nativewind/Tailwind

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TextInput, Pressable, Switch, Alert, ScrollView
 import { MaterialIcons } from '@expo/vector-icons';
 import api from '../lib/api';
 import { useTheme } from '../lib/theme';
+import { showSnackbar } from '../lib/snackbar';
 
 const ROLE_OPTIONS = [
   { label: 'Użytkownik', value: 'user' },
@@ -52,7 +53,7 @@ export default function UsersSettings() {
       await api.put(`/api/users/${encodeURIComponent(u?.id)}`, { ...patch });
       await load();
     } catch (e) {
-      Alert.alert('Błąd', e.message || 'Nie udało się zaktualizować użytkownika');
+      showSnackbar({ type: 'error', text: e.message || 'Nie udało się zaktualizować użytkownika' });
     }
   };
 
@@ -62,9 +63,9 @@ export default function UsersSettings() {
       { text: 'Resetuj', onPress: async () => {
         try {
           await api.post(`/api/users/${encodeURIComponent(u?.id)}/reset-password`, {});
-          Alert.alert('Reset wykonany', 'Użytkownik otrzyma nowe hasło zgodnie z polityką');
+          showSnackbar({ type: 'success', text: 'Użytkownik otrzyma nowe hasło zgodnie z polityką' });
         } catch (e) {
-          Alert.alert('Błąd', e.message || 'Nie udało się zresetować hasła');
+          showSnackbar({ type: 'error', text: e.message || 'Nie udało się zresetować hasła' });
         }
       }}
     ]);
@@ -78,7 +79,7 @@ export default function UsersSettings() {
           await api.delete(`/api/users/${encodeURIComponent(u?.id)}`);
           await load();
         } catch (e) {
-          Alert.alert('Błąd', e.message || 'Nie udało się usunąć użytkownika');
+          showSnackbar({ type: 'error', text: e.message || 'Nie udało się usunąć użytkownika' });
         }
       }}
     ]);

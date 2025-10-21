@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Switch, Pressable, Alert } from 'react-native';
 import api from '../lib/api';
 import { useTheme } from '../lib/theme';
+import { showSnackbar } from '../lib/snackbar';
 
 export default function FeaturesSettings() {
   const { colors } = useTheme();
@@ -40,9 +41,9 @@ export default function FeaturesSettings() {
     try {
       setSavingFeatures(true);
       await api.put('/api/config/features', features);
-      Alert.alert('Zapisano', 'Ustawienia funkcji zapisane.');
+      showSnackbar({ type: 'success', text: 'Ustawienia funkcji zapisane.' });
     } catch (e) {
-      Alert.alert('Błąd', e?.message || 'Nie udało się zapisać ustawień funkcji');
+      showSnackbar({ type: 'error', text: e?.message || 'Nie udało się zapisać ustawień funkcji' });
     } finally {
       setSavingFeatures(false);
     }
