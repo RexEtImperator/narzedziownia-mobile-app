@@ -3,6 +3,9 @@
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
+* { scroll-behavior: smooth; }
+html, body { overscroll-behavior: contain; }
+
 /* Login global styles (for Expo Web) */
 .login-container {
   flex: 1;

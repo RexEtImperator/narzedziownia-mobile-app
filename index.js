@@ -4,6 +4,19 @@ import { Platform } from 'react-native';
 // Load CSS only on web to avoid Metro bundling issues on native
 if (Platform.OS === 'web') {
   require('./global.css');
+  try {
+    const origAdd = EventTarget.prototype.addEventListener;
+    EventTarget.prototype.addEventListener = function(type, listener, options) {
+      if (type === 'wheel') {
+        if (options === undefined) {
+          options = { passive: true };
+        } else if (typeof options === 'object' && options !== null && !('passive' in options)) {
+          options = { ...options, passive: true };
+        }
+      }
+      return origAdd.call(this, type, listener, options);
+    };
+  } catch {}
 }
 
 import App from './App';

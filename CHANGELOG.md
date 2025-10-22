@@ -3,17 +3,6 @@
 Wszystkie istotne zmiany w tym projekcie są dokumentowane w tym pliku.
 Projekt stosuje konwencję „Keep a Changelog” i SemVer.
 
-## [Unreleased]
-
-### Added
-- 
-
-### Changed
-- 
-
-### Fixed
-- 
-
 ## [1.3.0] — 2025-10-21
 
 ### Added

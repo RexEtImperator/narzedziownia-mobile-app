@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, Modal, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Pressable, Modal, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { useTheme } from '../lib/theme';
 import api from '../lib/api';
 import { Ionicons } from '@expo/vector-icons';
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 6, paddingHorizontal: 8, height: 40 },
   selectWrap: { position: 'relative' },
   selectBtn: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 10, height: 40, justifyContent: 'center' },
-  dropdown: { borderWidth: 1, borderColor: '#eee', borderRadius: 8, marginTop: 6, marginBottom: 8, backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 8, zIndex: 50 },
+  dropdown: { borderWidth: 1, borderColor: '#eee', borderRadius: 8, marginTop: 6, marginBottom: 8, backgroundColor: '#fff', zIndex: 50, ...(Platform.select({ web: { boxShadow: '0px 4px 12px rgba(0,0,0,0.08)' }, ios: { shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } }, android: { elevation: 8 } })) },
   dropdownItem: { paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   outsideOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 40, backgroundColor: 'transparent' },
 });

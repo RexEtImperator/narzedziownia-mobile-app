@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, FlatList, ScrollView, TouchableOpacity, Pressable, Alert, Modal } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, FlatList, ScrollView, TouchableOpacity, Pressable, Alert, Modal, Platform } from 'react-native';
 import { useTheme } from '../lib/theme';
 import api from '../lib/api';
 import { Ionicons } from '@expo/vector-icons';
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
   separator: { height: 1, backgroundColor: '#eee' },
   error: { color: 'red', marginBottom: 8 },
   muted: { color: '#666' },
-  tile: { borderWidth: 1, borderColor: '#eee', borderRadius: 12, padding: 12, marginBottom: 12, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+  tile: { borderWidth: 1, borderColor: '#eee', borderRadius: 12, padding: 12, marginBottom: 12, ...(Platform.select({ web: { boxShadow: '0px 2px 6px rgba(0,0,0,0.06)' }, ios: { shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } }, android: { elevation: 2 } })) },
   toolName: { fontSize: 18, fontWeight: '600', marginBottom: 6 },
   toolMeta: { color: '#666', marginTop: 4 },
   modalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },

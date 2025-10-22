@@ -85,7 +85,19 @@ export default function ScanScreen() {
 
       let rawIssues = [];
       if (!historyDisabled) {
-        try { const ti = await api.get('/api/tool_issues'); rawIssues = toArray(ti); } catch {}
+        const endpointOrder = [
+          '/api/tool-issues',
+          '/api/tool_issues',
+          '/api/tool-issues?limit=100',
+          '/api/tool_issues?limit=100',
+        ];
+        for (const path of endpointOrder) {
+          try {
+            const resp = await api.get(path);
+            const arr = toArray(resp);
+            if (arr && arr.length) { rawIssues = arr; break; }
+          } catch {}
+        }
       }
 
       let mapped = rawIssues.map(ev => {

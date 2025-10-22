@@ -88,7 +88,7 @@ function CustomTabBar({ state, descriptors, navigation, onPressScan }) {
       </View>
 
       {/* Środkowy przycisk skanowania */}
-      <Pressable onPress={onPressScan} style={({ pressed }) => ({ width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, elevation: 6 })}>
+      <Pressable onPress={onPressScan} style={({ pressed }) => ({ width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1, alignItems: 'center', justifyContent: 'center', ...(Platform.select({ web: { boxShadow: '0px 6px 18px rgba(0,0,0,0.18)' }, ios: { shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8 }, android: { elevation: 6 } })) })}>
         <Ionicons name="scan" size={24} color="#fff" />
       </Pressable>
 
@@ -308,7 +308,7 @@ function SnackbarHost() {
   if (!visible) return null;
   const bg = type === 'error' ? '#ef4444' : type === 'warn' ? '#f59e0b' : colors.primary;
   return (
-    <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 24, alignItems: 'center' }}>
+    <View style={{ pointerEvents: 'none', position: 'absolute', left: 0, right: 0, bottom: 24, alignItems: 'center' }}>
       <Animated.View style={{
         transform: [{ translateY: animRef.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
         opacity: animRef,
