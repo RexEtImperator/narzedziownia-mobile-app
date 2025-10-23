@@ -6,6 +6,8 @@ import api from '../lib/api.js';
 import { Ionicons } from '@expo/vector-icons';
 import AddToolModal from './AddToolModal';
 import { showSnackbar } from '../lib/snackbar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { hasPermission } from '../lib/utils';
 
 export default function ToolsScreen() {
   const { colors } = useTheme();
@@ -31,6 +33,12 @@ export default function ToolsScreen() {
   const [detailError, setDetailError] = useState('');
   const [addToolVisible, setAddToolVisible] = useState(false);
 
+  // Permission-related state
+  const [currentUser, setCurrentUser] = useState(null);
+  const [canViewTools, setCanViewTools] = useState(false);
+  const [canManageTools, setCanManageTools] = useState(false);
+  const [permsReady, setPermsReady] = useState(false);
+
   // Pomocnicze: wykryj i ukryj wartości typu data:image (zakodowane obrazy QR/kreskowe)
   const isDataUri = (val) => {
     try {
@@ -44,6 +52,10 @@ export default function ToolsScreen() {
     setLoading(true);
     setError('');
     try {
+      if (!canViewTools) {
+        setTools([]);
+        return;
+      }
       await api.init();
       const data = await api.get('/api/tools');
       const list = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
@@ -64,9 +76,26 @@ export default function ToolsScreen() {
     }
   }, [route?.params?.filter]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem('@current_user');
+        const user = raw ? JSON.parse(raw) : null;
+        setCurrentUser(user);
+        setCanViewTools(hasPermission(user, 'view_tools'));
+        setCanManageTools(hasPermission(user, 'manage_tools'));
+      } catch {}
+      setPermsReady(true);
+    })();
+  }, []);
+
+  useEffect(() => { if (!permsReady) return; load(); }, [permsReady, canViewTools]);
 
   const searchByCode = async () => {
+    if (!canViewTools) {
+      showSnackbar({ type: 'warn', text: 'Brak uprawnień do przeglądania narzędzi' });
+      return;
+    }
     setError('');
     setFoundTool(null);
     try {
@@ -126,6 +155,10 @@ export default function ToolsScreen() {
   };
 
   const openEdit = (tool) => {
+    if (!canManageTools) {
+      showSnackbar({ type: 'warn', text: 'Brak uprawnień do edycji narzędzi' });
+      return;
+    }
     const t = tool || {};
     setEditingTool(t);
     setEditFields({
@@ -154,8 +187,13 @@ export default function ToolsScreen() {
       location: editingTool?.location || ''
     });
   }, [editingTool]);
+
   const saveEdit = async () => {
     if (!editingTool) return;
+    if (!canManageTools) {
+      showSnackbar({ type: 'warn', text: 'Brak uprawnień do zapisu narzędzi' });
+      return;
+    }
     setLoading(true); setError('');
     const id = editingTool?.id || editingTool?.tool_id;
     if (!id) { setError('Brak identyfikatora narzędzia'); setLoading(false); return; }
@@ -192,6 +230,10 @@ export default function ToolsScreen() {
   };
 
   const deleteTool = async (tool) => {
+    if (!canManageTools) {
+      showSnackbar({ type: 'warn', text: 'Brak uprawnień do usuwania narzędzi' });
+      return;
+    }
     const id = tool?.id || tool?.tool_id;
     if (!id) { showSnackbar({ type: 'error', text: 'Brak identyfikatora narzędzia' }); return; }
     Alert.alert('Usunąć narzędzie?', 'Operacja jest nieodwracalna.', [
@@ -212,17 +254,24 @@ export default function ToolsScreen() {
     ]);
   };
 
+  if (permsReady && !canViewTools) {
+    return (
+      <View style={[styles.wrapper, { backgroundColor: colors.bg }]} className="flex-1 p-4">
+        <Text style={[styles.title, { color: colors.text }]} className="text-2xl font-bold">Narzędzia</Text>
+        <Text style={[styles.subtitle || styles.muted, { color: colors.muted }]}>Brak uprawnień do przeglądania narzędzi.</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.wrapper, { backgroundColor: colors.bg }]} className="flex-1 p-4">
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <Text style={[styles.title, { color: colors.text }]} className="text-2xl font-bold">Narzędzia</Text>
-        <Pressable
-          onPress={() => setAddToolVisible(true)}
-          accessibilityLabel="Dodaj narzędzie"
-          style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 }]}
-        >
-          <Ionicons name="add" size={22} color={colors.primary || colors.text} />
-        </Pressable>
+        {canManageTools ? (
+          <Pressable onPress={() => setAddToolVisible(true)} accessibilityLabel="Dodaj narzędzie" style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 }]}>
+            <Ionicons name="add" size={22} color={colors.primary || colors.text} />
+          </Pressable>
+        ) : null}
       </View>
       {/* Sekcja wyszukiwarki i filtrów */}
       <View style={styles.filterRow} className="flex-row items-center gap-2 mb-2">

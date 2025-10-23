@@ -369,10 +369,6 @@ export default function DashboardScreen() {
             <Text style={[styles.quickTitle, { color: colors.text }]}>Dodaj sprzęt BHP</Text>
             <Text style={[styles.quickDesc, { color: colors.muted }]}>Do bazy danych</Text>
           </Pressable>
-          <Pressable style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => navigation.navigate('Scanner')}>
-            <Text style={[styles.quickTitle, { color: colors.text }]}>Skanuj</Text>
-            <Text style={[styles.quickDesc, { color: colors.muted }]}>Otwórz skaner QR/kodu</Text>
-          </Pressable>
         </View>
       </View>
 

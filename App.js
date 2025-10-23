@@ -27,6 +27,8 @@ import { initializeAndRestore } from './lib/notifications';
 import Constants from 'expo-constants';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { subscribe as subscribeSnackbar } from './lib/snackbar';
+import { isAdmin } from './lib/utils';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Tab = createBottomTabNavigator();
 const SettingsStackNav = createNativeStackNavigator();
@@ -77,7 +79,7 @@ function CustomTabBar({ state, descriptors, navigation, onPressScan }) {
             case 'Dashboard': iconName = isFocused ? 'home' : 'home-outline'; break;
             case 'Narzędzia': iconName = isFocused ? 'construct' : 'construct-outline'; break;
             case 'BHP': iconName = isFocused ? 'medkit' : 'medkit-outline'; break;
-            case 'Inwentaryzacja': iconName = isFocused ? 'construct' : 'construct-outline'; break;
+            case 'Inwentaryzacja': iconName = isFocused ? 'list-circle' : 'list-circle-outline'; break;
             default: iconName = isFocused ? 'ellipse' : 'ellipse-outline';
           }
           return (
@@ -138,6 +140,7 @@ function MainTabs({ openActionSheet }) {
 function AppContent() {
   const { navTheme, isDark, colors } = useTheme();
   const [hasToken, setHasToken] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   // Stubs to keep Modal code inert; action sheet removed
   const actionSheetVisible = false;
   const sheetAnim = new Animated.Value(0);
@@ -146,6 +149,21 @@ function AppContent() {
   };
   const closeActionSheet = () => {};
 
+  useEffect(() => {
+    const loadMe = async () => {
+      try { await api.init(); } catch {}
+      try {
+        const saved = await AsyncStorage.getItem('@current_user');
+        const me = saved ? JSON.parse(saved) : null;
+        setIsAdmin(isAdmin(me));
+      } catch {
+        setIsAdmin(false);
+      }
+    };
+    loadMe();
+  }, []);
+
+  // Bootstrap token init + notifications with cleanup in effect
   useEffect(() => {
     let unsubscribe = () => {};
     const bootstrap = async () => {
@@ -226,6 +244,38 @@ function AppContent() {
     };
   }, [isDark, colors.card]);
 
+  // API health check + baner
+  const [apiStatus, setApiStatus] = useState({ ok: true, auth: true, message: '' });
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      try {
+        await api.init();
+        try {
+          await api.get('/api/health');
+          if (!cancelled) setApiStatus({ ok: true, auth: true, message: '' });
+        } catch (e1) {
+          try {
+            await api.get('/api/employees');
+            if (!cancelled) setApiStatus({ ok: true, auth: true, message: '' });
+          } catch (e2) {
+            if (!cancelled) {
+              if (e2.status === 401 || e2.status === 403) {
+                setApiStatus({ ok: true, auth: false, message: 'Połączono z API, zaloguj się.' });
+              } else {
+                setApiStatus({ ok: false, auth: false, message: 'Brak połączenia z API: sprawdź IP i port' });
+              }
+            }
+          }
+        }
+      } catch {
+        if (!cancelled) setApiStatus({ ok: false, auth: false, message: 'Brak połączenia z API: sprawdź IP i port' });
+      }
+    };
+    check();
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <NavigationContainer theme={navTheme} ref={navigationRef}>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
@@ -260,6 +310,8 @@ function AppContent() {
         </Pressable>
       </Modal>
       <SnackbarHost />
+      {/* Usunięto niegated baner */}
+      <ApiStatusBanner status={apiStatus} isAdmin={isAdmin} />
     </NavigationContainer>
   );
 }
@@ -322,6 +374,16 @@ function SnackbarHost() {
       }}>
         <Text style={{ color: '#fff' }}>{msg}</Text>
       </Animated.View>
+    </View>
+  );
+}
+
+function ApiStatusBanner({ status, isAdmin }) {
+  const { colors } = useTheme();
+  if (!isAdmin || status?.ok) return null;
+  return (
+    <View style={{ position: 'absolute', top: 8, left: 8, right: 8, backgroundColor: '#fee2e2', borderColor: '#ef4444', borderWidth: 1, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, zIndex: 9999 }}>
+      <Text style={{ color: '#991b1b', textAlign: 'center' }}>{status?.message || 'Brak połączenia z API'}</Text>
     </View>
   );
 }

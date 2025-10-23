@@ -5,8 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '../lib/api';
 import { useTheme } from '../lib/theme';
 import { showSnackbar } from '../lib/snackbar';
-import { PERMISSIONS, hasPermission } from '../lib/constants';
 import * as Haptics from 'expo-haptics'
+import { isAdmin } from '../lib/utils';
 
 export default function InventoryScreen() {
   const { colors } = useTheme();
@@ -139,18 +139,13 @@ export default function InventoryScreen() {
     const loadMe = async () => {
       try { await api.init(); } catch {}
       try {
-        const me = await api.get('/api/users/me');
-        setCurrentUser(me?.user || me);
-        setIsAdmin(hasPermission(me?.user || me, PERMISSIONS.ADMIN));
-      } catch (e1) {
-        try {
-          const me2 = await api.get('/api/me');
-          setCurrentUser(me2?.user || me2);
-          setIsAdmin(hasPermission(me2?.user || me2, PERMISSIONS.ADMIN));
-        } catch {
-          setIsAdmin(false);
-          setCurrentUser(null);
-        }
+        const saved = await AsyncStorage.getItem('@current_user');
+        const me = saved ? JSON.parse(saved) : null;
+        setCurrentUser(me);
+        setIsAdmin(isAdmin(me));
+      } catch {
+        setIsAdmin(false);
+        setCurrentUser(null);
       }
     };
     loadMe();

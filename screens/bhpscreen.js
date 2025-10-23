@@ -449,8 +449,8 @@ export default function BhpScreen() {
     <View style={[styles.wrapper, { backgroundColor: colors.bg }]} className="flex-1 p-4">
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
         <Text style={[styles.title, { color: colors.text, flex: 1 }]} className="text-2xl font-bold">BHP</Text>
-        <Pressable accessibilityLabel="Dodaj BHP" onPress={openAdd} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}>
-          <Ionicons name="add-outline" size={22} color={colors.text} />
+        <Pressable accessibilityLabel="Dodaj BHP" onPress={openAdd} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}>
+          <Ionicons name="add-outline" size={22} color={colors.primary || colors.text} />
         </Pressable>
       </View>
 

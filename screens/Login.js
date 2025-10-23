@@ -86,6 +86,10 @@ export default function LoginScreen() {
       const res = await api.post('/api/login', { username, password });
       if (res && (res.token || res.accessToken)) {
         await api.setToken(res.token || res.accessToken);
+        // Zapisz pełną odpowiedź użytkownika do AsyncStorage, aby App mógł określić rolę
+        try {
+          await AsyncStorage.setItem('@current_user', JSON.stringify(res));
+        } catch {}
         // Po pierwszym zalogowaniu zapisz dane dla logowania biometrycznego (jeśli dostępne)
         try {
           if (Platform.OS !== 'web') {
@@ -142,6 +146,9 @@ export default function LoginScreen() {
       const res = await api.post('/api/login', { username: savedUser, password: savedPass });
       if (res && (res.token || res.accessToken)) {
         await api.setToken(res.token || res.accessToken);
+        try {
+          await AsyncStorage.setItem('@current_user', JSON.stringify(res));
+        } catch {}
       }
     } catch (e) {
       setError(e.message || 'Błąd logowania biometrycznego');

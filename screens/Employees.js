@@ -5,6 +5,8 @@ import api from '../lib/api';
 import { Ionicons } from '@expo/vector-icons';
 import AddEmployeeModal from './AddEmployeeModal';
 import { showSnackbar } from '../lib/snackbar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { hasPermission } from '../lib/utils';
 
 export default function EmployeesScreen() {
   const { colors } = useTheme();
@@ -28,9 +30,29 @@ export default function EmployeesScreen() {
   const [focusedSearchInput, setFocusedSearchInput] = useState(false);
   const [addEmpVisible, setAddEmpVisible] = useState(false);
 
+  // Permission-related state
+  const [currentUser, setCurrentUser] = useState(null);
+  const [canViewEmployees, setCanViewEmployees] = useState(false);
+  const [canManageEmployees, setCanManageEmployees] = useState(false);
+  const [permsReady, setPermsReady] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem('@current_user');
+        const user = raw ? JSON.parse(raw) : null;
+        setCurrentUser(user);
+        setCanViewEmployees(hasPermission(user, 'view_employees'));
+        setCanManageEmployees(hasPermission(user, 'manage_employees'));
+      } catch {}
+      setPermsReady(true);
+    })();
+  }, []);
+
   // Szybkie odświeżenie listy po dodaniu
   const refreshEmployees = async () => {
     try {
+      if (!canViewEmployees) return;
       await api.init();
       const emps = await api.get('/api/employees');
       const empsList = Array.isArray(emps) ? emps : (Array.isArray(emps?.data) ? emps.data : []);
@@ -43,6 +65,10 @@ export default function EmployeesScreen() {
       setLoading(true);
       setError('');
       try {
+        if (!canViewEmployees) {
+          setEmployees([]);
+          return;
+        }
         await api.init();
         const [emps, deps, poss] = await Promise.all([
           api.get('/api/employees'),
@@ -62,8 +88,9 @@ export default function EmployeesScreen() {
         setLoading(false);
       }
     };
+    if (!permsReady) return;
     load();
-  }, []);
+  }, [permsReady, canViewEmployees]);
 
   // Debounce wyszukiwania
   useEffect(() => {
@@ -95,6 +122,10 @@ export default function EmployeesScreen() {
   });
 
   const openEdit = (employee) => {
+    if (!canManageEmployees) {
+      showSnackbar({ type: 'warn', text: 'Brak uprawnień do edycji pracowników' });
+      return;
+    }
     const e = employee || {};
     setEditingEmployee(e);
     setEditEmpError('');
@@ -119,6 +150,10 @@ export default function EmployeesScreen() {
 
   const saveEmployee = async () => {
     if (!editingEmployee) return;
+    if (!canManageEmployees) {
+      setEditEmpError('Brak uprawnień do zapisu pracownika');
+      return;
+    }
     setEditEmpError('');
     try {
       setEditEmpLoading(true);
@@ -155,6 +190,10 @@ export default function EmployeesScreen() {
   };
 
   const deleteEmployee = (employee) => {
+    if (!canManageEmployees) {
+      showSnackbar({ type: 'warn', text: 'Brak uprawnień do usuwania pracowników' });
+      return;
+    }
     const id = employee?.id;
     if (!id) { showSnackbar({ type: 'warn', text: 'Brak identyfikatora pracownika' }); return; }
     Alert.alert('Usuń pracownika', `Czy na pewno usunąć ${employee?.first_name || ''} ${employee?.last_name || ''}?`, [
@@ -173,13 +212,24 @@ export default function EmployeesScreen() {
     ]);
   };
 
+  if (permsReady && !canViewEmployees) {
+    return (
+      <View style={[styles.wrapper, { backgroundColor: colors.bg }]} className="flex-1 p-4">
+        <Text style={[styles.title, { color: colors.text }]} className="text-2xl font-bold">Pracownicy</Text>
+        <Text style={[styles.muted, { color: colors.muted }]}>Brak uprawnień do przeglądania pracowników.</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.wrapper, { backgroundColor: colors.bg }]} className="flex-1 p-4">
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <Text style={[styles.title, { color: colors.text }]} className="text-2xl font-bold">Pracownicy</Text>
-        <Pressable accessibilityLabel="Dodaj nowego pracownika" onPress={() => setAddEmpVisible(true)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }, pressed && { opacity: 0.8 }]}>
-          <Ionicons name="add" size={22} color={colors.primary || colors.text} />
-        </Pressable>
+        {canManageEmployees ? (
+          <Pressable accessibilityLabel="Dodaj nowego pracownika" onPress={() => setAddEmpVisible(true)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }, pressed && { opacity: 0.8 }]}>
+            <Ionicons name="add" size={22} color={colors.primary || colors.text} />
+          </Pressable>
+        ) : null}
       </View>
       {/* Sekcja wyszukiwarki i filtrów */}
       <View style={styles.filterRow} className="flex-row items-center gap-2 mb-2">
@@ -241,14 +291,16 @@ export default function EmployeesScreen() {
                   <Text style={[styles.toolMeta, { color: colors.muted }]}>Numer służbowy: {item.brand_number || '—'} • Telefon: {item.phone || '—'}</Text>
                   <Text style={[styles.toolMeta, { color: colors.muted }]}>Dział: {item.department || item.department_name || '—'} • Stanowisko: {item.position || item.position_name || item.position_id || '—'}</Text>
                 </View>
-                <View style={{ flexDirection: 'row', gap: 12 }}>
-                  <Pressable accessibilityLabel={`Edytuj pracownika ${item?.id}`} onPress={() => openEdit(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
-                    <Ionicons name="create-outline" size={20} color={colors.text} />
-                  </Pressable>
-                  <Pressable accessibilityLabel={`Usuń pracownika ${item?.id}`} onPress={() => deleteEmployee(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
-                    <Ionicons name="trash-outline" size={20} color={colors.danger || '#e11d48'} />
-                  </Pressable>
-                </View>
+                {canManageEmployees ? (
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <Pressable accessibilityLabel={`Edytuj pracownika ${item?.id}`} onPress={() => openEdit(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
+                      <Ionicons name="create-outline" size={20} color={colors.text} />
+                    </Pressable>
+                    <Pressable accessibilityLabel={`Usuń pracownika ${item?.id}`} onPress={() => deleteEmployee(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
+                      <Ionicons name="trash-outline" size={20} color={colors.danger || '#e11d48'} />
+                    </Pressable>
+                  </View>
+                ) : null}
               </View>
             </View>
           )}

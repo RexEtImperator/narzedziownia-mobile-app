@@ -5,6 +5,7 @@ import api from '../lib/api';
 import { useTheme } from '../lib/theme';
 import { showSnackbar } from '../lib/snackbar';
 import { isAdmin } from '../lib/utils';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ROLE_OPTIONS = [
   { label: 'Użytkownik', value: 'user' },
@@ -27,19 +28,14 @@ export default function UsersSettings() {
     try {
       await api.init();
       
-      // Sprawdź uprawnienia użytkownika
+      // Sprawdź uprawnienia użytkownika na podstawie zapisanego @current_user
       try {
-        const me = await api.get('/api/users/me');
+        const saved = await AsyncStorage.getItem('@current_user');
+        const me = saved ? JSON.parse(saved) : null;
         setCurrentUser(me);
         setUserIsAdmin(isAdmin(me));
-      } catch (e1) {
-        try {
-          const me2 = await api.get('/api/me');
-          setCurrentUser(me2);
-          setUserIsAdmin(isAdmin(me2));
-        } catch {
-          setUserIsAdmin(false);
-        }
+      } catch {
+        setUserIsAdmin(false);
       }
       
       const list = await api.get('/api/users');

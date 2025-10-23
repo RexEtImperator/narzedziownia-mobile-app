@@ -4,6 +4,8 @@ import { useNavigation } from '@react-navigation/native';
 import api from '../lib/api';
 import { useTheme } from '../lib/theme';
 import { showSnackbar } from '../lib/snackbar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { hasPermission } from '../lib/utils';
 
 const TZ_OPTIONS = [
   { label: 'Europa/Warszawa', value: 'Europe/Warsaw' },
@@ -30,6 +32,11 @@ export default function SettingsScreen() {
     dateFormat: 'DD/MM/YYYY'
   });
 
+  // Permission-related state
+  const [currentUser, setCurrentUser] = useState(null);
+  const [canViewSettings, setCanViewSettings] = useState(false);
+  const [permsReady, setPermsReady] = useState(false);
+
   // Sekcje i przewijanie do nich
   const scrollRef = useRef(null);
   const [sectionY, setSectionY] = useState({});
@@ -44,31 +51,48 @@ export default function SettingsScreen() {
   };
 
   useEffect(() => {
-    const load = async () => {
+    (async () => {
       try {
-        setLoading(true);
-        // Pobierz ustawienia ogólne
-        try {
-          const g = await api.get('/api/config/general');
-          setGeneral(prev => ({
-            appName: g?.appName ?? prev.appName,
-            companyName: g?.companyName ?? prev.companyName,
-            timezone: g?.timezone ?? prev.timezone,
-            language: g?.language ?? prev.language,
-            dateFormat: g?.dateFormat ?? prev.dateFormat,
-          }));
-          // backupFrequency przeniesione do ekranu 💾 Backup
-        } catch (e) { /* brak endpointu lub błąd – użyj domyślnych */ }
-
-        // Powiadomienia — sekcja nieużywana; Funkcje — obsługa w dedykowanym ekranie
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+        const raw = await AsyncStorage.getItem('@current_user');
+        const user = raw ? JSON.parse(raw) : null;
+        setCurrentUser(user);
+        setCanViewSettings(hasPermission(user, 'system_settings'));
+      } catch {}
+      setPermsReady(true);
+    })();
   }, []);
 
+  const load = async () => {
+    try {
+      setLoading(true);
+      if (!canViewSettings) {
+        return;
+      }
+      // Pobierz ustawienia ogólne
+      try {
+        const g = await api.get('/api/config/general');
+        setGeneral(prev => ({
+          appName: g?.appName ?? prev.appName,
+          companyName: g?.companyName ?? prev.companyName,
+          timezone: g?.timezone ?? prev.timezone,
+          language: g?.language ?? prev.language,
+          dateFormat: g?.dateFormat ?? prev.dateFormat,
+        }));
+        // backupFrequency przeniesione do ekranu 💾 Backup
+      } catch (e) { /* brak endpointu lub błąd – użyj domyślnych */ }
+  
+      // Powiadomienia — sekcja nieużywana; Funkcje — obsługa w dedykowanym ekranie
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { if (!permsReady) return; load(); }, [permsReady, canViewSettings]);
+
   const saveGeneral = async () => {
+    if (!canViewSettings) {
+      showSnackbar({ type: 'error', text: 'Brak uprawnień do zapisywania ustawień' });
+      return;
+    }
     try {
       setSavingGeneral(true);
       await api.put('/api/config/general', general);
@@ -86,6 +110,20 @@ export default function SettingsScreen() {
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={[styles.loadingText, { color: colors.muted }]}>Ładowanie ustawień…</Text>
       </View>
+    );
+  }
+
+  if (permsReady && !canViewSettings) {
+    return (
+      <ScrollView ref={scrollRef} style={[styles.scrollContainer, { backgroundColor: colors.bg }]}>
+        <View style={styles.pageWrapper}>
+          <Text style={[styles.pageTitle, { color: colors.text }]}>Ustawienia</Text>
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }] }>
+            <Text style={{ color: colors.danger, textAlign: 'center', marginBottom: 8 }}>⚠️ Brak uprawnień</Text>
+            <Text style={{ color: colors.muted, textAlign: 'center' }}>Brak uprawnień do przeglądania ustawień systemu.</Text>
+          </View>
+        </View>
+      </ScrollView>
     );
   }
 
@@ -234,7 +272,7 @@ export default function SettingsScreen() {
             pressed && { opacity: 0.9 },
           ]}
           onPress={saveGeneral}
-          disabled={savingGeneral}
+          disabled={savingGeneral || !canViewSettings}
         >
           <Text style={{ color: '#ffffff', fontWeight: '600' }}>
             {savingGeneral ? 'Zapisywanie…' : 'Zapisz ustawienia ogólne'}
