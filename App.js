@@ -20,8 +20,8 @@ import BhpScreen from './screens/bhpscreen';
 import EmployeesScreen from './screens/Employees';
 import DepartmentsScreen from './screens/Departments';
 import PositionsScreen from './screens/Positions';
-
 import UserSettingsScreen from './screens/UserSettings';
+import InventoryScreen from './screens/Inventory';
 import { ThemeProvider, useTheme } from './lib/theme';
 import { initializeAndRestore } from './lib/notifications';
 import Constants from 'expo-constants';
@@ -66,9 +66,9 @@ function CustomTabBar({ state, descriptors, navigation, onPressScan }) {
   const inactiveColor = colors.muted;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 8, paddingBottom: 16, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card }}>
-      {/* Lewa strona: pierwsze trzy zakładki */}
+      {/* Lewa strona: pierwsze cztery zakładki */}
       <View style={{ flexDirection: 'row', gap: 24 }}>
-        {state.routes.slice(0, 3).map((route, index) => {
+        {state.routes.slice(0, 4).map((route, index) => {
           const isFocused = state.index === index;
           const options = descriptors[route.key].options;
           const label = options.tabBarLabel !== undefined ? options.tabBarLabel : options.title !== undefined ? options.title : route.name;
@@ -77,6 +77,7 @@ function CustomTabBar({ state, descriptors, navigation, onPressScan }) {
             case 'Dashboard': iconName = isFocused ? 'home' : 'home-outline'; break;
             case 'Narzędzia': iconName = isFocused ? 'construct' : 'construct-outline'; break;
             case 'BHP': iconName = isFocused ? 'medkit' : 'medkit-outline'; break;
+            case 'Inwentaryzacja': iconName = isFocused ? 'construct' : 'construct-outline'; break;
             default: iconName = isFocused ? 'ellipse' : 'ellipse-outline';
           }
           return (
@@ -92,10 +93,10 @@ function CustomTabBar({ state, descriptors, navigation, onPressScan }) {
         <Ionicons name="scan" size={24} color="#fff" />
       </Pressable>
 
-      {/* Prawa strona: trzy kolejne zakładki */}
+      {/* Prawa strona: cztery kolejne zakładki */}
       <View style={{ flexDirection: 'row', gap: 24 }}>
-        {state.routes.slice(3, 6).map((route, indexOffset) => {
-          const idx = indexOffset + 3;
+        {state.routes.slice(4, 8).map((route, indexOffset) => {
+          const idx = indexOffset + 4;
           const isFocused = state.index === idx;
           const options = descriptors[route.key].options;
           let iconName = 'ellipse-outline';
@@ -124,8 +125,9 @@ function MainTabs({ openActionSheet }) {
       tabBar={(props) => <CustomTabBar {...props} onPressScan={openActionSheet} />}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
-      <Tab.Screen name="BHP" component={BhpScreen} />
       <Tab.Screen name="Narzędzia" component={ToolsScreen} />
+      <Tab.Screen name="BHP" component={BhpScreen} />
+      <Tab.Screen name="Inwentaryzacja" component={InventoryScreen} />
       <Tab.Screen name="Pracownicy" component={EmployeesScreen} />
       <Tab.Screen name="Ustawienia" component={SettingsStack} options={{ headerShown: false }} />
       <Tab.Screen name="Użytkownik" component={UserSettingsScreen} />

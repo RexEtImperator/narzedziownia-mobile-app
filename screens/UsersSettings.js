@@ -4,6 +4,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import api from '../lib/api';
 import { useTheme } from '../lib/theme';
 import { showSnackbar } from '../lib/snackbar';
+import { isAdmin } from '../lib/utils';
 
 const ROLE_OPTIONS = [
   { label: 'Użytkownik', value: 'user' },
@@ -17,12 +18,30 @@ export default function UsersSettings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userIsAdmin, setUserIsAdmin] = useState(false);
   
   const load = async () => {
     setLoading(true);
     setError('');
     try {
       await api.init();
+      
+      // Sprawdź uprawnienia użytkownika
+      try {
+        const me = await api.get('/api/users/me');
+        setCurrentUser(me);
+        setUserIsAdmin(isAdmin(me));
+      } catch (e1) {
+        try {
+          const me2 = await api.get('/api/me');
+          setCurrentUser(me2);
+          setUserIsAdmin(isAdmin(me2));
+        } catch {
+          setUserIsAdmin(false);
+        }
+      }
+      
       const list = await api.get('/api/users');
       setUsers(Array.isArray(list) ? list : []);
     } catch (e) {
@@ -49,6 +68,10 @@ export default function UsersSettings() {
   };
 
   const updateUser = async (u, patch) => {
+    if (!userIsAdmin) {
+      showSnackbar({ type: 'error', text: 'Wymagane uprawnienia administratora' });
+      return;
+    }
     try {
       await api.put(`/api/users/${encodeURIComponent(u?.id)}`, { ...patch });
       await load();
@@ -58,6 +81,10 @@ export default function UsersSettings() {
   };
 
   const resetPassword = async (u) => {
+    if (!userIsAdmin) {
+      showSnackbar({ type: 'error', text: 'Wymagane uprawnienia administratora' });
+      return;
+    }
     Alert.alert('Resetować hasło?', `${u?.username || u?.email}`, [
       { text: 'Anuluj', style: 'cancel' },
       { text: 'Resetuj', onPress: async () => {
@@ -72,6 +99,10 @@ export default function UsersSettings() {
   };
 
   const removeUser = async (u) => {
+    if (!userIsAdmin) {
+      showSnackbar({ type: 'error', text: 'Wymagane uprawnienia administratora' });
+      return;
+    }
     Alert.alert('Usunąć użytkownika?', `${u?.username || u?.email}`, [
       { text: 'Anuluj', style: 'cancel' },
       { text: 'Usuń', style: 'destructive', onPress: async () => {
@@ -89,6 +120,13 @@ export default function UsersSettings() {
     <ScrollView style={[styles.scrollContainer, { backgroundColor: colors.bg }]} contentContainerStyle={[styles.container, { backgroundColor: colors.bg }]}>
       <Text style={[styles.title, { color: colors.text }]}>👥 Użytkownicy</Text>
       <Text style={[styles.subtitle, { color: colors.muted }]}>Zarządzanie kontami i rolami</Text>
+      
+      {!userIsAdmin && (
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={{ color: colors.danger, textAlign: 'center', marginBottom: 8 }}>⚠️ Brak uprawnień</Text>
+          <Text style={{ color: colors.muted, textAlign: 'center' }}>Ta funkcja wymaga uprawnień administratora</Text>
+        </View>
+      )}
 
 
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -111,29 +149,33 @@ export default function UsersSettings() {
               <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
                 <Pressable
                   accessibilityLabel="Zmień rolę"
-                  style={[styles.smallButton, { backgroundColor: colors.primary }]}
+                  style={[styles.smallButton, { backgroundColor: userIsAdmin ? colors.primary : colors.muted }]}
                   onPress={() => updateUser(u, { role: cycleRole(u) })}
+                  disabled={!userIsAdmin}
                 >
                   <MaterialIcons name="autorenew" size={20} color="#fff" />
                 </Pressable>
                 <Pressable
                   accessibilityLabel={u?.active ? 'Dezaktywuj użytkownika' : 'Aktywuj użytkownika'}
-                  style={[styles.smallButton, { backgroundColor: colors.primary }]}
+                  style={[styles.smallButton, { backgroundColor: userIsAdmin ? colors.primary : colors.muted }]}
                   onPress={() => updateUser(u, { active: !u?.active })}
+                  disabled={!userIsAdmin}
                 >
                   <MaterialIcons name={u?.active ? 'block' : 'check-circle'} size={20} color="#fff" />
                 </Pressable>
                 <Pressable
                   accessibilityLabel="Resetuj hasło"
-                  style={[styles.smallButton, { backgroundColor: colors.primary }]}
+                  style={[styles.smallButton, { backgroundColor: userIsAdmin ? colors.primary : colors.muted }]}
                   onPress={() => resetPassword(u)}
+                  disabled={!userIsAdmin}
                 >
                   <MaterialIcons name="vpn-key" size={20} color="#fff" />
                 </Pressable>
                 <Pressable
                   accessibilityLabel="Usuń użytkownika"
-                  style={[styles.smallButton, { backgroundColor: colors.danger }]}
+                  style={[styles.smallButton, { backgroundColor: userIsAdmin ? colors.danger : colors.muted }]}
                   onPress={() => removeUser(u)}
+                  disabled={!userIsAdmin}
                 >
                   <MaterialIcons name="delete" size={20} color="#fff" />
                 </Pressable>
