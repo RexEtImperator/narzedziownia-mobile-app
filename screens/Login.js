@@ -90,6 +90,14 @@ export default function LoginScreen() {
         try {
           await AsyncStorage.setItem('@current_user', JSON.stringify(res));
         } catch {}
+        // Pobierz role-permissions z backendu i zapisz/ustaw override
+        try {
+          const map = await api.get('/api/role-permissions');
+          if (map && typeof map === 'object') {
+            try { await AsyncStorage.setItem('@role_permissions_map_v1', JSON.stringify(map)); } catch {}
+            try { const { setRolePermissionsOverride } = await import('../lib/constants'); setRolePermissionsOverride(map); } catch {}
+          }
+        } catch {}
         // Po pierwszym zalogowaniu zapisz dane dla logowania biometrycznego (jeśli dostępne)
         try {
           if (Platform.OS !== 'web') {
@@ -145,9 +153,18 @@ export default function LoginScreen() {
       setLoading(true);
       const res = await api.post('/api/login', { username: savedUser, password: savedPass });
       if (res && (res.token || res.accessToken)) {
+        // Zapisz token z odpowiedzi biometrycznej
         await api.setToken(res.token || res.accessToken);
         try {
           await AsyncStorage.setItem('@current_user', JSON.stringify(res));
+        } catch {}
+        // Pobierz role-permissions z backendu i zapisz/ustaw override
+        try {
+          const map = await api.get('/api/role-permissions');
+          if (map && typeof map === 'object') {
+            try { await AsyncStorage.setItem('@role_permissions_map_v1', JSON.stringify(map)); } catch {}
+            try { const { setRolePermissionsOverride } = await import('../lib/constants'); setRolePermissionsOverride(map); } catch {}
+          }
         } catch {}
       }
     } catch (e) {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, FlatList, ScrollView, TouchableOpacity, Pressable, Alert, Modal, Platform } from 'react-native';
+import { View, Text, TextInput, StyleSheet, FlatList, ScrollView, TouchableOpacity, Pressable, Alert, Modal, Platform } from 'react-native';
 import { useTheme } from '../lib/theme';
 import api from '../lib/api';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,7 +49,7 @@ export default function EmployeesScreen() {
     })();
   }, []);
 
-  // Szybkie odświeżenie listy po dodaniu
+  // Szybkie odświeżenie listy po dodaniu/zmianie pracownika
   const refreshEmployees = async () => {
     try {
       if (!canViewEmployees) return;

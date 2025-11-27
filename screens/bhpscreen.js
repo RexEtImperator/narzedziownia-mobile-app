@@ -4,12 +4,21 @@ import { useTheme } from '../lib/theme';
 import api from '../lib/api.js';
 import { Ionicons } from '@expo/vector-icons';
 import { showSnackbar } from '../lib/snackbar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { hasPermission } from '../lib/utils';
+import { PERMISSIONS } from '../lib/constants';
 
 export default function BhpScreen() {
   const { colors } = useTheme();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Uprawnienia
+  const [currentUser, setCurrentUser] = useState(null);
+  const [canViewBhp, setCanViewBhp] = useState(false);
+  const [canManageBhp, setCanManageBhp] = useState(false);
+  const [permsReady, setPermsReady] = useState(false);
 
   // Wyszukiwanie i status
   const [searchTerm, setSearchTerm] = useState('');
@@ -109,7 +118,33 @@ export default function BhpScreen() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  // Uprawnienia: wczytanie użytkownika i obliczenie flag
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem('@current_user');
+        const user = raw ? JSON.parse(raw) : null;
+        setCurrentUser(user);
+        const canView = hasPermission(user, PERMISSIONS.VIEW_BHP) || hasPermission(user, PERMISSIONS.MANAGE_BHP);
+        const canManage = hasPermission(user, PERMISSIONS.MANAGE_BHP);
+        setCanViewBhp(!!canView);
+        setCanManageBhp(!!canManage);
+      } catch (e) {
+        // ignore
+      } finally {
+        if (mounted) setPermsReady(true);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  // Ładowanie danych tylko jeśli użytkownik ma prawo do widoku
+  useEffect(() => {
+    if (permsReady && canViewBhp) {
+      load();
+    }
+  }, [permsReady, canViewBhp]);
 
   const statuses = [...new Set((items || []).map(it => it?.status || 'dostępne').filter(Boolean))];
   const selectedStatusLabel = selectedStatus === '__ISSUED__' ? 'Tylko wydane' : selectedStatus === '__AVAILABLE__' ? 'Tylko dostępne' : (selectedStatus || 'Wszystkie statusy');
@@ -152,6 +187,7 @@ export default function BhpScreen() {
 
   // Akcje: otwarcie/wykonanie wydania
   const openIssueModal = async (item) => {
+    if (!canManageBhp) { showSnackbar('Brak uprawnień do wydania'); return; }
     setIssueError('');
     setSelectedEmployee(null);
     setIssueEmployeeQuery('');
@@ -166,6 +202,7 @@ export default function BhpScreen() {
     setIssueError('');
   };
   const confirmIssue = async () => {
+    if (!canManageBhp) { setIssueError('Brak uprawnień'); return; }
     if (!issueItem) return;
     const id = issueItem?.id || issueItem?.bhp_id || issueItem?.item_id;
     if (!id) { setIssueError('Brak identyfikatora BHP'); return; }
@@ -203,6 +240,7 @@ export default function BhpScreen() {
 
   // Akcje: otwarcie/wykonanie zwrotu
   const openReturnModal = (item) => {
+    if (!canManageBhp) { showSnackbar('Brak uprawnień do zwrotu'); return; }
     setReturnError('');
     setReturnNote('');
     setReturnItem(item || null);
@@ -214,6 +252,7 @@ export default function BhpScreen() {
     setReturnError('');
   };
   const confirmReturn = async () => {
+    if (!canManageBhp) { setReturnError('Brak uprawnień'); return; }
     if (!returnItem) return;
     const id = returnItem?.id || returnItem?.bhp_id || returnItem?.item_id;
     if (!id) { setReturnError('Brak identyfikatora BHP'); return; }
@@ -282,6 +321,7 @@ export default function BhpScreen() {
 
   // Edycja
   const openEdit = (item) => {
+    if (!canManageBhp) { showSnackbar('Brak uprawnień do edycji'); return; }
     const it = item || {};
     setEditingItem(it);
     const hasShock = !!(it?.shock_absorber_name || it?.shock_absorber_model || it?.shock_absorber_serial || it?.shock_absorber_catalog_number || it?.shock_absorber_production_date || it?.shock_absorber_start_date || it?.has_shock_absorber);
@@ -315,6 +355,7 @@ export default function BhpScreen() {
   };
   const closeEdit = () => { setEditingItem(null); };
   const saveEdit = async () => {
+    if (!canManageBhp) { setError('Brak uprawnień'); return; }
     if (!editingItem) return;
     setLoading(true); setError('');
     const id = editingItem?.id || editingItem?.bhp_id || editingItem?.item_id;
@@ -362,6 +403,7 @@ export default function BhpScreen() {
 
   // Usuwanie
   const deleteItem = async (item) => {
+    if (!canManageBhp) { showSnackbar('Brak uprawnień do usuwania'); return; }
     const id = item?.id || item?.bhp_id || item?.item_id;
     if (!id) { showSnackbar({ type: 'warn', text: 'Brak identyfikatora BHP' }); return; }
     Alert.alert('Usunąć sprzęt BHP?', 'Operacja jest nieodwracalna.', [
@@ -376,9 +418,10 @@ export default function BhpScreen() {
   };
 
   // Dodawanie
-  const openAdd = () => { setShowAddModal(true); };
+  const openAdd = () => { if (!canManageBhp) { showSnackbar('Brak uprawnień do dodawania'); return; } setShowAddModal(true); };
   const closeAdd = () => { setShowAddModal(false); };
   const saveAdd = async () => {
+    if (!canManageBhp) { setError('Brak uprawnień'); return; }
     setLoading(true); setError('');
     const payload = ensureYMD({
       ...addFields,
@@ -445,13 +488,18 @@ export default function BhpScreen() {
     return 0;
   });
 
+  if (!permsReady) { return (<View style={[styles.wrapper, { backgroundColor: colors.bg }]} className="flex-1 p-4"><Text style={{ color: colors.text }}>Ładowanie uprawnień…</Text></View>); }
+  if (permsReady && !canViewBhp) { return (<View style={[styles.wrapper, { backgroundColor: colors.bg }]} className="flex-1 p-4"><Text style={{ color: colors.text }}>Brak uprawnień do widoku BHP</Text></View>); }
+
   return (
     <View style={[styles.wrapper, { backgroundColor: colors.bg }]} className="flex-1 p-4">
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
         <Text style={[styles.title, { color: colors.text, flex: 1 }]} className="text-2xl font-bold">BHP</Text>
-        <Pressable accessibilityLabel="Dodaj BHP" onPress={openAdd} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}>
-          <Ionicons name="add-outline" size={22} color={colors.primary || colors.text} />
-        </Pressable>
+        {canManageBhp && (
+          <Pressable accessibilityLabel="Dodaj BHP" onPress={openAdd} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}> 
+            <Ionicons name="add-outline" size={22} color={colors.primary || colors.text} />
+          </Pressable>
+        )}
       </View>
 
       {/* Wyszukiwanie */}
@@ -552,22 +600,26 @@ export default function BhpScreen() {
                     <Text style={[styles.toolName, { color: colors.text }]} className="text-lg font-semibold">{name}</Text>
                   </View>
                   <View style={{ flexDirection: 'row', gap: 12 }}>
-                    <Pressable accessibilityLabel={`Edytuj ${id}`} onPress={() => openEdit(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}>
-                      <Ionicons name="create-outline" size={20} color={colors.text} />
-                    </Pressable>
-                    <Pressable accessibilityLabel={`Usuń ${id}`} onPress={() => deleteItem(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}>
-                      <Ionicons name="trash-outline" size={20} color={colors.danger || '#e11d48'} />
-                    </Pressable>
-                    {(() => { const isIssued = s.includes('wyd') || !!(item?.assigned_employee_first_name || item?.issued_to_employee_id); return (
-                      isIssued ? (
-                        <Pressable accessibilityLabel={`Zwróć ${id}`} onPress={() => openReturnModal(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}>
-                          <Ionicons name="return-down-back" size={20} color={colors.text} />
+                    {canManageBhp && (
+                      <>
+                        <Pressable accessibilityLabel={`Edytuj ${id}`} onPress={() => openEdit(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}>
+                          <Ionicons name="create-outline" size={20} color={colors.text} />
                         </Pressable>
-                      ) : (
-                        <Pressable accessibilityLabel={`Wydaj ${id}`} onPress={() => openIssueModal(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }] }>
-                          <Ionicons name="arrow-forward-circle-outline" size={20} color={colors.text} />
+                        <Pressable accessibilityLabel={`Usuń ${id}`} onPress={() => deleteItem(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}>
+                          <Ionicons name="trash-outline" size={20} color={colors.danger || '#e11d48'} />
                         </Pressable>
-                      ) ); })()}
+                        {(() => { const isIssued = s.includes('wyd') || !!(item?.assigned_employee_first_name || item?.issued_to_employee_id); return (
+                          isIssued ? (
+                            <Pressable accessibilityLabel={`Zwróć ${id}`} onPress={() => openReturnModal(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}>
+                              <Ionicons name="return-down-back" size={20} color={colors.text} />
+                            </Pressable>
+                          ) : (
+                            <Pressable accessibilityLabel={`Wydaj ${id}`} onPress={() => openIssueModal(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }] }>
+                              <Ionicons name="arrow-forward-circle-outline" size={20} color={colors.text} />
+                            </Pressable>
+                          ) ); })()}
+                      </>
+                    )}
                   </View>
                 </View>
                 <Text style={[styles.toolMeta, { color: colors.muted }]}>Nr ew.: {inv}</Text>

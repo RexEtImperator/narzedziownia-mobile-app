@@ -6,7 +6,8 @@ import api from '../lib/api';
 import { useTheme } from '../lib/theme';
 import { showSnackbar } from '../lib/snackbar';
 import * as Haptics from 'expo-haptics'
-import { isAdmin } from '../lib/utils';
+import { hasPermission } from '../lib/utils';
+import { PERMISSIONS } from '../lib/constants';
 
 export default function InventoryScreen() {
   const { colors } = useTheme();
@@ -58,6 +59,14 @@ export default function InventoryScreen() {
   const [onlyBelowMin, setOnlyBelowMin] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  // Uprawnienia
+  const [canViewInventory, setCanViewInventory] = useState(false);
+  const [canManageSessions, setCanManageSessions] = useState(false);
+  const [canScan, setCanScan] = useState(false);
+  const [canAcceptCorrection, setCanAcceptCorrection] = useState(false);
+  const [canDeleteCorrection, setCanDeleteCorrection] = useState(false);
+  const [canExportCsv, setCanExportCsv] = useState(false);
+  const [permsReady, setPermsReady] = useState(false);
   // Skaner: stany
   const [showScanner, setShowScanner] = useState(false);
   const [hasCamPermission, setHasCamPermission] = useState(null);
@@ -68,6 +77,42 @@ export default function InventoryScreen() {
   const [scanHintText, setScanHintText] = useState('Zeskanuj kod');
   const [scannedFlag, setScannedFlag] = useState(false);
   const [webScanInput, setWebScanInput] = useState('');
+  
+  useEffect(() => {
+    (async () => {
+      try {
+        const saved = await AsyncStorage.getItem('@current_user');
+        const me = saved ? JSON.parse(saved) : null;
+        setCurrentUser(me);
+        setIsAdmin(isAdmin(me));
+        const canView = hasPermission(me, PERMISSIONS.INVENTORY_VIEW) || hasPermission(me, PERMISSIONS.INVENTORY_MANAGE_SESSIONS);
+        setCanViewInventory(!!canView);
+        setCanManageSessions(hasPermission(me, PERMISSIONS.INVENTORY_MANAGE_SESSIONS));
+        setCanScan(hasPermission(me, PERMISSIONS.INVENTORY_SCAN));
+        setCanAcceptCorrection(hasPermission(me, PERMISSIONS.INVENTORY_ACCEPT_CORRECTION));
+        setCanDeleteCorrection(hasPermission(me, PERMISSIONS.INVENTORY_DELETE_CORRECTION));
+        setCanExportCsv(hasPermission(me, PERMISSIONS.INVENTORY_EXPORT_CSV));
+      } catch {
+        setCurrentUser(null);
+        setIsAdmin(false);
+        setCanViewInventory(false);
+        setCanManageSessions(false);
+        setCanScan(false);
+        setCanAcceptCorrection(false);
+        setCanDeleteCorrection(false);
+        setCanExportCsv(false);
+      } finally {
+        setPermsReady(true);
+      }
+    })();
+  }, []);
+
+  // Ładowanie danych tylko jeśli użytkownik ma prawo do widoku
+  useEffect(() => {
+    if (permsReady && canViewInventory) {
+      load();
+    }
+  }, [permsReady, canViewInventory]);
   
   const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg },
@@ -134,28 +179,12 @@ export default function InventoryScreen() {
     };
     if (!selectedSession && sessions && sessions.length) restoreSelected();
   }, [sessions]);
-  
-  useEffect(() => {
-    const loadMe = async () => {
-      try { await api.init(); } catch {}
-      try {
-        const saved = await AsyncStorage.getItem('@current_user');
-        const me = saved ? JSON.parse(saved) : null;
-        setCurrentUser(me);
-        setIsAdmin(isAdmin(me));
-      } catch {
-        setIsAdmin(false);
-        setCurrentUser(null);
-      }
-    };
-    loadMe();
-  }, []);
 
   const createSession = async () => {
     const name = String(newName || '').trim();
     const notes = String(newNotes || '').trim();
     if (!name) { showSnackbar({ type: 'warn', text: 'Podaj nazwę sesji' }); return; }
-    if (!isAdmin) { showSnackbar({ type: 'error', text: 'Wymagane uprawnienia administratora' }); return; }
+    if (!canManageSessions) { showSnackbar({ type: 'error', text: 'Brak uprawnień do zarządzania sesjami' }); return; }
     setCreating(true);
     try {
       await api.init();
@@ -173,7 +202,7 @@ export default function InventoryScreen() {
   };
   
   const updateStatus = async (s, action) => {
-    if (!isAdmin) { showSnackbar({ type: 'error', text: 'Wymagane uprawnienia administratora' }); return; }
+    if (!canManageSessions) { showSnackbar({ type: 'error', text: 'Brak uprawnień do zarządzania sesjami' }); return; }
     try {
       await api.init();
       const res = await api.put(`/api/inventory/sessions/${encodeURIComponent(s?.id)}/status`, { action });
@@ -188,7 +217,7 @@ export default function InventoryScreen() {
   };
   
   const deleteSession = async (s) => {
-    if (!isAdmin) { showSnackbar({ type: 'error', text: 'Wymagane uprawnienia administratora' }); return; }
+    if (!canManageSessions) { showSnackbar({ type: 'error', text: 'Brak uprawnień do zarządzania sesjami' }); return; }
     // Blokada usuwania sesji nie-zakończonej
     if (String(s?.status) !== 'ended') {
       showSnackbar({ type: 'warn', text: 'Można usunąć tylko zakończoną sesję' });
@@ -249,6 +278,7 @@ export default function InventoryScreen() {
   }, [selectedSession?.id]);
   
   const scan = async () => {
+    if (!canScan) { showSnackbar({ type: 'error', text: 'Brak uprawnień do skanowania' }); return; }
     const code = normalizeCode(scanCode);
     const qty = Math.max(1, parseInt(String(scanQty || '1'), 10));
     if (!selectedSession?.id) { showSnackbar({ type: 'warn', text: 'Wybierz sesję' }); return; }
@@ -285,6 +315,7 @@ export default function InventoryScreen() {
   };
   
   const openScanner = async (target) => {
+    if (!canScan) { showSnackbar({ type: 'error', text: 'Brak uprawnień do skanowania' }); return; }
     setScanTarget(target);
     setScanFrameColor('#9ca3af');
     setScanHintText('Zeskanuj kod');
@@ -360,7 +391,7 @@ export default function InventoryScreen() {
       const res = await api.post(`/api/inventory/sessions/${encodeURIComponent(selectedSession.id)}/corrections`, { tool_id: toolId, difference_qty: differenceQty, reason });
       showSnackbar({ type: 'success', text: 'Dodano korektę' });
       await loadDetails(selectedSession.id);
-      if (autoAcceptCorrections && isAdmin && res?.id) {
+      if (autoAcceptCorrections && canAcceptCorrection && res?.id) {
         try { await acceptCorrection(res.id); } catch {}
         try { setRecentCorrections(prev => [...prev, { toolId, sku: toolSkuOrCode, at: Date.now(), sessionId: selectedSession?.id }]); } catch {}
       }
@@ -371,19 +402,19 @@ export default function InventoryScreen() {
   };
   
   const acceptCorrection = async (corrId) => {
-    if (!isAdmin) { showSnackbar({ type: 'error', text: 'Wymagane uprawnienia administratora' }); return; }
+    if (!canAcceptCorrection) { showSnackbar({ type: 'error', text: 'Brak uprawnień do akceptacji korekt' }); return; }
     try {
       await api.init();
       await api.post(`/api/inventory/corrections/${encodeURIComponent(corrId)}/accept`, {});
       showSnackbar({ type: 'success', text: 'Zaakceptowano korektę' });
       await loadDetails(selectedSession.id);
     } catch (e) {
-      showSnackbar({ type: 'error', text: e?.message || 'Wymagane uprawnienia administratora lub błąd' });
+      showSnackbar({ type: 'error', text: e?.message || 'Brak uprawnień lub błąd' });
     }
   };
   
   const deleteCorrection = async (corrId) => {
-    if (!isAdmin) { showSnackbar({ type: 'error', text: 'Wymagane uprawnienia administratora' }); return; }
+    if (!canDeleteCorrection) { showSnackbar({ type: 'error', text: 'Brak uprawnień do usuwania korekt' }); return; }
     // Zastąpione przez modal potwierdzenia
     setDeleteTarget({ id: corrId });
     setDeleteModalVisible(true);
@@ -429,6 +460,10 @@ export default function InventoryScreen() {
     setCorrDiffQty('');
   };
 
+  // Panel diagnostyczny – prosta wizualizacja roli i uprawnień z backendu
+  const roleName = getUserRole(currentUser) || '—';
+  const backendPermsForRole = Array.isArray(ROLE_PERMISSIONS_OVERRIDE?.[roleName]) ? ROLE_PERMISSIONS_OVERRIDE[roleName] : [];
+
   const submitCorrectionModal = async () => {
     const counted = Math.max(0, parseInt(String(corrCountedQty || '0'), 10));
     const system = Number(corrTool?.system_qty ?? 0);
@@ -460,7 +495,7 @@ export default function InventoryScreen() {
   };
 
   const confirmDeleteCorrection = async () => {
-    if (!isAdmin) { showSnackbar({ type: 'error', text: 'Wymagane uprawnienia administratora' }); closeDeleteModal(); return; }
+    if (!canDeleteCorrection) { showSnackbar({ type: 'error', text: 'Brak uprawnień do usuwania korekt' }); closeDeleteModal(); return; }
     if (!deleteTarget?.id) { closeDeleteModal(); return; }
     setDeleteSubmitting(true);
     try {
@@ -470,7 +505,7 @@ export default function InventoryScreen() {
       await loadDetails(selectedSession.id);
       closeDeleteModal();
     } catch (e) {
-      showSnackbar({ type: 'error', text: e?.message || 'Wymagane uprawnienia administratora lub błąd' });
+      showSnackbar({ type: 'error', text: e?.message || 'Brak uprawnień lub błąd' });
     } finally {
       setDeleteSubmitting(false);
     }
@@ -541,6 +576,7 @@ export default function InventoryScreen() {
 
   const exportDiffsToCSV = async () => {
     try {
+      if (!canExportCsv) { showSnackbar({ type: 'error', text: 'Brak uprawnień do eksportu CSV' }); return; }
       setCsvExporting(true);
       const sessionName = selectedSession?.name || '';
       const exportDate = new Date();
@@ -590,21 +626,24 @@ export default function InventoryScreen() {
           </View>
           <View style={{ flexDirection: 'row', gap: 6 }}>
             {item.status === 'active' ? (
-              <Pressable disabled={!isAdmin} onPress={() => updateStatus(item, 'pause')} style={[styles.button, { backgroundColor: colors.primary }]}><Text style={styles.buttonText}>Wstrzymaj</Text></Pressable>
+              <Pressable disabled={!canManageSessions} onPress={() => updateStatus(item, 'pause')} style={[styles.button, { backgroundColor: colors.primary }]}><Text style={styles.buttonText}>Wstrzymaj</Text></Pressable>
             ) : null}
             {item.status === 'paused' ? (
-              <Pressable disabled={!isAdmin} onPress={() => updateStatus(item, 'resume')} style={[styles.button, { backgroundColor: colors.primary }]}><Text style={styles.buttonText}>Wznów</Text></Pressable>
+              <Pressable disabled={!canManageSessions} onPress={() => updateStatus(item, 'resume')} style={[styles.button, { backgroundColor: colors.primary }]}><Text style={styles.buttonText}>Wznów</Text></Pressable>
             ) : null}
             {item.status !== 'ended' ? (
-              <Pressable disabled={!isAdmin} onPress={() => updateStatus(item, 'end')} style={[styles.button, { backgroundColor: colors.primary }]}><Text style={styles.buttonText}>Zakończ</Text></Pressable>
+              <Pressable disabled={!canManageSessions} onPress={() => updateStatus(item, 'end')} style={[styles.button, { backgroundColor: colors.primary }]}><Text style={styles.buttonText}>Zakończ</Text></Pressable>
             ) : (
-              <Pressable disabled={!isAdmin} onPress={() => deleteSession(item)} style={[styles.button, { backgroundColor: colors.danger }]}><Text style={styles.buttonText}>Usuń</Text></Pressable>
+              <Pressable disabled={!canManageSessions} onPress={() => deleteSession(item)} style={[styles.button, { backgroundColor: colors.danger }]}><Text style={styles.buttonText}>Usuń</Text></Pressable>
             )}
           </View>
         </View>
       </Pressable>
     );
   };
+
+  if (!permsReady) { return (<View style={styles.container}><View style={styles.header}><Text style={styles.title}>Inwentaryzacja</Text><Text style={styles.subtitle}>Ładowanie uprawnień…</Text></View></View>); }
+  if (permsReady && !canViewInventory) { return (<View style={styles.container}><View style={styles.header}><Text style={styles.title}>Inwentaryzacja</Text><Text style={styles.subtitle}>Brak uprawnień do widoku</Text></View></View>); }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 24 }}>
@@ -617,12 +656,12 @@ export default function InventoryScreen() {
         <Text style={styles.sectionTitle}>Utwórz nową sesję</Text>
         <View style={styles.row}>
           <TextInput style={[styles.input, { flex: 1 }]} placeholder="Nazwa sesji" placeholderTextColor={colors.muted} value={newName} onChangeText={setNewName} />
-          <Pressable disabled={!isAdmin || creating} onPress={createSession} style={({ pressed }) => [styles.button, { backgroundColor: isAdmin ? colors.primary : colors.muted, opacity: (creating || pressed) ? 0.8 : 1 }]}>
+          <Pressable disabled={!canManageSessions || creating} onPress={createSession} style={({ pressed }) => [styles.button, { backgroundColor: canManageSessions ? colors.primary : colors.muted, opacity: (creating || pressed) ? 0.8 : 1 }]}>
             <Text style={styles.buttonText}>{creating ? 'Tworzenie…' : 'Utwórz'}</Text>
           </Pressable>
         </View>
         <TextInput style={[styles.input, { marginTop: 8 }]} placeholder="Notatki (opcjonalnie)" placeholderTextColor={colors.muted} value={newNotes} onChangeText={setNewNotes} />
-        {!isAdmin ? <Text style={{ color: colors.muted, marginTop: 8 }}>Ta operacja wymaga uprawnień administratora.</Text> : null}
+        {!canManageSessions ? <Text style={{ color: colors.muted, marginTop: 8 }}>Ta operacja wymaga uprawnienia zarządzania sesjami.</Text> : null}
       </View>
 
       <View style={styles.card}>
@@ -650,7 +689,7 @@ export default function InventoryScreen() {
             <Pressable disabled={scanning} onPress={scan} style={[styles.button, { backgroundColor: colors.primary }]}>
               <Text style={styles.buttonText}>{scanning ? 'Dodawanie…' : 'Skanuj/Zlicz'}</Text>
             </Pressable>
-            <Pressable onPress={() => openScanner('count')} style={[styles.button, { backgroundColor: colors.primary }]}>
+            <Pressable disabled={!canScan} onPress={() => openScanner('count')} style={[styles.button, { backgroundColor: canScan ? colors.primary : colors.muted }]} >
               <Text style={styles.buttonText}>Skanuj kamerą</Text>
             </Pressable>
           </View>
@@ -660,14 +699,14 @@ export default function InventoryScreen() {
           <Text style={[styles.sectionTitle, { marginTop: 8 }]}>Różnice</Text>
           <View style={[styles.row, { marginBottom: 8 }]}> 
             <TextInput style={[styles.input, { flex: 1 }]} placeholder="Szukaj (nazwa/kod)" placeholderTextColor={colors.muted} value={diffSearch} onChangeText={setDiffSearch} />
-            <Pressable onPress={() => openScanner('diff')} style={[styles.button, { backgroundColor: colors.primary }]}> 
+            <Pressable disabled={!canScan} onPress={() => openScanner('diff')} style={[styles.button, { backgroundColor: canScan ? colors.primary : colors.muted }]} > 
               <Text style={styles.buttonText}>Skanuj (Różnice)</Text>
             </Pressable>
             <Pressable onPress={() => setDiffSearch(scanCode)} style={[styles.button, { backgroundColor: colors.border }]}> 
               <Text style={{ color: colors.text }}>Użyj ostatniego kodu</Text>
             </Pressable>
             <TextInput style={[styles.input, { width: 160 }]} placeholder="Min. wartość bezwzględna" placeholderTextColor={colors.muted} keyboardType="numeric" value={diffMinAbs} onChangeText={setDiffMinAbs} />
-            <Pressable onPress={exportDiffsToCSV} disabled={csvExporting} style={[styles.button, { backgroundColor: colors.primary, opacity: csvExporting ? 0.7 : 1 }]}> 
+            <Pressable onPress={exportDiffsToCSV} disabled={!canExportCsv || csvExporting} style={[styles.button, { backgroundColor: canExportCsv ? colors.primary : colors.muted, opacity: csvExporting ? 0.7 : 1 }]}> 
               <Text style={styles.buttonText}>{csvExporting ? 'Eksport…' : 'Eksport CSV'}</Text>
             </Pressable>
           </View>
@@ -727,9 +766,9 @@ export default function InventoryScreen() {
             <Switch value={corrShowPendingOnly} onValueChange={setCorrShowPendingOnly} thumbColor={corrShowPendingOnly ? colors.primary : colors.border} trackColor={{ true: colors.primary, false: colors.border }} />
           </View>
           <View style={[styles.row, { marginTop: 0, marginBottom: 8 }]}> 
-            <Text style={{ color: colors.text }}>Auto-akceptuj korekty (admin)</Text>
-            <Switch disabled={!isAdmin} value={autoAcceptCorrections} onValueChange={async (v) => { setAutoAcceptCorrections(v); try { await AsyncStorage.setItem('@inventory_auto_accept_v1', v ? '1' : '0'); } catch {} }} thumbColor={autoAcceptCorrections ? colors.primary : colors.border} trackColor={{ true: colors.primary, false: colors.border }} />
-            {!isAdmin ? <Text style={{ color: colors.muted, marginLeft: 8 }}>Opcja dostępna tylko dla administratora.</Text> : null}
+            <Text style={{ color: colors.text }}>Auto-akceptuj korekty</Text>
+            <Switch disabled={!canAcceptCorrection} value={autoAcceptCorrections} onValueChange={async (v) => { setAutoAcceptCorrections(v); try { await AsyncStorage.setItem('@inventory_auto_accept_v1', v ? '1' : '0'); } catch {} }} thumbColor={autoAcceptCorrections ? colors.primary : colors.border} trackColor={{ true: colors.primary, false: colors.border }} />
+            {!canAcceptCorrection ? <Text style={{ color: colors.muted, marginLeft: 8 }}>Opcja wymaga uprawnienia akceptacji korekt.</Text> : null}
           </View> 
           <Text style={[styles.sectionTitle, { marginTop: 0 }]}>Korekty</Text>
           {(filteredCorrections || []).length ? (
@@ -742,13 +781,13 @@ export default function InventoryScreen() {
                     <Text style={{ color: colors.muted }}>Zaakceptowano przez: {corr?.accepted_by_username || 'admin'} • {corr?.accepted_at}</Text>
                   ) : (
                     <View style={[styles.row, { marginTop: 6 }]}>
-                      <Pressable onPress={() => acceptCorrection(corr?.id)} style={[styles.button, { backgroundColor: colors.primary }]} disabled={!isAdmin}>
+                      <Pressable onPress={() => acceptCorrection(corr?.id)} style={[styles.button, { backgroundColor: colors.primary }]} disabled={!canAcceptCorrection}>
                         <Text style={styles.buttonText}>Akceptuj</Text>
                       </Pressable>
-                      <Pressable onPress={() => deleteCorrection(corr?.id)} style={[styles.button, { backgroundColor: colors.danger }]} disabled={!isAdmin}>
+                      <Pressable onPress={() => deleteCorrection(corr?.id)} style={[styles.button, { backgroundColor: colors.danger }]} disabled={!canDeleteCorrection}>
                         <Text style={styles.buttonText}>Usuń</Text>
                       </Pressable>
-                      {!isAdmin ? <Text style={{ color: colors.muted, marginLeft: 8 }}>Wymagane uprawnienia admin</Text> : null}
+                      {!canManageSessions ? <Text style={{ color: colors.muted, marginLeft: 8 }}>Brak uprawnień do akcji</Text> : null}
                     </View>
                   )}
                 </View>
@@ -762,7 +801,7 @@ export default function InventoryScreen() {
         <Text style={styles.sectionTitle}>Stan magazynu</Text>
         <View style={[styles.row, { marginBottom: 8 }]}> 
           <TextInput style={[styles.input, { flex: 1 }]} placeholder="Szukaj (nazwa/kod)" placeholderTextColor={colors.muted} value={invSearch} onChangeText={setInvSearch} />
-          <Pressable onPress={() => openScanner('inv')} style={[styles.button, { backgroundColor: colors.primary }]}> 
+          <Pressable disabled={!canScan} onPress={() => openScanner('inv')} style={[styles.button, { backgroundColor: canScan ? colors.primary : colors.muted }]} > 
             <Text style={styles.buttonText}>Skanuj (Magazyn)</Text>
           </Pressable>
         </View>

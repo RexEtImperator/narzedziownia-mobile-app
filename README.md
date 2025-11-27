@@ -21,21 +21,6 @@ Aplikacja mobilna (React Native + Expo) do obsługi systemu Narzędziowni: logow
 - Sekcja „Do zwrotu”: przy każdej pozycji dostępny jest przycisk „Zwróć”,
   a po udanym zwrocie lista odświeża się automatycznie.
 
-## GIF-y – skaner
-Poniżej miejsce na krótkie GIF-y pokazujące zachowanie skanera.
-
-**Multi-skan – zmiana ilości**
-
-![Multi-skan – ilość](assets/gifs/scan-multiscan.gif)
-
-**Pojedynczy skan – kontrola ilości nad przyciskami**
-
-![Pojedynczy skan – ilość](assets/gifs/scan-single.gif)
-
-**Auto-odświeżanie listy „Do zwrotu” po zwrocie**
-
-![Auto-odświeżanie „Do zwrotu”](assets/gifs/return-autorefresh.gif)
-
 ## Wymagania
 - Node.js LTS
 - `npm` lub `pnpm`

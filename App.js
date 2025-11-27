@@ -163,6 +163,20 @@ function AppContent() {
     loadMe();
   }, []);
 
+  // Inicjalizacja mapy uprawnień z AsyncStorage (override z backendu)
+  useEffect(() => {
+    const initRolePerms = async () => {
+      try {
+        const raw = await AsyncStorage.getItem('@role_permissions_map_v1');
+        const map = raw ? JSON.parse(raw) : null;
+        if (map && typeof map === 'object') {
+          try { const { setRolePermissionsOverride } = await import('./lib/constants'); setRolePermissionsOverride(map); } catch {}
+        }
+      } catch {}
+    };
+    initRolePerms();
+  }, []);
+
   // Bootstrap token init + notifications with cleanup in effect
   useEffect(() => {
     let unsubscribe = () => {};
