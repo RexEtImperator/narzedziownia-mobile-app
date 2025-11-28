@@ -3,6 +3,20 @@
 Wszystkie istotne zmiany w tym projekcie są dokumentowane w tym pliku.
 Projekt stosuje konwencję „Keep a Changelog” i SemVer.
 
+## [1.4.0] — 2025-11-28
+
+### Added
+- Auto-retry: klient API automatycznie wznawia żądania po powrocie internetu.
+- UI: Pasek „Offline” na górze informujący o próbie wznowienia połączenia.
+- DateField: wspólny komponent pickera daty (web i mobile) dla ekranów BHP.
+
+### Changed
+- Docs: README zaktualizowany o nowe funkcje (offline, auto-retry, date picker).
+- Wersja aplikacji podbita do `1.4.0`.
+
+### Fixed
+- Stabilność: brak crashu w Expo Go, gdy natywny picker daty nie jest dostępny (fallback na `TextInput`).
+
 ## [1.3.0] — 2025-10-21
 
 ### Added

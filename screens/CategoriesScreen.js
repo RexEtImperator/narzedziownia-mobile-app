@@ -99,13 +99,9 @@ export default function CategoriesScreen() {
 
   return (
     <ScrollView style={[styles.scrollContainer, { backgroundColor: colors.bg }]} contentContainerStyle={[styles.container, { backgroundColor: colors.bg }]}>
-      <Text style={[styles.title, { color: colors.text }]}>🏷️ Kategorie</Text>
-      <Text style={[styles.subtitle, { color: colors.muted }]}>Zarządzanie kategoriami narzędzi</Text>
-
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Text style={[styles.label, { color: colors.muted }]}>Dodaj kategorię</Text>
         <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nazwa" value={newName} onChangeText={setNewName} placeholderTextColor={colors.muted} />
-        
         <Pressable style={[styles.button, { backgroundColor: colors.primary }]} onPress={addCategory} disabled={savingNew}>
           <Text style={{ color: '#fff', fontWeight: '600' }}>{savingNew ? 'Zapisywanie…' : 'Dodaj'}</Text>
         </Pressable>

@@ -8,9 +8,10 @@ import AddToolModal from './AddToolModal';
 import { showSnackbar } from '../lib/snackbar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hasPermission } from '../lib/utils';
+import { PERMISSIONS } from '../lib/constants';
 
 export default function ToolsScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const route = useRoute();
   const [tools, setTools] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -23,7 +24,12 @@ export default function ToolsScreen() {
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [editingTool, setEditingTool] = useState(null);
-  const [editFields, setEditFields] = useState({ name: '', sku: '', inventory_number: '', serial_number: '', category: '', status: '', location: '' });
+  const [editFields, setEditFields] = useState({ name: '', sku: '', inventory_number: '', serial_number: '', serial_unreadable: false, category: '', status: '', location: '' });
+  const [filterCategoryOptions, setFilterCategoryOptions] = useState([]);
+  // Kategorie w modalu edycji jak w „Dodaj narzędzie”
+  const [editCategoriesLoading, setEditCategoriesLoading] = useState(false);
+  const [editCategoryOptions, setEditCategoryOptions] = useState([]);
+  const [editCategoryOpen, setEditCategoryOpen] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
   const [focusedFilterInput, setFocusedFilterInput] = useState(false);
   const [focusedCodeInput, setFocusedCodeInput] = useState(false);
@@ -32,6 +38,12 @@ export default function ToolsScreen() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
   const [addToolVisible, setAddToolVisible] = useState(false);
+
+  // Serwis – stan modalu i pól
+  const [showServiceModal, setShowServiceModal] = useState(false);
+  const [serviceTool, setServiceTool] = useState(null);
+  const [serviceQuantity, setServiceQuantity] = useState(1);
+  const [serviceOrderNumber, setServiceOrderNumber] = useState('');
 
   // Permission-related state
   const [currentUser, setCurrentUser] = useState(null);
@@ -82,8 +94,8 @@ export default function ToolsScreen() {
         const raw = await AsyncStorage.getItem('@current_user');
         const user = raw ? JSON.parse(raw) : null;
         setCurrentUser(user);
-        setCanViewTools(hasPermission(user, 'view_tools'));
-        setCanManageTools(hasPermission(user, 'manage_tools'));
+        setCanViewTools(hasPermission(user, PERMISSIONS.VIEW_TOOLS));
+        setCanManageTools(hasPermission(user, PERMISSIONS.MANAGE_TOOLS));
       } catch {}
       setPermsReady(true);
     })();
@@ -91,9 +103,25 @@ export default function ToolsScreen() {
 
   useEffect(() => { if (!permsReady) return; load(); }, [permsReady, canViewTools]);
 
+  useEffect(() => {
+    if (!permsReady) return;
+    (async () => {
+      try {
+        await api.init();
+        const list = await api.get('/api/categories');
+        const names = Array.isArray(list)
+          ? list.map((c) => (c?.name || c?.category_name || (typeof c === 'string' ? c : ''))).filter(Boolean)
+          : [];
+        setFilterCategoryOptions(names);
+      } catch {
+        setFilterCategoryOptions([]);
+      }
+    })();
+  }, [permsReady]);
+
   const searchByCode = async () => {
     if (!canViewTools) {
-      showSnackbar({ type: 'warn', text: 'Brak uprawnień do przeglądania narzędzi' });
+      showSnackbar('Brak uprawnień do przeglądania narzędzi', { type: 'warn' });
       return;
     }
     setError('');
@@ -108,7 +136,10 @@ export default function ToolsScreen() {
   };
 
   // Zestawy unikalnych kategorii i statusów do filtrów
-  const categories = [...new Set((tools || []).map(t => t?.category || t?.category_name).filter(Boolean))];
+  const categoriesFromTools = (tools || []).map(t => t?.category || t?.category_name).filter(Boolean);
+  const categories = [...new Set([...(filterCategoryOptions || []), ...categoriesFromTools])].sort((a, b) => {
+    try { return String(a).localeCompare(String(b), 'pl', { sensitivity: 'base' }); } catch { return String(a).toLowerCase() < String(b).toLowerCase() ? -1 : (String(a).toLowerCase() > String(b).toLowerCase() ? 1 : 0); }
+  });
   const statuses = [...new Set((tools || []).map(t => {
     const computed = (t?.quantity === 1 && (t?.service_quantity || 0) > 0) ? 'serwis' : (t?.status || 'dostępne');
     return computed;
@@ -125,6 +156,32 @@ export default function ToolsScreen() {
     const computedStatus = (t?.quantity === 1 && (t?.service_quantity || 0) > 0) ? 'serwis' : (t?.status || 'dostępne');
     const matchesStatus = !selectedStatus || computedStatus === selectedStatus;
     return matchesSearch && matchesCategory && matchesStatus;
+  });
+
+  // Sortowanie: najpierw 'wydane', następnie rosnąco po numerze ewidencyjnym (puste na końcu)
+  const sortedTools = (filteredTools || []).slice().sort((a, b) => {
+    const aStatus = (a?.quantity === 1 && (a?.service_quantity || 0) > 0) ? 'serwis' : (a?.status || '');
+    const bStatus = (b?.quantity === 1 && (b?.service_quantity || 0) > 0) ? 'serwis' : (b?.status || '');
+    const aPri = String(aStatus).trim().toLowerCase() === 'wydane' ? 0 : 1;
+    const bPri = String(bStatus).trim().toLowerCase() === 'wydane' ? 0 : 1;
+    if (aPri !== bPri) return aPri - bPri;
+
+    const aInv = a?.inventory_number || '';
+    const bInv = b?.inventory_number || '';
+    const aEmpty = !String(aInv).trim();
+    const bEmpty = !String(bInv).trim();
+    if (aEmpty && !bEmpty) return 1;
+    if (!aEmpty && bEmpty) return -1;
+    // Lokalizacja porównania – w razie braku Intl.Collator użyj localeCompare
+    try {
+      return String(aInv).localeCompare(String(bInv), 'pl', { numeric: true, sensitivity: 'base' });
+    } catch {
+      const aa = String(aInv).toLowerCase();
+      const bb = String(bInv).toLowerCase();
+      if (aa < bb) return -1;
+      if (aa > bb) return 1;
+      return 0;
+    }
   });
 
   const openDetails = async (tool) => {
@@ -156,7 +213,7 @@ export default function ToolsScreen() {
 
   const openEdit = (tool) => {
     if (!canManageTools) {
-      showSnackbar({ type: 'warn', text: 'Brak uprawnień do edycji narzędzi' });
+      showSnackbar('Brak uprawnień do edycji narzędzi', { type: 'warn' });
       return;
     }
     const t = tool || {};
@@ -166,10 +223,27 @@ export default function ToolsScreen() {
       sku: t?.sku || '',
       inventory_number: t?.inventory_number || t?.code || t?.barcode || t?.qr_code || '',
       serial_number: t?.serial_number || '',
+      serial_unreadable: !!t?.serial_unreadable || false,
       category: t?.category || t?.category_name || '',
       status: (t?.quantity === 1 && (t?.service_quantity || 0) > 0) ? 'serwis' : (t?.status || ''),
       location: t?.location || ''
     });
+    // Załaduj listę kategorii do wyboru
+    (async () => {
+      try {
+        setEditCategoriesLoading(true);
+        await api.init();
+        const list = await api.get('/api/categories');
+        const names = Array.isArray(list)
+          ? list.map((c) => (c?.name || c?.category_name || (typeof c === 'string' ? c : ''))).filter(Boolean)
+          : [];
+        setEditCategoryOptions(names);
+      } catch {
+        setEditCategoryOptions([]);
+      } finally {
+        setEditCategoriesLoading(false);
+      }
+    })();
   };
 
   const closeEdit = () => { setEditingTool(null); };
@@ -182,6 +256,7 @@ export default function ToolsScreen() {
       sku: editingTool?.sku || '',
       inventory_number: editingTool?.inventory_number || editingTool?.code || editingTool?.barcode || editingTool?.qr_code || '',
       serial_number: editingTool?.serial_number || '',
+      serial_unreadable: !!editingTool?.serial_unreadable || false,
       category: editingTool?.category || editingTool?.category_name || '',
       status: (editingTool?.quantity === 1 && (editingTool?.service_quantity || 0) > 0) ? 'serwis' : (editingTool?.status || ''),
       location: editingTool?.location || ''
@@ -191,7 +266,7 @@ export default function ToolsScreen() {
   const saveEdit = async () => {
     if (!editingTool) return;
     if (!canManageTools) {
-      showSnackbar({ type: 'warn', text: 'Brak uprawnień do zapisu narzędzi' });
+      showSnackbar('Brak uprawnień do zapisu narzędzi', { type: 'warn' });
       return;
     }
     setLoading(true); setError('');
@@ -202,6 +277,7 @@ export default function ToolsScreen() {
       sku: editFields.sku,
       inventory_number: editFields.inventory_number,
       serial_number: editFields.serial_number,
+      serial_unreadable: !!editFields.serial_unreadable,
       category: editFields.category,
       status: editFields.status,
       location: editFields.location
@@ -231,11 +307,11 @@ export default function ToolsScreen() {
 
   const deleteTool = async (tool) => {
     if (!canManageTools) {
-      showSnackbar({ type: 'warn', text: 'Brak uprawnień do usuwania narzędzi' });
+      showSnackbar('Brak uprawnień do usuwania narzędzi', { type: 'warn' });
       return;
     }
     const id = tool?.id || tool?.tool_id;
-    if (!id) { showSnackbar({ type: 'error', text: 'Brak identyfikatora narzędzia' }); return; }
+    if (!id) { showSnackbar('Brak identyfikatora narzędzia', { type: 'error' }); return; }
     Alert.alert('Usunąć narzędzie?', 'Operacja jest nieodwracalna.', [
       { text: 'Anuluj', style: 'cancel' },
       { text: 'Usuń', style: 'destructive', onPress: async () => {
@@ -246,12 +322,87 @@ export default function ToolsScreen() {
           setTools(prev => prev.filter(t => String(t?.id || t?.tool_id) !== String(id)));
         } catch (e) {
           setError(e?.message || 'Błąd usuwania');
-          showSnackbar({ type: 'error', text: e?.message || 'Błąd usuwania narzędzia' });
+          showSnackbar(e?.message || 'Błąd usuwania narzędzia', { type: 'error' });
         } finally {
           setLoading(false);
         }
       } }
     ]);
+  };
+
+  // Otwórz modal „Serwis” dla wybranego narzędzia
+  const openServiceModal = (tool) => {
+    if (!canManageTools) {
+      showSnackbar('Brak uprawnień do operacji serwisowej', { type: 'warn' });
+      return;
+    }
+    const t = tool || null;
+    setServiceTool(t);
+    setServiceQuantity(1);
+    setServiceOrderNumber(t?.service_order_number || '');
+    setShowServiceModal(true);
+  };
+
+  const closeServiceModal = () => {
+    setShowServiceModal(false);
+    setServiceTool(null);
+    setServiceQuantity(1);
+    setServiceOrderNumber('');
+  };
+
+  // Potwierdź wysłanie na serwis
+  const confirmService = async () => {
+    if (!serviceTool) return;
+    if (!canManageTools) {
+      showSnackbar('Brak uprawnień do operacji serwisowej', { type: 'warn' });
+      return;
+    }
+    try {
+      await api.init();
+      const id = serviceTool?.id || serviceTool?.tool_id;
+      const maxQty = (serviceTool?.quantity || 0) - (serviceTool?.service_quantity || 0);
+      if (serviceQuantity < 1 || serviceQuantity > maxQty) {
+        showSnackbar(`Wybierz ilość 1–${maxQty}`, { type: 'warn' });
+        return;
+      }
+      await api.post(`/api/tools/${id}/service`, {
+        quantity: serviceQuantity,
+        service_order_number: (serviceOrderNumber || '').trim() || null,
+      });
+      showSnackbar('Wysłano na serwis', { type: 'success' });
+      closeServiceModal();
+      try { await load(); } catch {}
+    } catch (e) {
+      showSnackbar(e?.message || 'Nie udało się wysłać na serwis', { type: 'error' });
+    }
+  };
+
+  // Odbierz z serwisu dla pozycji z listy
+  const serviceReceiveFor = async (tool) => {
+    if (!canManageTools) {
+      showSnackbar('Brak uprawnień do operacji serwisowej', { type: 'warn' });
+      return;
+    }
+    const id = tool?.id || tool?.tool_id;
+    const current = tool?.service_quantity || 0;
+    if (!id || current <= 0) {
+      showSnackbar('Brak pozycji do odbioru z serwisu', { type: 'warn' });
+      return;
+    }
+    try {
+      await api.init();
+      await api.post(`/api/tools/${id}/service/receive`, { quantity: current });
+      showSnackbar('Odebrano z serwisu', { type: 'success' });
+      try { await load(); } catch {}
+    } catch (e) {
+      showSnackbar(e?.message || 'Nie udało się odebrać z serwisu', { type: 'error' });
+    }
+  };
+
+  // Odbierz z serwisu dla narzędzia w szczegółach
+  const serviceReceive = async () => {
+    if (!detailTool) return;
+    await serviceReceiveFor(detailTool);
   };
 
   if (permsReady && !canViewTools) {
@@ -285,6 +436,11 @@ export default function ToolsScreen() {
           onFocus={() => setFocusedFilterInput(true)}
           onBlur={() => setFocusedFilterInput(false)}
         />
+        {searchTerm ? (
+          <Pressable accessibilityLabel="Wyczyść wyszukiwanie" onPress={() => setSearchTerm('')} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.85 : 1 }] }>
+            <Ionicons name="close-circle-outline" size={25} color={colors.muted || colors.text} />
+          </Pressable>
+        ) : null}
       </View>
       <View style={styles.filterRow} className="flex-row items-center gap-2 mb-2">
         <TouchableOpacity style={[styles.dropdownToggle, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md px-2 h-9 justify-center" onPress={() => setShowCategoryDropdown(v => !v)}>
@@ -334,7 +490,7 @@ export default function ToolsScreen() {
       {error ? <Text style={[styles.error, { color: colors.danger }]} className="mb-2">{error}</Text> : null}
       {loading ? <Text style={[styles.muted, { color: colors.muted }]}>Ładowanie…</Text> : (
         <FlatList
-          data={filteredTools}
+          data={sortedTools}
           keyExtractor={(item) => String(item.id || item.tool_id || Math.random())}
           contentContainerStyle={{ paddingVertical: 8, paddingBottom: 24 }}
           showsVerticalScrollIndicator={false}
@@ -369,14 +525,24 @@ export default function ToolsScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.toolName, { color: colors.text }]} className="text-lg font-semibold">{item.name || item.tool_name || '—'}</Text>
                   </View>
-                  <View style={{ flexDirection: 'row', gap: 12 }}>
-                    <Pressable accessibilityLabel={`Edytuj narzędzie ${id}`} onPress={() => openEdit(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
-                      <Ionicons name="create-outline" size={20} color={colors.text} />
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <Pressable accessibilityLabel={`Edytuj narzędzie ${id}`} onPress={() => openEdit(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
+                    <Ionicons name="create-outline" size={20} color={colors.text} />
+                  </Pressable>
+                  {canManageTools && (item?.service_quantity || 0) > 0 ? (
+                    <Pressable accessibilityLabel={`Odbierz z serwisu ${id}`} onPress={() => serviceReceiveFor(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
+                      <Ionicons name="download-outline" size={20} color={colors.text} />
                     </Pressable>
-                    <Pressable accessibilityLabel={`Usuń narzędzie ${id}`} onPress={() => deleteTool(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
-                      <Ionicons name="trash-outline" size={20} color={colors.danger || '#e11d48'} />
+                  ) : null}
+                  {canManageTools ? (
+                    <Pressable accessibilityLabel={`Serwis narzędzie ${id}`} onPress={() => openServiceModal(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
+                      <Ionicons name="construct-outline" size={20} color={colors.text} />
                     </Pressable>
-                  </View>
+                  ) : null}
+                  <Pressable accessibilityLabel={`Usuń narzędzie ${id}`} onPress={() => deleteTool(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
+                    <Ionicons name="trash-outline" size={20} color={colors.danger || '#e11d48'} />
+                  </Pressable>
+                </View>
                 </View>
                 <Text style={[styles.toolMeta, { color: colors.muted }]}>Nr ew.: {item?.inventory_number || (isDataUri(item?.code) ? '' : item?.code) || (isDataUri(item?.barcode) ? '' : item?.barcode) || (isDataUri(item?.qr_code) ? '' : item?.qr_code) || '—'}</Text>
                 <Text style={[styles.toolMeta, { color: colors.muted }]}>SKU: {isDataUri(item?.sku) ? '—' : (item?.sku || '—')} • Kategoria: {item.category || item.category_name || '—'}</Text>
@@ -392,7 +558,7 @@ export default function ToolsScreen() {
         <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay || 'rgba(0,0,0,0.5)' }]}>
           <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>Edytuj narzędzie</Text>
-            <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ gap: 8 }} showsVerticalScrollIndicator={false}>
+            <ScrollView style={{ maxHeight: 480 }} contentContainerStyle={{ gap: 8 }} showsVerticalScrollIndicator={false}>
               <Text style={{ color: colors.muted }}>Nazwa</Text>
               <TextInput style={[styles.input, { borderColor: focusedField === 'name' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nazwa" value={editFields.name} onChangeText={(v) => setEditFields(s => ({ ...s, name: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('name')} onBlur={() => setFocusedField(null)} />
 
@@ -403,13 +569,67 @@ export default function ToolsScreen() {
               <TextInput style={[styles.input, { borderColor: focusedField === 'inventory_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nr ewidencyjny" value={editFields.inventory_number} onChangeText={(v) => setEditFields(s => ({ ...s, inventory_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('inventory_number')} onBlur={() => setFocusedField(null)} />
 
               <Text style={{ color: colors.muted }}>Numer fabryczny</Text>
-              <TextInput style={[styles.input, { borderColor: focusedField === 'serial_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Numer fabryczny" value={editFields.serial_number} onChangeText={(v) => setEditFields(s => ({ ...s, serial_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('serial_number')} onBlur={() => setFocusedField(null)} />
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    borderColor: focusedField === 'serial_number' ? colors.primary : colors.border,
+                    backgroundColor: editFields.serial_unreadable ? (String(colors.muted || '#64748b') + '20') : colors.card,
+                    color: colors.text,
+                  },
+                ]}
+                placeholder="Numer fabryczny"
+                value={editFields.serial_number}
+                editable={!editFields.serial_unreadable}
+                onChangeText={(v) => setEditFields(s => ({ ...s, serial_number: v }))}
+                placeholderTextColor={colors.muted}
+                onFocus={() => setFocusedField('serial_number')}
+                onBlur={() => setFocusedField(null)}
+              />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                <Pressable onPress={() => setEditFields(s => ({ ...s, serial_unreadable: !s.serial_unreadable }))} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.85 : 1 }]}> 
+                  <Ionicons name={editFields.serial_unreadable ? 'checkbox' : 'square-outline'} size={18} color={colors.text} />
+                  <Text style={{ color: colors.text }}>Numer nieczytelny</Text>
+                </Pressable>
+              </View>
 
               <Text style={{ color: colors.muted }}>Kategoria</Text>
-              <TextInput style={[styles.input, { borderColor: focusedField === 'category' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Kategoria" value={editFields.category} onChangeText={(v) => setEditFields(s => ({ ...s, category: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('category')} onBlur={() => setFocusedField(null)} />
+              <Pressable
+                onPress={() => setEditCategoryOpen(v => !v)}
+                style={({ pressed }) => [
+                  styles.input,
+                  { borderColor: colors.border, backgroundColor: colors.card, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+                  pressed && { opacity: 0.9 }
+                ]}
+              >
+                <Text style={{ color: editFields.category ? colors.text : colors.muted }}>
+                  {editFields.category || (editCategoriesLoading ? 'Ładowanie kategorii…' : (editCategoryOptions.length ? 'Wybierz kategorię' : 'Brak kategorii'))}
+                </Text>
+                <Ionicons name={editCategoryOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} />
+              </Pressable>
+              {editCategoryOpen && (
+                <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, marginTop: 6, backgroundColor: colors.card, maxHeight: 160 }}>
+                  {editCategoriesLoading ? (
+                    <View style={{ padding: 10 }}><Text style={{ color: colors.muted }}>Ładowanie kategorii…</Text></View>
+                  ) : (editCategoryOptions && editCategoryOptions.length > 0) ? (
+                    <ScrollView style={{ maxHeight: 160 }}>
+                      {editCategoryOptions.map((opt) => (
+                        <Pressable
+                          key={String(opt)}
+                          onPress={() => { setEditFields(s => ({ ...s, category: opt })); setEditCategoryOpen(false); }}
+                          style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: pressed ? (colors.overlay || '#00000010') : colors.card }]}
+                        >
+                          <Text style={{ color: colors.text }}>{opt}</Text>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                  ) : (
+                    <View style={{ padding: 10 }}><Text style={{ color: colors.muted }}>Brak kategorii</Text></View>
+                  )}
+                </View>
+              )}
 
-              <Text style={{ color: colors.muted }}>Status</Text>
-              <TextInput style={[styles.input, { borderColor: focusedField === 'status' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Status" value={editFields.status} onChangeText={(v) => setEditFields(s => ({ ...s, status: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('status')} onBlur={() => setFocusedField(null)} />
+              {/* Pole Status ukryte zgodnie z wymaganiem – wartość pozostaje w danych edycji */}
 
               <Text style={{ color: colors.muted }}>Lokalizacja</Text>
               <TextInput style={[styles.input, { borderColor: focusedField === 'location' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Lokalizacja" value={editFields.location} onChangeText={(v) => setEditFields(s => ({ ...s, location: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('location')} onBlur={() => setFocusedField(null)} />
@@ -433,22 +653,142 @@ export default function ToolsScreen() {
             <Text style={[styles.modalTitle, { color: colors.text }]}>Szczegóły narzędzia</Text>
             {detailLoading ? <Text style={{ color: colors.muted }}>Ładowanie…</Text> : null}
             {detailError ? <Text style={{ color: colors.danger }}>{detailError}</Text> : null}
-            <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ gap: 6, paddingVertical: 8 }} showsVerticalScrollIndicator={false}>
-              <Text style={{ color: colors.text, fontWeight: '600', marginBottom: 6 }}>{detailTool?.name || detailTool?.tool_name || '—'}</Text>
-              <Text style={{ color: colors.muted, marginTop: 4 }}>Nr ew.: {detailTool?.inventory_number || (isDataUri(detailTool?.code) ? '' : detailTool?.code) || (isDataUri(detailTool?.barcode) ? '' : detailTool?.barcode) || (isDataUri(detailTool?.qr_code) ? '' : detailTool?.qr_code) || '—'}</Text>
-              <Text style={{ color: colors.muted, marginTop: 4 }}>SKU: {isDataUri(detailTool?.sku) ? '—' : (detailTool?.sku || '—')}</Text>
-              <Text style={{ color: colors.muted, marginTop: 4 }}>Kategoria: {detailTool?.category || detailTool?.category_name || '—'}</Text>
-              <Text style={{ color: colors.muted, marginTop: 4 }}>Nr fabryczny: {detailTool?.serial_number || '—'}</Text>
-              <Text style={{ color: colors.muted, marginTop: 4 }}>Lokalizacja: {detailTool?.location || '—'}</Text>
-              <Text style={{ color: colors.muted, marginTop: 4 }}>Ilość: {detailTool?.quantity ?? '—'}</Text>
-              <Text style={{ color: colors.muted, marginTop: 4 }}>Status: {(detailTool?.quantity === 1 && (detailTool?.service_quantity || 0) > 0) ? 'serwis' : (detailTool?.status || '—')}</Text>
+            <ScrollView style={{ maxHeight: 450 }} contentContainerStyle={{ gap: 6, paddingVertical: 8 }} showsVerticalScrollIndicator={false}>
+              {/* Układ: etykieta po lewej, wartość po prawej jaśniejszą czcionką */}
+              <View style={{ gap: 6 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ color: colors.muted }}>Nazwa:</Text>
+                  <Text style={{ color: colors.text, fontWeight: '600' }}>{detailTool?.name || detailTool?.tool_name || '—'}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ color: colors.muted }}>Numer ewidencyjny:</Text>
+                  <Text style={{ color: colors.text }}>{detailTool?.inventory_number || (isDataUri(detailTool?.code) ? '' : detailTool?.code) || (isDataUri(detailTool?.barcode) ? '' : detailTool?.barcode) || (isDataUri(detailTool?.qr_code) ? '' : detailTool?.qr_code) || '—'}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ color: colors.muted }}>Numer fabryczny:</Text>
+                  <Text style={{ color: colors.text }}>{detailTool?.serial_unreadable ? 'nieczytelny' : (detailTool?.serial_number || '—')}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ color: colors.muted }}>SKU:</Text>
+                  <Text style={{ color: colors.text }}>{isDataUri(detailTool?.sku) ? '—' : (detailTool?.sku || '—')}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ color: colors.muted }}>Kategoria:</Text>
+                  <Text style={{ color: colors.text }}>{detailTool?.category || detailTool?.category_name || '—'}</Text>
+                </View>
+
+                {/* Dodatkowe pola zależne od kategorii */}
+                {String(detailTool?.category || detailTool?.category_name || '').trim().toLowerCase() === 'elektronarzędzia' ? (
+                  <>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={{ color: colors.muted }}>Producent:</Text>
+                      <Text style={{ color: colors.text }}>{detailTool?.manufacturer || '—'}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={{ color: colors.muted }}>Model:</Text>
+                      <Text style={{ color: colors.text }}>{detailTool?.model || '—'}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={{ color: colors.muted }}>Rok produkcji:</Text>
+                      <Text style={{ color: colors.text }}>{(typeof detailTool?.production_year !== 'undefined' && detailTool?.production_year !== null) ? String(detailTool?.production_year) : '—'}</Text>
+                    </View>
+                  </>
+                ) : null}
+                {String(detailTool?.category || detailTool?.category_name || '').trim().toLowerCase() === 'spawalnicze' ? (
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ color: colors.muted }}>Data przeglądu:</Text>
+                    <Text style={{ color: colors.text }}>{detailTool?.inspection_date ? new Date(detailTool?.inspection_date).toLocaleDateString('pl-PL') : '—'}</Text>
+                  </View>
+                ) : null}
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ color: colors.muted }}>Lokalizacja:</Text>
+                  <Text style={{ color: colors.text }}>{detailTool?.location || '—'}</Text>
+                </View>
+
+                {/* Status jako kolorowy znacznik w układzie lewo-prawo */}
+                {(() => {
+                  const st = (detailTool?.quantity === 1 && (detailTool?.service_quantity || 0) > 0) ? 'serwis' : (detailTool?.status || '—');
+                  const s = String(st || '').toLowerCase();
+                  const bg = isDark
+                    ? (s === 'dostępne' ? '#14532d' : s === 'wydane' ? '#713f12' : s === 'serwis' ? '#7f1d1d' : '#1f2937')
+                    : (s === 'dostępne' ? '#dcfce7' : s === 'wydane' ? '#fef9c3' : s === 'serwis' ? '#fee2e2' : '#e5e7eb');
+                  const fg = isDark
+                    ? (s === 'dostępne' ? '#86efac' : s === 'wydane' ? '#fde047' : s === 'serwis' ? '#fca5a5' : '#9ca3af')
+                    : (s === 'dostępne' ? '#166534' : s === 'wydane' ? '#854d0e' : s === 'serwis' ? '#991b1b' : '#334155');
+                  return (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ color: colors.muted }}>Status:</Text>
+                      <Text style={{ backgroundColor: bg, color: fg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 9999, fontSize: 12, fontWeight: '900' }}>{st}</Text>
+                    </View>
+                  );
+                })()}
+
+                {/* Wydane dla w układzie lewo-prawo */}
+                {(() => {
+                  const st = (detailTool?.quantity === 1 && (detailTool?.service_quantity || 0) > 0) ? 'serwis' : (detailTool?.status || '—');
+                  if (st === 'wydane' || st === 'częściowo wydane') {
+                    const issues = Array.isArray(detailData?.issues) ? detailData.issues : [];
+                    const label = issues.length > 0
+                      ? issues.map(i => {
+                          const fn = i?.employee_first_name || '';
+                          const ln = i?.employee_last_name || '';
+                          const brand = i?.employee_brand_number || '';
+                          const qtyLabel = i?.quantity > 1 ? ` (${i.quantity} szt.)` : '';
+                          const name = `${fn} ${ln}`.trim();
+                          const brandLabel = brand ? ` [${brand}]` : '';
+                          return `${name}${brandLabel}${qtyLabel}`;
+                        }).join(', ')
+                      : '-';
+                    return (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <Text style={{ color: colors.muted }}>Wydane dla:</Text>
+                        <Text style={{ color: colors.text, flex: 1, textAlign: 'right' }}>{label}</Text>
+                      </View>
+                    );
+                  }
+                  return null;
+                })()}
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ color: colors.muted }}>Ilość:</Text>
+                  <Text style={{ color: colors.text }}>{detailTool?.quantity ?? '—'}</Text>
+                </View>
+
+                {detailTool?.description ? (
+                  <View style={{ justifyContent: 'space-between' }}>
+                    <Text style={{ color: colors.muted }}>Opis:</Text>
+                    <Text style={{ color: colors.text }}>{detailTool.description}</Text>
+                  </View>
+                ) : null}
+              </View>
+
+              {(detailTool?.service_quantity || 0) > 0 ? (
+                <View style={{ marginTop: 8 }}>
+                  <Text style={{ color: colors.text, fontWeight: '600' }}>Serwis</Text>
+                  <Text style={{ color: colors.muted }}>W serwisie: {detailTool?.service_quantity} szt.</Text>
+                  {detailTool?.service_order_number ? (
+                    <Text style={{ color: colors.muted }}>Nr zlecenia: {detailTool?.service_order_number}</Text>
+                  ) : null}
+                  {detailTool?.status === 'serwis' && detailTool?.service_sent_at ? (
+                    <Text style={{ color: colors.muted, fontSize: 12, marginTop: 2 }}>Data wysłania: {new Date(detailTool.service_sent_at).toLocaleString('pl-PL')}</Text>
+                  ) : null}
+                  {canManageTools ? (
+                    <View style={{ marginTop: 6 }}>
+                      <Pressable onPress={serviceReceive} style={({ pressed }) => [{ paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8, backgroundColor: colors.success || '#10b981', opacity: pressed ? 0.9 : 1 }]}> 
+                        <Text style={{ color: '#fff', fontWeight: '600' }}>Odebrano</Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
 
               {detailData?.issues ? (
                 <>
                   <Text style={{ color: colors.text, fontWeight: '700', marginTop: 6 }}>Aktywne wydania</Text>
                   {detailData.issues.length > 0 ? detailData.issues.map((iss) => (
                     <View key={String(iss.id)} style={{ paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border }}>
-                      <Text style={{ color: colors.text }}>#{iss.id} • {iss.employee_first_name} {iss.employee_last_name}</Text>
+                      <Text style={{ color: colors.text }}>#{iss.id} • {iss.employee_first_name} {iss.employee_last_name} [{iss.employee_brand_number}]</Text>
                       <Text style={{ color: colors.muted }}>Ilość: {iss.quantity} • Wydano: {iss.issued_at}</Text>
                     </View>
                   )) : (
@@ -460,6 +800,54 @@ export default function ToolsScreen() {
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
               <Pressable onPress={closeDetails} style={({ pressed }) => [{ paddingHorizontal: 14, height: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg, opacity: pressed ? 0.85 : 1 }]}> 
                 <Text style={{ color: colors.text }}>Zamknij</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal serwisu */}
+      <Modal visible={showServiceModal && !!serviceTool} animationType="fade" transparent onRequestClose={closeServiceModal}>
+        <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay || 'rgba(0,0,0,0.5)' }]}> 
+          <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Wyślij na serwis</Text>
+              <Pressable onPress={closeServiceModal}>
+                <Ionicons name="close" size={22} color={colors.muted} />
+              </Pressable>
+            </View>
+            {serviceTool ? (
+              <ScrollView style={{ maxHeight: 360 }} contentContainerStyle={{ gap: 8 }} showsVerticalScrollIndicator={false}>
+                <Text style={{ color: colors.muted }}>Narzędzie: {serviceTool?.name || serviceTool?.tool_name || '—'}</Text>
+                <Text style={{ color: colors.muted }}>Dostępnych do wysłania: {Math.max(0, (serviceTool?.quantity || 0) - (serviceTool?.service_quantity || 0))} szt.</Text>
+                <Text style={{ color: colors.text }}>Ilość do serwisu</Text>
+                <TextInput
+                  style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
+                  placeholder="Ilość"
+                  keyboardType="numeric"
+                  value={String(serviceQuantity)}
+                  onChangeText={(v) => {
+                    const n = parseInt(String(v || '').replace(/[^0-9]/g, ''), 10);
+                    setServiceQuantity(Number.isFinite(n) ? n : 1);
+                  }}
+                  placeholderTextColor={colors.muted}
+                />
+                <Text style={{ color: colors.text }}>Nr zlecenia serwisowego (opcjonalnie)</Text>
+                <TextInput
+                  style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
+                  placeholder="Nr zlecenia"
+                  value={serviceOrderNumber}
+                  onChangeText={setServiceOrderNumber}
+                  placeholderTextColor={colors.muted}
+                />
+              </ScrollView>
+            ) : null}
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+              <Pressable onPress={closeServiceModal} style={({ pressed }) => [{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.85 : 1 }]}> 
+                <Text style={{ color: colors.text }}>Anuluj</Text>
+              </Pressable>
+              <Pressable onPress={confirmService} style={({ pressed }) => [{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1 }]}> 
+                <Text style={{ color: '#fff' }}>Wyślij</Text>
               </Pressable>
             </View>
           </View>

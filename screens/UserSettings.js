@@ -78,17 +78,17 @@ export default function UserSettingsScreen() {
   const testConnection = async () => {
     try {
       await api.init();
-      const res = await api.get('/api/employees');
+      const res = await api.get('/api/health');
       if (Array.isArray(res)) {
-        showSnackbar({ type: 'success', text: 'Połączono z API (autoryzacja OK).' });
+        showSnackbar('Połączono z API (autoryzacja OK).', { type: 'success' });
       } else {
-        showSnackbar({ type: 'success', text: 'Połączono z API.' });
+        showSnackbar('Połączono z API.', { type: 'success' });
       }
     } catch (e) {
       if (e.status === 401 || e.status === 403) {
-        showSnackbar({ type: 'warn', text: 'Połączono z API, ale brak autoryzacji — zaloguj się.' });
+        showSnackbar('Połączono z API, ale brak autoryzacji — zaloguj się.', { type: 'warn' });
       } else {
-        showSnackbar({ type: 'error', text: `Brak połączenia z API: ${e.message || 'nieznany błąd'}` });
+        showSnackbar(`Brak połączenia z API: ${e.message || 'nieznany błąd'}`, { type: 'error' });
       }
     }
   };
@@ -122,15 +122,15 @@ export default function UserSettingsScreen() {
     await disableAllNotifications();
     setReviewsEnabled(false);
     setExpiredEnabled(false);
-    showSnackbar({ type: 'success', text: 'Wyłączono wszystkie zaplanowane powiadomienia i zapisano ustawienia.' });
+    showSnackbar('Wyłączono wszystkie zaplanowane powiadomienia i zapisano ustawienia.', { type: 'success' });
   };
 
   const clearAcks = async () => {
     try {
       await clearAcknowledgements({ reschedule: true });
-      showSnackbar({ type: 'success', text: 'Wyczyszczono potwierdzenia powiadomień. Harmonogram został odświeżony.' });
+      showSnackbar('Wyczyszczono potwierdzenia powiadomień. Harmonogram został odświeżony.', { type: 'success' });
     } catch (e) {
-      showSnackbar({ type: 'error', text: e?.message || 'Nie udało się wyczyścić potwierdzeń.' });
+      showSnackbar(e?.message || 'Nie udało się wyczyścić potwierdzeń.', { type: 'error' });
     }
   };
 

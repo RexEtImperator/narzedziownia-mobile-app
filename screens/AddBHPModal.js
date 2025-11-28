@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, Text, TextInput, Modal, Pressable, ScrollView, StyleSheet, Switch, ActivityIndicator } from 'react-native';
+import DateField from '../components/DateField';
 import { useTheme } from '../lib/theme';
 import api from '../lib/api';
 import { Ionicons } from '@expo/vector-icons';
@@ -129,13 +130,13 @@ export default function AddBHPModal({ visible, onClose, onCreated }) {
             <TextInput style={[styles.input, { borderColor: focusedField === 'catalog_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Numer katalogowy" value={fields.catalog_number} onChangeText={(v) => setFields(s => ({ ...s, catalog_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('catalog_number')} onBlur={() => setFocusedField(null)} />
 
             <Text style={{ color: colors.muted }}>Data produkcji (szelek)</Text>
-            <TextInput style={[styles.input, { borderColor: focusedField === 'production_date' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="dd.mm.rrrr" value={fields.production_date} onChangeText={(v) => setFields(s => ({ ...s, production_date: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('production_date')} onBlur={() => setFocusedField(null)} />
+            <DateField value={fields.production_date} onChange={(v) => setFields(s => ({ ...s, production_date: v }))} placeholder="YYYY-MM-DD" style={styles.input} colors={colors} />
 
             <Text style={{ color: colors.muted }}>Data przeglądu</Text>
-            <TextInput style={[styles.input, { borderColor: focusedField === 'inspection_date' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="dd.mm.rrrr" value={fields.inspection_date} onChangeText={(v) => setFields(s => ({ ...s, inspection_date: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('inspection_date')} onBlur={() => setFocusedField(null)} />
+            <DateField value={fields.inspection_date} onChange={(v) => setFields(s => ({ ...s, inspection_date: v }))} placeholder="YYYY-MM-DD" style={styles.input} colors={colors} />
 
             <Text style={{ color: colors.muted }}>Data rozpoczęcia użytkowania</Text>
-            <TextInput style={[styles.input, { borderColor: focusedField === 'harness_start_date' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="dd.mm.rrrr" value={fields.harness_start_date} onChangeText={(v) => setFields(s => ({ ...s, harness_start_date: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('harness_start_date')} onBlur={() => setFocusedField(null)} />
+            <DateField value={fields.harness_start_date} onChange={(v) => setFields(s => ({ ...s, harness_start_date: v }))} placeholder="YYYY-MM-DD" style={styles.input} colors={colors} />
 
             <Text style={{ color: colors.muted }}>Zestaw</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>

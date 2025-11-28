@@ -6,10 +6,12 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import api from './lib/api';
 import { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Text, Pressable, Modal, Animated, Easing, Platform } from 'react-native';
+import { View, Text, Pressable, Modal, Animated, Easing, Platform } from 'react-native';  
+import GestureHandlerRootView from './components/GestureRoot';
 import SettingsScreen from './screens/SettingsScreen';
 import SecuritySettings from './screens/SecuritySettings';
 import UsersSettings from './screens/UsersSettings';
+import RolesPermissions from './screens/RolesPermissions';
 import FeaturesSettings from './screens/FeaturesSettings';
 import CategoriesScreen from './screens/CategoriesScreen';
 import BackupSettings from './screens/BackupSettings';
@@ -20,12 +22,16 @@ import BhpScreen from './screens/bhpscreen';
 import EmployeesScreen from './screens/Employees';
 import DepartmentsScreen from './screens/Departments';
 import PositionsScreen from './screens/Positions';
+import CodePrefixesScreen from './screens/CodePrefixesScreen';
 import UserSettingsScreen from './screens/UserSettings';
 import InventoryScreen from './screens/Inventory';
+import AuditLogScreen from './screens/AuditLog';
 import { ThemeProvider, useTheme } from './lib/theme';
+import { setDynamicRolePermissions } from './lib/constants';
+import { isOnline, onConnectivityChange } from './lib/net';
 import { initializeAndRestore } from './lib/notifications';
 import Constants from 'expo-constants';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { subscribe as subscribeSnackbar } from './lib/snackbar';
 import { isAdmin } from './lib/utils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -35,20 +41,22 @@ const SettingsStackNav = createNativeStackNavigator();
 const RootStack = createNativeStackNavigator();
 const IssueStackNav = createNativeStackNavigator();
 
-// Ekran skanowania QR/kodu kreskowego
 import ScanScreen from './screens/ScanScreen';
 
 function SettingsStack() {
   return (
     <SettingsStackNav.Navigator>
-      <SettingsStackNav.Screen name="⚙️Ogólne" component={SettingsScreen} />
+      <SettingsStackNav.Screen name="⚙️Ustawienia" component={SettingsScreen} />
       <SettingsStackNav.Screen name="🔒Bezpieczeństwo" component={SecuritySettings} />
       <SettingsStackNav.Screen name="👥Użytkownicy" component={UsersSettings} />
+      <SettingsStackNav.Screen name="🎭Role i uprawnienia" component={RolesPermissions} />
       <SettingsStackNav.Screen name="🎛️Funkcje" component={FeaturesSettings} />
-      <SettingsStackNav.Screen name="🏢Działy" component={DepartmentsScreen} />
-      <SettingsStackNav.Screen name="👔Stanowiska" component={PositionsScreen} />
-      <SettingsStackNav.Screen name="🏷️Kategorie" component={CategoriesScreen} />
-      <SettingsStackNav.Screen name="💾Backup" component={BackupSettings} />
+      <SettingsStackNav.Screen name="🔖Prefiksy kodów" component={CodePrefixesScreen} />
+      <RootStack.Screen name="🏢Działy" component={DepartmentsScreen} />
+      <RootStack.Screen name="👔Stanowiska" component={PositionsScreen} />
+      <RootStack.Screen name="🏷️Kategorie" component={CategoriesScreen} />
+      <SettingsStackNav.Screen name="💾Kopia zapasowa" component={BackupSettings} />
+      <RootStack.Screen name="📝Dziennik audytu" component={AuditLogScreen} />
     </SettingsStackNav.Navigator>
   );
 }
@@ -140,7 +148,7 @@ function MainTabs({ openActionSheet }) {
 function AppContent() {
   const { navTheme, isDark, colors } = useTheme();
   const [hasToken, setHasToken] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdminUser, setIsAdminUser] = useState(false);
   // Stubs to keep Modal code inert; action sheet removed
   const actionSheetVisible = false;
   const sheetAnim = new Animated.Value(0);
@@ -155,9 +163,9 @@ function AppContent() {
       try {
         const saved = await AsyncStorage.getItem('@current_user');
         const me = saved ? JSON.parse(saved) : null;
-        setIsAdmin(isAdmin(me));
+        setIsAdminUser(isAdmin(me));
       } catch {
-        setIsAdmin(false);
+        setIsAdminUser(false);
       }
     };
     loadMe();
@@ -170,11 +178,26 @@ function AppContent() {
         const raw = await AsyncStorage.getItem('@role_permissions_map_v1');
         const map = raw ? JSON.parse(raw) : null;
         if (map && typeof map === 'object') {
-          try { const { setRolePermissionsOverride } = await import('./lib/constants'); setRolePermissionsOverride(map); } catch {}
+          try { setDynamicRolePermissions(map); } catch {}
         }
       } catch {}
     };
     initRolePerms();
+  }, []);
+
+  // Pobierz dynamiczne uprawnienia ról z backendu na starcie aplikacji
+  useEffect(() => {
+    const fetchRolePerms = async () => {
+      try {
+        await api.init();
+        const perms = await api.get('/api/role-permissions');
+        if (perms && typeof perms === 'object') {
+          try { setDynamicRolePermissions(perms); } catch {}
+          try { await AsyncStorage.setItem('@role_permissions_map_v1', JSON.stringify(perms)); } catch {}
+        }
+      } catch {}
+    };
+    fetchRolePerms();
   }, []);
 
   // Bootstrap token init + notifications with cleanup in effect
@@ -324,21 +347,24 @@ function AppContent() {
         </Pressable>
       </Modal>
       <SnackbarHost />
+      <OfflineBanner />
       {/* Usunięto niegated baner */}
-      <ApiStatusBanner status={apiStatus} isAdmin={isAdmin} />
+      <ApiStatusBanner status={apiStatus} isAdmin={isAdminUser} />
     </NavigationContainer>
   );
 }
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <ThemeProvider>
-        <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-          <AppContent />
-        </SafeAreaView>
-      </ThemeProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+            <AppContent />
+          </SafeAreaView>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -356,6 +382,9 @@ function SnackbarHost() {
   const [type, setType] = useState('success');
   const [duration, setDuration] = useState(2500);
   const animRef = useState(() => new Animated.Value(0))[0];
+  const insets = useSafeAreaInsets();
+  const tabBarReserve = 90; // Przybliżona wysokość dolnego paska zakładek
+  const bottomOffset = Math.max(24, (insets?.bottom || 0) + tabBarReserve);
 
   useEffect(() => {
     const unsub = subscribeSnackbar(({ message, type: t, duration: d }) => {
@@ -376,7 +405,7 @@ function SnackbarHost() {
   if (!visible) return null;
   const bg = type === 'error' ? '#ef4444' : type === 'warn' ? '#f59e0b' : colors.primary;
   return (
-    <View style={{ pointerEvents: 'none', position: 'absolute', left: 0, right: 0, bottom: 24, alignItems: 'center' }}>
+    <View style={{ pointerEvents: 'none', position: 'absolute', left: 0, right: 0, bottom: bottomOffset, alignItems: 'center' }}>
       <Animated.View style={{
         transform: [{ translateY: animRef.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
         opacity: animRef,
@@ -398,6 +427,23 @@ function ApiStatusBanner({ status, isAdmin }) {
   return (
     <View style={{ position: 'absolute', top: 8, left: 8, right: 8, backgroundColor: '#fee2e2', borderColor: '#ef4444', borderWidth: 1, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, zIndex: 9999 }}>
       <Text style={{ color: '#991b1b', textAlign: 'center' }}>{status?.message || 'Brak połączenia z API'}</Text>
+    </View>
+  );
+}
+
+function OfflineBanner() {
+  const { colors } = useTheme();
+  const [online, setOnline] = useState(isOnline());
+
+  useEffect(() => {
+    const off = onConnectivityChange((state) => setOnline(!!state));
+    return () => { try { off(); } catch {} };
+  }, []);
+
+  if (online) return null;
+  return (
+    <View style={{ position: 'absolute', top: 8, left: 8, right: 8, backgroundColor: '#fff7ed', borderColor: '#f59e0b', borderWidth: 1, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, zIndex: 10000 }}>
+      <Text style={{ color: '#92400e', textAlign: 'center' }}>Offline: próba wznowienia połączenia…</Text>
     </View>
   );
 }

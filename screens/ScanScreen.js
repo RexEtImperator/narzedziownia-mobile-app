@@ -1,13 +1,16 @@
 import { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, Platform, Linking, ToastAndroid, Vibration } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform, Linking, ToastAndroid, Vibration, Modal, ScrollView, TextInput, ActivityIndicator, Switch } from 'react-native';
+import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../lib/api';
 import * as Haptics from 'expo-haptics'
 import { showSnackbar } from '../lib/snackbar';
-import Constants from 'expo-constants';
+import { useTheme } from '../lib/theme';
+import DateField from '../components/DateField';
 
 export default function ScanScreen() {
+  const { colors } = useTheme();
   const route = useRoute();
   const navigation = useNavigation();
   const [hasPermission, setHasPermission] = useState(null);
@@ -39,6 +42,96 @@ export default function ScanScreen() {
   const [returnListLoading, setReturnListLoading] = useState(false);
   const [returnListError, setReturnListError] = useState('');
   const [singleQty, setSingleQty] = useState(1);
+
+  // Modal „Dodaj” z zakładkami
+  const [addVisible, setAddVisible] = useState(false);
+  const [addTab, setAddTab] = useState('tool'); // 'tool' | 'bhp'
+  const [addSaving, setAddSaving] = useState(false);
+  const [addError, setAddError] = useState('');
+  const [addToolFields, setAddToolFields] = useState({
+    name: '',
+    sku: '',
+    inventory_number: '',
+    serial_number: '',
+    serial_unreadable: false,
+    category: '',
+    status: 'dostępne',
+    location: '',
+    quantity: '1'
+  });
+  // Prefix dla SKU z konfiguracji + walidacje konfliktów
+  const [toolsCodePrefix, setToolsCodePrefix] = useState('');
+  const [skuConflict, setSkuConflict] = useState('');
+  const [invConflict, setInvConflict] = useState('');
+  const prevSkuConflictRef = useRef('');
+  const prevInvConflictRef = useRef('');
+  const [skuDirty, setSkuDirty] = useState(false);
+  const [invDirty, setInvDirty] = useState(false);
+  // Kategorie z bazy dla selektora
+  const [categoryOptions, setCategoryOptions] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [showCatSelect, setShowCatSelect] = useState(false);
+  const [addBhpFields, setAddBhpFields] = useState({
+    manufacturer: '',
+    model: '',
+    serial_number: '',
+    catalog_number: '',
+    inventory_number: '',
+    production_date: '',
+    inspection_date: '',
+    harness_start_date: '',
+    status: 'dostępne',
+    location: '',
+    assigned_employee: '',
+    shock_absorber: false,
+    srd_device: false,
+  });
+
+  const setAddToolField = (key, val) => setAddToolFields(prev => ({ ...prev, [key]: val }));
+  const setAddBhpField = (key, val) => setAddBhpFields(prev => ({ ...prev, [key]: val }));
+
+  // Normalizacja SKU wg prefixu: PREFIX-<wartość>
+  const normalizeSkuWithPrefix = (baseSku, prefix) => {
+    const base = String(baseSku || '').trim();
+    const p = String(prefix || '').trim();
+    if (!base) return '';
+    if (!p) return base;
+    if (base.startsWith(`${p}-`)) return base;
+    if (base.startsWith(p)) return `${p}-${base.slice(p.length)}`;
+    return `${p}-${base}`;
+  };
+  const generateSkuWithPrefix = () => {
+    const prefix = String(toolsCodePrefix || '');
+    const current = String(addToolFields.sku || '').trim();
+    const randomPart = Date.now().toString(36).toUpperCase().slice(-6);
+    const suffix = current || randomPart;
+    const next = normalizeSkuWithPrefix(suffix, prefix) || suffix;
+    setAddToolField('sku', next);
+  };
+
+  const normalizeDate = (value) => {
+    try {
+      if (!value) return '';
+      const str = String(value).trim();
+      if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.slice(0, 10);
+      const m = str.match(/^(\d{2})[.\/-](\d{2})[.\/-](\d{4})/);
+      if (m) { const [, dd, mm, yyyy] = m; return `${yyyy}-${mm}-${dd}`; }
+      const d = new Date(str);
+      if (!isNaN(d.getTime())) {
+        const y = d.getFullYear();
+        const m2 = String(d.getMonth() + 1).padStart(2, '0');
+        const d2 = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m2}-${d2}`;
+      }
+      return str;
+    } catch (_) { return String(value || ''); }
+  };
+
+  // Bottom sheet dla kafelka „Do zwrotu” (Android: otwarty domyślnie)
+  const [showReturnSheet, setShowReturnSheet] = useState(Platform.OS === 'android');
+  const openReturnSheet = () => { setShowReturnSheet(true); };
+  const closeReturnSheet = () => { setShowReturnSheet(false); };
+  const [returnSheetIndex, setReturnSheetIndex] = useState(Platform.OS === 'android' ? 0 : 1);
 
   // Pomocnicza: wydobądź tablicę z różnych kształtów odpowiedzi
   const toArray = (resp) => {
@@ -216,7 +309,7 @@ export default function ScanScreen() {
   const showDupNotice = () => {
     const msg = 'Kod już dodany';
     try {
-      showSnackbar({ type: 'warn', text: msg, duration: 1500 });
+      showSnackbar(msg, { type: 'warn', duration: 1500 });
     } catch {}
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -261,10 +354,11 @@ export default function ScanScreen() {
           } catch {} finally { setEmployeesLoading(false); }
         } else {
           setScanFrameColor('#ef4444');
+          setError(`Nie ma takiego narzędzia w systemie o numerze: ${val}`);
         }
       } catch (e) {
         setScanFrameColor('#ef4444');
-        setError('Nie ma takiego narzędzia w systemie');
+        setError(`Nie ma takiego narzędzia w systemie o numerze: ${val}`);
       }
       setScanned(false);
       handlerRef.current = false;
@@ -295,11 +389,12 @@ export default function ScanScreen() {
           } catch {} finally { setEmployeesLoading(false); }
         } else {
           setScanFrameColor('#ef4444');
+          setError(`Nie ma takiego narzędzia w systemie o numerze: ${val}`);
         }
       } catch (e) {
         setTool(null);
         setScanFrameColor('#ef4444');
-        setError('Nie ma takiego narzędzia w systemie');
+        setError(`Nie ma takiego narzędzia w systemie o numerze: ${val}`);
       }
     }
   };
@@ -442,15 +537,116 @@ export default function ScanScreen() {
   };
 
   // Stub, aby uniknąć błędu przy przycisku "Dodaj"
-  const goAdd = () => {};
+  const goAdd = () => {
+    setAddError('');
+    // Prefill nr ewidencyjny bieżącym kodem (jeśli dostępny)
+    const code = String(codeValue || '').trim();
+    // Dla narzędzi: skanowany kod wstaw do SKU, nie do nr ewidencyjnego
+    setAddToolFields(prev => ({ ...prev, sku: prev.sku || code }));
+    setAddBhpFields(prev => ({ ...prev, inventory_number: prev.inventory_number || code }));
+    // Programatyczna zmiana — nie traktuj jako ręczną edycję
+    setSkuDirty(false);
+    setInvDirty(false);
+    // Pobierz listę kategorii z API do selektora
+    (async () => {
+      try {
+        setCategoriesLoading(true);
+        await api.init();
+        const list = await api.get('/api/categories');
+        const names = Array.isArray(list)
+          ? list.map((c) => (c?.name || c?.category_name || (typeof c === 'string' ? c : ''))).filter(Boolean)
+          : [];
+        setCategoryOptions(names);
+        // Pobraj również prefix kodów narzędzi
+        try {
+          const g = await api.get('/api/config/general');
+          const p = g?.toolsCodePrefix || g?.tools_code_prefix || '';
+          setToolsCodePrefix(String(p || ''));
+        } catch {}
+      } catch (e) {
+        setCategoryOptions([]);
+      } finally {
+        setCategoriesLoading(false);
+      }
+    })();
+    setAddVisible(true);
+  };
+
+  // Auto-uzupełnienie SKU, gdy puste po otwarciu modala lub zmianie kategorii/prefixu
+  useEffect(() => {
+    if (!addVisible || addTab !== 'tool') return;
+    const current = String(addToolFields.sku || '').trim();
+    if (!current) {
+      generateSkuWithPrefix();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addVisible, addTab, addToolFields.category, toolsCodePrefix]);
+
+  // Walidacja konfliktu SKU podczas wpisywania (debounce)
+  useEffect(() => {
+    if (!addVisible || addTab !== 'tool') return;
+    if (!skuDirty) return; // Waliduj konflikt SKU tylko przy ręcznej edycji
+    const timer = setTimeout(async () => {
+      try {
+        await api.init();
+        const raw = String(addToolFields.sku || '').trim();
+        const norm = normalizeSkuWithPrefix(raw, toolsCodePrefix);
+        if (!norm) { setSkuConflict(''); prevSkuConflictRef.current = ''; return; }
+        const resp = await api.get(`/api/tools?sku=${encodeURIComponent(norm)}`);
+        const arr = Array.isArray(resp) ? resp : (Array.isArray(resp?.data) ? resp.data : []);
+        if (arr && arr.length > 0) {
+          const msg = 'Narzędzie o tym SKU już istnieje';
+          if (prevSkuConflictRef.current !== msg) {
+            try { showSnackbar(msg, { type: 'warn' }); } catch {}
+            prevSkuConflictRef.current = msg;
+          }
+          setSkuConflict(msg);
+        } else {
+          setSkuConflict('');
+          if (prevSkuConflictRef.current) prevSkuConflictRef.current = '';
+        }
+      } catch { setSkuConflict(''); if (prevSkuConflictRef.current) prevSkuConflictRef.current = ''; }
+    }, 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addVisible, addTab, addToolFields.sku, toolsCodePrefix, skuDirty]);
+
+  // Walidacja konfliktu Nr ewidencyjnego podczas wpisywania (debounce)
+  useEffect(() => {
+    if (!addVisible || addTab !== 'tool') return;
+    if (!invDirty) return; // Waliduj konflikt Nr ewidencyjnego tylko przy ręcznej edycji
+    const timer = setTimeout(async () => {
+      try {
+        await api.init();
+        const inv = String(addToolFields.inventory_number || '').trim();
+        if (!inv) { setInvConflict(''); prevInvConflictRef.current = ''; return; }
+        const resp = await api.get(`/api/tools?inventory_number=${encodeURIComponent(inv)}`);
+        const arr = Array.isArray(resp) ? resp : (Array.isArray(resp?.data) ? resp.data : []);
+        if (arr && arr.length > 0) {
+          const msg = 'Numer ewidencyjny jest już używany';
+          if (prevInvConflictRef.current !== msg) {
+            try { showSnackbar(msg, { type: 'warn' }); } catch {}
+            prevInvConflictRef.current = msg;
+          }
+          setInvConflict(msg);
+        } else {
+          setInvConflict('');
+          if (prevInvConflictRef.current) prevInvConflictRef.current = '';
+        }
+      } catch { setInvConflict(''); if (prevInvConflictRef.current) prevInvConflictRef.current = ''; }
+    }, 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addVisible, addTab, addToolFields.inventory_number, invDirty]);
 
   return (
     <View style={styles.wrapper}>
-      {/* Pasek górny */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Skanuj</Text>
+        <Pressable onPress={() => { resetScanner(); try { showSnackbar('Odświeżono skanowanie', { type: 'success' }); } catch {} }} style={styles.reloadBtn}>
+          <Ionicons name="reload" size={25} color="#374151" />
+        </Pressable>
         <Pressable onPress={() => navigation.goBack()} style={styles.closeBtn}>
-          <Ionicons name="close" size={20} color="#374151" />
+          <Ionicons name="close" size={25} color="#374151" />
         </Pressable>
         <Pressable onPress={() => setMultiScan((v)=>!v)} style={{ position: 'absolute', left: 16, top: 10, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: multiScan ? '#16a34a' : '#6b7280' }}>
           <Text style={{ color: '#fff', fontWeight: '600' }}>{multiScan ? 'Wielo-skan ON' : 'Wielo-skan OFF'}</Text>
@@ -461,8 +657,6 @@ export default function ScanScreen() {
       {Platform.OS === 'web' ? (
         <View style={styles.scannerBox}>
           <View style={[StyleSheet.absoluteFillObject, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#111827' }]}>
-            <Ionicons name="qr-code" size={72} color="#fff" />
-            <View style={{ height: 8 }} />
             <Text style={{ color: '#fff' }}>Skanowanie dostępne na urządzeniach mobilnych</Text>
           </View>
         </View>
@@ -500,14 +694,13 @@ export default function ScanScreen() {
           ) : null}
           {/* Nakładka reticle + ramka koloru */}
           <View style={[styles.reticleBox, { borderColor: scanFrameColor }]} />
-          <View style={styles.reticle}>
-            <Ionicons name="qr-code" size={72} color="#fff" />
-          </View>
+          <View style={styles.reticle}></View>
           <View style={styles.scanHint}><Text style={styles.scanHintText}>{scanned ? 'Przetwarzam…' : 'Zeskanuj kod'}</Text></View>
         </View>
       ) : (
         <View style={styles.centerBox}><Text>{cameraModuleError || 'Ładowanie skanera…'}</Text></View>
       )}
+
       {/* Wynik / akcje */}
       <View style={styles.resultBox}>
         {multiScan && scannedItems.length > 0 ? (
@@ -595,54 +788,254 @@ export default function ScanScreen() {
             </Pressable>
           </View>
         ) : null}
-
-
       </View>
-      {/* Sekcja: lista aktywnych wydań do zwrotu */}
-      <View style={styles.sectionBox}>
-        <Text style={styles.sectionTitle}>Do zwrotu</Text>
-        {returnListLoading ? (
-          <Text style={{ color: '#6b7280' }}>Ładowanie…</Text>
-        ) : returnListError ? (
-          <Text style={{ color: '#b91c1c' }}>Błąd: {String(returnListError)}</Text>
-        ) : (returnItems && returnItems.length > 0 ? (
-          <View style={styles.returnList}>
-            {returnItems.map((itm) => (
-              <View 
-                key={`${itm.id || itm.issue_id || itm.tool_id}-${itm.employee_id || 'emp'}`} 
-                style={styles.returnItem}
-              >
-                <View style={styles.returnItemLeft}>
-                  <Text style={styles.returnItemTitle}>{itm.tool_name || 'Narzędzie'}</Text>
-                  <Text style={styles.returnItemMeta}>{itm.employee_name || '—'}</Text>
-                  {itm.tool_code ? (
-                    <View style={styles.codeChip}>
-                      <Text style={styles.codeChipText}>{itm.tool_code}</Text>
+
+      {/* Modal dodawania: zakładki Narzędzie / Sprzęt BHP */}
+      <Modal visible={!!addVisible} animationType="slide" transparent onRequestClose={() => setAddVisible(false)}>
+        <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay || 'rgba(0,0,0,0.5)' }]}> 
+          <View style={[styles.modalCard, { backgroundColor: colors.card || '#fff', borderColor: colors.border || '#eee' }]}> 
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Dodaj</Text>
+              <Pressable onPress={() => setAddVisible(false)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}> 
+                <Ionicons name="close" size={18} color={colors.text} />
+              </Pressable>
+            </View>
+
+            {/* Zakładki */}
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+              <Pressable onPress={() => setAddTab('tool')} style={[styles.tabBtn, addTab === 'tool' ? [styles.tabBtnActive, { backgroundColor: colors.primary || '#4f46e5' }] : [styles.tabBtnInactive, { borderColor: colors.border }]]}>
+                <Text style={{ color: addTab === 'tool' ? '#fff' : (colors.text || '#111827'), fontWeight: '600' }}>Dodaj narzędzie</Text>
+              </Pressable>
+              <Pressable onPress={() => setAddTab('bhp')} style={[styles.tabBtn, addTab === 'bhp' ? [styles.tabBtnActive, { backgroundColor: colors.primary || '#4f46e5' }] : [styles.tabBtnInactive, { borderColor: colors.border }]]}>
+                <Text style={{ color: addTab === 'bhp' ? '#fff' : (colors.text || '#111827'), fontWeight: '600' }}>Dodaj sprzęt BHP</Text>
+              </Pressable>
+            </View>
+
+            {addError ? <Text style={{ color: colors.danger || '#e11d48', marginBottom: 6 }}>{addError}</Text> : null}
+
+            {addTab === 'tool' ? (
+              <ScrollView style={{ maxHeight: 440 }} contentContainerStyle={{ gap: 8 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                <View style={styles.formRow}>
+                  <Text style={[styles.formLabel, { color: colors.muted }]}>Nazwa *</Text>
+                  <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} value={addToolFields.name} onChangeText={(v) => setAddToolField('name', v)} placeholder="np. Wiertarka" placeholderTextColor={colors.muted} />
+                </View>
+                <View style={styles.formRow}>
+                  <Text style={[styles.formLabel, { color: colors.muted }]}>SKU</Text>
+                  <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} value={addToolFields.sku} onChangeText={(v) => { setSkuDirty(true); setAddToolField('sku', v); }} placeholder="np. D-1234" placeholderTextColor={colors.muted} />
+                  {skuConflict ? <Text style={{ color: colors.danger || '#e11d48', marginTop: 4 }}>{skuConflict}</Text> : null}
+                </View>
+                <View style={styles.formRow}>
+                  <Text style={[styles.formLabel, { color: colors.muted }]}>Nr ewidencyjny</Text>
+                  <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} value={addToolFields.inventory_number} onChangeText={(v) => { setInvDirty(true); setAddToolField('inventory_number', v); }} placeholder="np. 2024-0001" placeholderTextColor={colors.muted} />
+                  {invConflict ? <Text style={{ color: colors.danger || '#e11d48', marginTop: 4 }}>{invConflict}</Text> : null}
+                </View>
+                <View style={styles.formRow}>
+                  <Text style={[styles.formLabel, { color: colors.muted }]}>Numer fabryczny *</Text>
+                  <TextInput
+                    style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
+                    value={addToolFields.serial_number}
+                    onChangeText={(v) => setAddToolField('serial_number', v)}
+                    placeholder="np. SN-987654"
+                    placeholderTextColor={colors.muted}
+                    editable={!addToolFields.serial_unreadable}
+                  />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                    <Switch value={!!addToolFields.serial_unreadable} onValueChange={(v) => setAddToolField('serial_unreadable', !!v)} />
+                    <Text style={{ color: colors.muted }}>Numer nieczytelny</Text>
+                  </View>
+                </View>
+                <View style={styles.formRow}>
+                  <Text style={[styles.formLabel, { color: colors.muted }]}>Kategoria *</Text>
+                  <Pressable onPress={() => setShowCatSelect((v)=>!v)} style={({ pressed }) => [styles.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderColor: colors.border, backgroundColor: colors.card }, pressed && { opacity: 0.9 }]}>
+                    <Text style={{ color: addToolFields.category ? colors.text : colors.muted }}>
+                      {addToolFields.category || (categoriesLoading ? 'Ładowanie kategorii…' : 'Wybierz kategorię')}
+                    </Text>
+                    <Text style={{ color: colors.muted }}>{showCatSelect ? '▲' : '▼'}</Text>
+                  </Pressable>
+                  {showCatSelect ? (
+                    <View style={[styles.dropdown, { borderColor: colors.border, backgroundColor: colors.card }]}> 
+                      <ScrollView style={{ maxHeight: 220 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                        {(categoryOptions || []).map((name) => {
+                          const selected = String(name) === String(addToolFields.category);
+                          return (
+                            <Pressable key={`cat-${String(name)}`} onPress={() => { setAddToolField('category', name); setShowCatSelect(false); }} style={({ pressed }) => [styles.dropdownItem, selected && { backgroundColor: 'rgba(99,102,241,0.12)' }, pressed && { opacity: 0.7 }]}> 
+                              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Text style={{ color: colors.text }}>{name}</Text>
+                                {selected ? <Text style={{ color: colors.primary }}>✓</Text> : null}
+                              </View>
+                            </Pressable>
+                          );
+                        })}
+                        {(categoryOptions || []).length === 0 && !categoriesLoading ? (
+                          <View style={{ padding: 8 }}><Text style={{ color: colors.muted }}>Brak kategorii</Text></View>
+                        ) : null}
+                      </ScrollView>
                     </View>
                   ) : null}
                 </View>
-                {itm.tool_code ? (
-                  <Pressable 
-                    onPress={() => preAddByCode(itm.tool_code)} 
-                    style={({ pressed }) => [
-                      styles.primaryBtn, 
-                      styles.smallBtn, 
-                      pressed && styles.btnPressed
-                    ]}
-                  >
-                    <View style={styles.btnRow}>
-                      <Ionicons name="return-down-back" size={16} color="#fff" />
-                      <Text style={styles.btnText}>Zwróć</Text>
-                    </View>
+                {/* Status: ukryty w UI, wysyłamy domyślnie "dostępne" */}
+                <View style={styles.formRow}>
+                  <Text style={[styles.formLabel, { color: colors.muted }]}>Lokalizacja</Text>
+                  <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} value={addToolFields.location} onChangeText={(v) => setAddToolField('location', v)} placeholder="np. Magazyn A" placeholderTextColor={colors.muted} />
+                </View>
+                <View style={styles.formRow}>
+                  <Text style={[styles.formLabel, { color: colors.muted }]}>Ilość</Text>
+                  <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} value={addToolFields.quantity} onChangeText={(v) => setAddToolField('quantity', v)} placeholder="1" keyboardType="numeric" placeholderTextColor={colors.muted} />
+                </View>
+              </ScrollView>
+            ) : (
+              <ScrollView style={{ maxHeight: 440 }} contentContainerStyle={{ gap: 8 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                <Text style={{ color: colors.muted }}>Nr ewidencyjny *</Text>
+                <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nr ewidencyjny" value={addBhpFields.inventory_number} onChangeText={(v) => setAddBhpField('inventory_number', v)} placeholderTextColor={colors.muted} />
+
+                <Text style={{ color: colors.muted }}>Producent</Text>
+                <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Producent" value={addBhpFields.manufacturer} onChangeText={(v) => setAddBhpField('manufacturer', v)} placeholderTextColor={colors.muted} />
+
+                <Text style={{ color: colors.muted }}>Model</Text>
+                <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Model" value={addBhpFields.model} onChangeText={(v) => setAddBhpField('model', v)} placeholderTextColor={colors.muted} />
+
+                <Text style={{ color: colors.muted }}>Numer seryjny</Text>
+                <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Numer seryjny" value={addBhpFields.serial_number} onChangeText={(v) => setAddBhpField('serial_number', v)} placeholderTextColor={colors.muted} />
+
+                <Text style={{ color: colors.muted }}>Numer katalogowy</Text>
+                <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Numer katalogowy" value={addBhpFields.catalog_number} onChangeText={(v) => setAddBhpField('catalog_number', v)} placeholderTextColor={colors.muted} />
+
+                <Text style={{ color: colors.muted }}>Data produkcji (szelek)</Text>
+                <DateField value={addBhpFields.production_date} onChange={(v) => setAddBhpField('production_date', v)} placeholder="YYYY-MM-DD" style={styles.input} colors={colors} />
+
+                <Text style={{ color: colors.muted }}>Data przeglądu</Text>
+                <DateField value={addBhpFields.inspection_date} onChange={(v) => setAddBhpField('inspection_date', v)} placeholder="YYYY-MM-DD" style={styles.input} colors={colors} />
+
+                <Text style={{ color: colors.muted }}>Data rozpoczęcia użytkowania</Text>
+                <DateField value={addBhpFields.harness_start_date} onChange={(v) => setAddBhpField('harness_start_date', v)} placeholder="YYYY-MM-DD" style={styles.input} colors={colors} />
+
+                <Text style={{ color: colors.muted }}>Zestaw</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ color: colors.text }}>Amortyzator</Text>
+                  <Switch value={addBhpFields.shock_absorber} onValueChange={(v) => setAddBhpField('shock_absorber', v)} />
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ color: colors.text }}>Urządzenie samohamowne</Text>
+                  <Switch value={addBhpFields.srd_device} onValueChange={(v) => setAddBhpField('srd_device', v)} />
+                </View>
+
+                <Text style={{ color: colors.muted }}>Status</Text>
+                <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Status" value={addBhpFields.status} onChangeText={(v) => setAddBhpField('status', v)} placeholderTextColor={colors.muted} />
+
+                <Text style={{ color: colors.muted }}>Lokalizacja</Text>
+                <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Lokalizacja" value={addBhpFields.location} onChangeText={(v) => setAddBhpField('location', v)} placeholderTextColor={colors.muted} />
+
+                <Text style={{ color: colors.muted }}>Przypisany pracownik</Text>
+                <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Imię i nazwisko" value={addBhpFields.assigned_employee} onChangeText={(v) => setAddBhpField('assigned_employee', v)} placeholderTextColor={colors.muted} />
+              </ScrollView>
+            )}
+
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
+                  <Pressable onPress={() => setAddVisible(false)} disabled={addSaving} style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.8 : 1 }]}>
+                    <Text style={{ color: colors.text }}>Anuluj</Text>
                   </Pressable>
-                ) : null}
-              </View>
-            ))}
+                  <Pressable onPress={async () => {
+                    setAddError('');
+                    setAddSaving(true);
+                    try {
+                      await api.init();
+                      if (addTab === 'tool') {
+                        const name = String(addToolFields.name || '').trim();
+                        if (!name) { setAddError('Podaj nazwę narzędzia'); setAddSaving(false); return; }
+                        // Normalizuj SKU wg prefixu i ustaw barcode/qr_code na tę samą wartość
+                        const prefix = String(toolsCodePrefix || '');
+                        const normSku = normalizeSkuWithPrefix(String(addToolFields.sku || '').trim(), prefix);
+                        const payload = {
+                          name,
+                          sku: normSku || undefined,
+                          inventory_number: String(addToolFields.inventory_number || '').trim() || undefined,
+                          serial_number: String(addToolFields.serial_number || '').trim() || undefined,
+                          serial_unreadable: !!addToolFields.serial_unreadable,
+                          category: String(addToolFields.category || '').trim() || undefined,
+                          status: 'dostępne',
+                          location: String(addToolFields.location || '').trim() || undefined,
+                          quantity: Number(String(addToolFields.quantity || '1').replace(/\D+/g, '')) || 1,
+                          barcode: normSku || undefined,
+                          qr_code: normSku || undefined,
+                        };
+                        const res = await api.post('/api/tools', payload);
+                        const created = Array.isArray(res?.data) ? (res.data[0] || null) : (res?.data || res || null);
+                        if (!created) throw new Error('Błąd tworzenia narzędzia');
+                        try { showSnackbar('Dodano narzędzie', { type: 'success' }); } catch {}
+                        setTool(created);
+                        setAddVisible(false);
+                      } else {
+                    const payload = {
+                      ...addBhpFields,
+                      production_date: normalizeDate(addBhpFields.production_date),
+                      inspection_date: normalizeDate(addBhpFields.inspection_date),
+                      harness_start_date: normalizeDate(addBhpFields.harness_start_date),
+                      is_set: !!(addBhpFields.shock_absorber || addBhpFields.srd_device),
+                      has_shock_absorber: !!addBhpFields.shock_absorber,
+                      has_srd: !!addBhpFields.srd_device,
+                    };
+                    const res = await api.post('/api/bhp', payload);
+                    const created = Array.isArray(res?.data) ? res.data[0] : (res?.data || res);
+                    if (!created) throw new Error('Błąd dodawania BHP');
+                    try { showSnackbar('Dodano sprzęt BHP', { type: 'success' }); } catch {}
+                    setAddVisible(false);
+                  }
+                } catch (e) {
+                  setAddError(e?.message || 'Nie udało się zapisać');
+                } finally {
+                  setAddSaving(false);
+                }
+              }} disabled={addSaving} style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 10, backgroundColor: colors.primary || '#4f46e5', opacity: pressed ? 0.9 : 1, alignItems: 'center', justifyContent: 'center' }]}>
+                {addSaving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '600' }}>Zapisz</Text>}
+              </Pressable>
+            </View>
           </View>
-        ) : (
-          <Text style={{ color: '#6b7280' }}>Brak aktywnych wydań do zwrotu.</Text>
-        ))}
-      </View>
+        </View>
+      </Modal>
+
+      {Platform.OS !== 'web' && showReturnSheet ? (
+        <BottomSheet
+          index={returnSheetIndex}
+          snapPoints={Platform.OS === 'android' ? [36, '30%', '70%', '100%'] : ['30%', '70%', '100%']}
+          enablePanDownToClose={false}
+          enableHandlePanningGesture={true}
+          enableContentPanningGesture={true}
+          handleStyle={{ paddingVertical: 8 }}
+          handleIndicatorStyle={{ backgroundColor: '#9ca3af', width: 48, height: 6, borderRadius: 999, alignSelf: 'center' }}
+          onClose={closeReturnSheet}
+          onChange={(i) => setReturnSheetIndex(i)}
+        >
+          <BottomSheetScrollView contentContainerStyle={{ padding: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', marginBottom: 12 }}>
+              <Text style={{ fontSize: 18, fontWeight: '700' }}>Do zwrotu</Text>
+            </View>
+
+            {returnListLoading ? (
+              <Text style={{ color: '#6b7280' }}>Ładowanie…</Text>
+            ) : returnListError ? (
+              <Text style={{ color: '#b91c1c' }}>Błąd: {String(returnListError)}</Text>
+            ) : (returnItems && returnItems.length > 0 ? (
+              returnItems.map((itm) => (
+                <View key={`ret-native-${itm.id || itm.issue_id || itm.tool_id}`} style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#e6e6e6', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '600' }}>{itm.tool_name || itm.name || 'Narzędzie'}</Text>
+                    {itm.employee_name ? (<Text style={{ color: '#555' }}>{itm.employee_name}</Text>) : null}
+                    {itm.tool_code ? (<Text style={{ color: '#555' }}>Kod: {itm.tool_code}</Text>) : null}
+                    <Text style={{ color: '#555' }}>Ilość: {itm.quantity || 1}</Text>
+                  </View>
+                  {itm.tool_code ? (
+                    <Pressable onPress={() => preAddByCode(itm.tool_code)} style={({ pressed }) => ({ backgroundColor: '#4f46e5', opacity: pressed ? 0.9 : 1, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 })}>
+                      <Text style={{ color: '#fff', fontWeight: '600' }}>Szybki zwrot</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ))
+            ) : (
+              <Text style={{ color: '#6b7280' }}>Brak aktywnych wydań do zwrotu.</Text>
+            ))}
+          </BottomSheetScrollView>
+        </BottomSheet>
+      ) : null}
     </View>
   );
 }
@@ -651,7 +1044,8 @@ const styles = StyleSheet.create({
   wrapper: { flex: 1, backgroundColor: '#000' },
   header: { height: 48, backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
-  closeBtn: { position: 'absolute', right: 16, top: 14 },
+  reloadBtn: { position: 'absolute', right: 50, top: 12 },
+  closeBtn: { position: 'absolute', right: 16, top: 12 },
   scannerBox: { flex: 1, position: 'relative' },
   reticle: { position: 'absolute', top: '40%', left: 0, right: 0, alignItems: 'center' },
   reticleBox: { position: 'absolute', top: '28%', left: '12%', right: '12%', height: 180, borderWidth: 3, borderRadius: 12 },
@@ -669,7 +1063,7 @@ const styles = StyleSheet.create({
   btnDisabled: { opacity: 0.5 },
   btnMuted: { backgroundColor: '#6b7280' },
   sectionBox: { marginBottom: 12 },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 8 },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#111827', backgroundColor: '#f9fafb'},
   returnList: { gap: 8 },
   returnItem: { backgroundColor: '#f3f4f6', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   returnItemLeft: { flex: 1 },
@@ -679,4 +1073,15 @@ const styles = StyleSheet.create({
   codeChipText: { color: '#374151', fontWeight: '600' },
   smallBtn: { paddingVertical: 8, paddingHorizontal: 12 },
   btnRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  modalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
+  modalCard: { width: '100%', maxWidth: 520, borderWidth: 1, borderColor: '#eee', borderRadius: 12, padding: 12 },
+  modalTitle: { fontSize: 18, fontWeight: '700' },
+  tabBtn: { flex: 1, borderRadius: 10, paddingVertical: 10, alignItems: 'center', justifyContent: 'center' },
+  tabBtnActive: {},
+  tabBtnInactive: { borderWidth: 1 },
+  formRow: { marginBottom: 0 },
+  formLabel: { marginBottom: 4 },
+  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 6, paddingHorizontal: 8, height: 40 },
+  dropdown: { borderWidth: 1, borderRadius: 8, marginTop: 6 },
+  dropdownItem: { paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
  });

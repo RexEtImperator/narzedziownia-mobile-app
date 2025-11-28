@@ -6,8 +6,8 @@ import api from '../lib/api';
 import { useTheme } from '../lib/theme';
 import { showSnackbar } from '../lib/snackbar';
 import * as Haptics from 'expo-haptics'
-import { hasPermission } from '../lib/utils';
-import { PERMISSIONS } from '../lib/constants';
+import { hasPermission, getUserRole, isAdmin } from '../lib/utils';
+import { PERMISSIONS, setDynamicRolePermissions } from '../lib/constants';
 
 export default function InventoryScreen() {
   const { colors } = useTheme();
@@ -57,7 +57,7 @@ export default function InventoryScreen() {
   const [invSearch, setInvSearch] = useState('');
   const [onlyConsumables, setOnlyConsumables] = useState(true);
   const [onlyBelowMin, setOnlyBelowMin] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdminUser, setIsAdminUser] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   // Uprawnienia
   const [canViewInventory, setCanViewInventory] = useState(false);
@@ -84,17 +84,23 @@ export default function InventoryScreen() {
         const saved = await AsyncStorage.getItem('@current_user');
         const me = saved ? JSON.parse(saved) : null;
         setCurrentUser(me);
-        setIsAdmin(isAdmin(me));
-        const canView = hasPermission(me, PERMISSIONS.INVENTORY_VIEW) || hasPermission(me, PERMISSIONS.INVENTORY_MANAGE_SESSIONS);
+        setIsAdminUser(isAdmin(me));
+        const canView = hasPermission(me, PERMISSIONS.VIEW_INVENTORY) || hasPermission(me, PERMISSIONS.INVENTORY_MANAGE_SESSIONS);
         setCanViewInventory(!!canView);
         setCanManageSessions(hasPermission(me, PERMISSIONS.INVENTORY_MANAGE_SESSIONS));
         setCanScan(hasPermission(me, PERMISSIONS.INVENTORY_SCAN));
         setCanAcceptCorrection(hasPermission(me, PERMISSIONS.INVENTORY_ACCEPT_CORRECTION));
         setCanDeleteCorrection(hasPermission(me, PERMISSIONS.INVENTORY_DELETE_CORRECTION));
         setCanExportCsv(hasPermission(me, PERMISSIONS.INVENTORY_EXPORT_CSV));
+        // Załaduj dynamiczne uprawnienia ról (zgodnie z aplikacją source)
+        try {
+          await api.init();
+          const rolePerms = await api.get('/api/role-permissions');
+          setDynamicRolePermissions(rolePerms || null);
+        } catch {}
       } catch {
         setCurrentUser(null);
-        setIsAdmin(false);
+        setIsAdminUser(false);
         setCanViewInventory(false);
         setCanManageSessions(false);
         setCanScan(false);
@@ -110,7 +116,9 @@ export default function InventoryScreen() {
   // Ładowanie danych tylko jeśli użytkownik ma prawo do widoku
   useEffect(() => {
     if (permsReady && canViewInventory) {
-      load();
+      // Po uzyskaniu uprawnień odśwież listę sesji i stan magazynu
+      try { loadSessions(); } catch {}
+      try { loadToolsStatus(); } catch {}
     }
   }, [permsReady, canViewInventory]);
   
@@ -120,10 +128,10 @@ export default function InventoryScreen() {
     title: { fontSize: 22, fontWeight: '700', color: colors.text },
     subtitle: { fontSize: 14, color: colors.muted, marginTop: 4 },
     card: { margin: 12, padding: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.card },
-    input: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 10, backgroundColor: colors.bg, color: colors.text },
+    input: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingVertical: 12, paddingHorizontal: 12, minHeight: 40, backgroundColor: colors.bg, color: colors.text },
     button: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
     buttonText: { color: '#fff', fontWeight: '600' },
-    row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    row: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
     sectionTitle: { fontSize: 16, fontWeight: '600', color: colors.text, marginBottom: 8 },
     error: { color: colors.danger },
     muted: { color: colors.muted },
@@ -462,7 +470,9 @@ export default function InventoryScreen() {
 
   // Panel diagnostyczny – prosta wizualizacja roli i uprawnień z backendu
   const roleName = getUserRole(currentUser) || '—';
-  const backendPermsForRole = Array.isArray(ROLE_PERMISSIONS_OVERRIDE?.[roleName]) ? ROLE_PERMISSIONS_OVERRIDE[roleName] : [];
+  const backendPermsForRole = (typeof ROLE_PERMISSIONS_OVERRIDE !== 'undefined' && ROLE_PERMISSIONS_OVERRIDE && Array.isArray(ROLE_PERMISSIONS_OVERRIDE[roleName]))
+    ? ROLE_PERMISSIONS_OVERRIDE[roleName]
+    : [];
 
   const submitCorrectionModal = async () => {
     const counted = Math.max(0, parseInt(String(corrCountedQty || '0'), 10));
@@ -581,9 +591,7 @@ export default function InventoryScreen() {
       const sessionName = selectedSession?.name || '';
       const exportDate = new Date();
       const exportDateStr = exportDate.toLocaleString('pl-PL');
-      const responsible = (currentUser?.full_name) 
-        || ([currentUser?.first_name, currentUser?.last_name].filter(Boolean).join(' '))
-        || currentUser?.name 
+      const responsible = currentUser?.full_name 
         || currentUser?.username 
         || '—';
       const rows = [['Narzędzie', 'Kod', 'System', 'Zliczono', 'Różnica', 'Sesja', 'Data eksportu', 'Odpowiedzialny']];
@@ -685,7 +693,7 @@ export default function InventoryScreen() {
           <Text style={styles.sectionTitle}>Sesja: {selectedSession?.name}</Text>
           <View style={[styles.row, { marginBottom: 8 }]}> 
             <TextInput style={[styles.input, { flex: 1 }]} placeholder="Kod narzędzia" placeholderTextColor={colors.muted} value={scanCode} onChangeText={setScanCode} />
-            <TextInput style={[styles.input, { width: 80, textAlign: 'center' }]} placeholder="Ilość" placeholderTextColor={colors.muted} keyboardType="numeric" value={scanQty} onChangeText={setScanQty} />
+            <TextInput style={[styles.input, { width: 100, textAlign: 'center' }]} placeholder="Ilość" placeholderTextColor={colors.muted} keyboardType="numeric" value={scanQty} onChangeText={setScanQty} />
             <Pressable disabled={scanning} onPress={scan} style={[styles.button, { backgroundColor: colors.primary }]}>
               <Text style={styles.buttonText}>{scanning ? 'Dodawanie…' : 'Skanuj/Zlicz'}</Text>
             </Pressable>
@@ -697,15 +705,16 @@ export default function InventoryScreen() {
           {detailsError ? <Text style={styles.error}>{detailsError}</Text> : null}
 
           <Text style={[styles.sectionTitle, { marginTop: 8 }]}>Różnice</Text>
+          {/* Wiersz 1: pole wyszukiwania + skanowanie różnic */}
           <View style={[styles.row, { marginBottom: 8 }]}> 
             <TextInput style={[styles.input, { flex: 1 }]} placeholder="Szukaj (nazwa/kod)" placeholderTextColor={colors.muted} value={diffSearch} onChangeText={setDiffSearch} />
             <Pressable disabled={!canScan} onPress={() => openScanner('diff')} style={[styles.button, { backgroundColor: canScan ? colors.primary : colors.muted }]} > 
               <Text style={styles.buttonText}>Skanuj (Różnice)</Text>
             </Pressable>
-            <Pressable onPress={() => setDiffSearch(scanCode)} style={[styles.button, { backgroundColor: colors.border }]}> 
-              <Text style={{ color: colors.text }}>Użyj ostatniego kodu</Text>
-            </Pressable>
-            <TextInput style={[styles.input, { width: 160 }]} placeholder="Min. wartość bezwzględna" placeholderTextColor={colors.muted} keyboardType="numeric" value={diffMinAbs} onChangeText={setDiffMinAbs} />
+          </View>
+          {/* Wiersz 2: minimalna wartość + eksport CSV */}
+          <View style={[styles.row, { marginBottom: 8 }]}> 
+            <TextInput style={[styles.input, { flex: 1, maxWidth: 320 }]} placeholder="Min. wartość bezwzględna" placeholderTextColor={colors.muted} keyboardType="numeric" value={diffMinAbs} onChangeText={setDiffMinAbs} />
             <Pressable onPress={exportDiffsToCSV} disabled={!canExportCsv || csvExporting} style={[styles.button, { backgroundColor: canExportCsv ? colors.primary : colors.muted, opacity: csvExporting ? 0.7 : 1 }]}> 
               <Text style={styles.buttonText}>{csvExporting ? 'Eksport…' : 'Eksport CSV'}</Text>
             </Pressable>
@@ -926,12 +935,12 @@ export default function InventoryScreen() {
             <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16 }}>Usunąć korektę?</Text>
             <Pressable onPress={closeDeleteModal}><Ionicons name="close" size={22} color={colors.muted} /></Pressable>
           </View>
-          <Text style={{ color: colors.muted, marginTop: 8 }}>Ta operacja wymaga uprawnień administratora.</Text>
+          <Text style={{ color: colors.muted, marginTop: 8 }}>Ta operacja wymaga uprawnienia usuwania korekt.</Text>
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
             <Pressable onPress={closeDeleteModal} style={[styles.button, { backgroundColor: colors.border }]}>
               <Text style={{ color: colors.text }}>Anuluj</Text>
             </Pressable>
-            <Pressable disabled={!isAdmin || deleteSubmitting} onPress={confirmDeleteCorrection} style={[styles.button, { backgroundColor: colors.danger }]}>
+            <Pressable disabled={!canDeleteCorrection || deleteSubmitting} onPress={confirmDeleteCorrection} style={[styles.button, { backgroundColor: colors.danger }]}>
               <Text style={styles.buttonText}>{deleteSubmitting ? 'Usuwanie…' : 'Usuń'}</Text>
             </Pressable>
           </View>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, Text, TextInput, StyleSheet, FlatList, TouchableOpacity, Pressable, Alert, Modal, ScrollView, Switch } from 'react-native';
+import DateField from '../components/DateField';
 import { useTheme } from '../lib/theme';
 import api from '../lib/api.js';
 import { Ionicons } from '@expo/vector-icons';
@@ -514,6 +515,11 @@ export default function BhpScreen() {
           onFocus={() => setFocusedFilterInput(true)}
           onBlur={() => setFocusedFilterInput(false)}
         />
+        {searchTerm ? (
+          <Pressable accessibilityLabel="Wyczyść wyszukiwanie" onPress={() => setSearchTerm('')} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.85 : 1 }] }>
+            <Ionicons name="close-circle-outline" size={25} color={colors.muted || colors.text} />
+          </Pressable>
+        ) : null}
       </View>
 
       {/* Status / Sortowanie / Przeglądy */}
@@ -624,9 +630,9 @@ export default function BhpScreen() {
                 </View>
                 <Text style={[styles.toolMeta, { color: colors.muted }]}>Nr ew.: {inv}</Text>
                 <Text style={[styles.toolMeta, { color: colors.muted }]}>Producent/Model: {item?.manufacturer || '—'} / {item?.model || '—'}</Text>
-                <Text style={[styles.toolMeta, { color: colors.muted }]}>Nr fabryczny: {item?.serial_number || '—'} • Przypisany: {empName}</Text>
+                <Text style={[styles.toolMeta, { color: colors.muted }]}>Nr fabryczny: {item?.serial_number || '—'}</Text>
+                <Text style={[styles.toolMeta, { color: colors.muted }]}>Przypisany: {empName}</Text>
                 <Text style={[styles.toolMeta, { color: colors.muted }]}>Data przeglądu: {item?.inspection_date || item?.last_inspection_at || '—'}</Text>
-                <Text style={[styles.toolMeta, { color: colors.muted }]}>Status: {computedStatus}</Text>
               </Pressable>
             );
           }}
@@ -655,10 +661,13 @@ export default function BhpScreen() {
               <TextInput style={[styles.input, { borderColor: focusedField === 'catalog_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nr katalogowy" value={editFields.catalog_number} onChangeText={(v) => setEditFields(s => ({ ...s, catalog_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('catalog_number')} onBlur={() => setFocusedField(null)} />
 
               <Text style={{ color: colors.muted }}>Data produkcji</Text>
-              <TextInput style={[styles.input, { borderColor: focusedField === 'production_date' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="YYYY-MM-DD" value={editFields.production_date} onChangeText={(v) => setEditFields(s => ({ ...s, production_date: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('production_date')} onBlur={() => setFocusedField(null)} />
+              <DateField value={editFields.production_date} onChange={(v) => setEditFields(s => ({ ...s, production_date: v }))} placeholder="YYYY-MM-DD" style={styles.input} colors={colors} />
 
               <Text style={{ color: colors.muted }}>Data przeglądu</Text>
-              <TextInput style={[styles.input, { borderColor: focusedField === 'inspection_date' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="YYYY-MM-DD" value={editFields.inspection_date} onChangeText={(v) => setEditFields(s => ({ ...s, inspection_date: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('inspection_date')} onBlur={() => setFocusedField(null)} />
+              <DateField value={editFields.inspection_date} onChange={(v) => setEditFields(s => ({ ...s, inspection_date: v }))} placeholder="YYYY-MM-DD" style={styles.input} colors={colors} />
+
+              <Text style={{ color: colors.muted }}>Data rozpoczęcia użytkowania</Text>
+              <DateField value={editFields.harness_start_date} onChange={(v) => setEditFields(s => ({ ...s, harness_start_date: v }))} placeholder="YYYY-MM-DD" style={styles.input} colors={colors} />
 
               <Text style={{ color: colors.muted }}>Lokalizacja</Text>
               <TextInput style={[styles.input, { borderColor: focusedField === 'location' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Lokalizacja" value={editFields.location} onChangeText={(v) => setEditFields(s => ({ ...s, location: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('location')} onBlur={() => setFocusedField(null)} />
@@ -682,10 +691,10 @@ export default function BhpScreen() {
                   <TextInput style={[styles.input, { borderColor: focusedField === 'shock_absorber_catalog_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nr katalogowy amortyzatora" value={editFields.shock_absorber_catalog_number} onChangeText={(v) => setEditFields(s => ({ ...s, shock_absorber_catalog_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('shock_absorber_catalog_number')} onBlur={() => setFocusedField(null)} />
 
                   <Text style={{ color: colors.muted }}>Data produkcji amortyzatora</Text>
-                  <TextInput style={[styles.input, { borderColor: focusedField === 'shock_absorber_production_date' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="YYYY-MM-DD" value={editFields.shock_absorber_production_date} onChangeText={(v) => setEditFields(s => ({ ...s, shock_absorber_production_date: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('shock_absorber_production_date')} onBlur={() => setFocusedField(null)} />
+                  <DateField value={editFields.shock_absorber_production_date} onChange={(v) => setEditFields(s => ({ ...s, shock_absorber_production_date: v }))} placeholder="YYYY-MM-DD" style={styles.input} colors={colors} />
 
                   <Text style={{ color: colors.muted }}>Data rozpoczęcia amortyzatora</Text>
-                  <TextInput style={[styles.input, { borderColor: focusedField === 'shock_absorber_start_date' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="YYYY-MM-DD" value={editFields.shock_absorber_start_date} onChangeText={(v) => setEditFields(s => ({ ...s, shock_absorber_start_date: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('shock_absorber_start_date')} onBlur={() => setFocusedField(null)} />
+                  <DateField value={editFields.shock_absorber_start_date} onChange={(v) => setEditFields(s => ({ ...s, shock_absorber_start_date: v }))} placeholder="YYYY-MM-DD" style={styles.input} colors={colors} />
                 </>
               ) : null}
 
@@ -708,7 +717,7 @@ export default function BhpScreen() {
                   <TextInput style={[styles.input, { borderColor: focusedField === 'srd_catalog_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nr katalogowy SRD" value={editFields.srd_catalog_number} onChangeText={(v) => setEditFields(s => ({ ...s, srd_catalog_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('srd_catalog_number')} onBlur={() => setFocusedField(null)} />
 
                   <Text style={{ color: colors.muted }}>Data produkcji SRD</Text>
-                  <TextInput style={[styles.input, { borderColor: focusedField === 'srd_production_date' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="YYYY-MM-DD" value={editFields.srd_production_date} onChangeText={(v) => setEditFields(s => ({ ...s, srd_production_date: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('srd_production_date')} onBlur={() => setFocusedField(null)} />
+                  <DateField value={editFields.srd_production_date} onChange={(v) => setEditFields(s => ({ ...s, srd_production_date: v }))} placeholder="YYYY-MM-DD" style={styles.input} colors={colors} />
                 </>
               ) : null}
             </ScrollView>
@@ -746,13 +755,13 @@ export default function BhpScreen() {
               <TextInput style={[styles.input, { borderColor: focusedField === 'add_catalog_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nr katalogowy" value={addFields.catalog_number} onChangeText={(v) => setAddFields(s => ({ ...s, catalog_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_catalog_number')} onBlur={() => setFocusedField(null)} />
 
               <Text style={{ color: colors.muted }}>Data produkcji</Text>
-              <TextInput style={[styles.input, { borderColor: focusedField === 'add_production_date' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="YYYY-MM-DD" value={addFields.production_date} onChangeText={(v) => setAddFields(s => ({ ...s, production_date: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_production_date')} onBlur={() => setFocusedField(null)} />
+              <DateField value={addFields.production_date} onChange={(v) => setAddFields(s => ({ ...s, production_date: v }))} placeholder="YYYY-MM-DD" style={styles.input} colors={colors} />
 
               <Text style={{ color: colors.muted }}>Data przeglądu</Text>
-              <TextInput style={[styles.input, { borderColor: focusedField === 'add_inspection_date' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="YYYY-MM-DD" value={addFields.inspection_date} onChangeText={(v) => setAddFields(s => ({ ...s, inspection_date: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_inspection_date')} onBlur={() => setFocusedField(null)} />
+              <DateField value={addFields.inspection_date} onChange={(v) => setAddFields(s => ({ ...s, inspection_date: v }))} placeholder="YYYY-MM-DD" style={styles.input} colors={colors} />
 
               <Text style={{ color: colors.muted }}>Data rozpoczęcia użytkowania</Text>
-              <TextInput style={[styles.input, { borderColor: focusedField === 'add_harness_start_date' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="YYYY-MM-DD" value={addFields.harness_start_date} onChangeText={(v) => setAddFields(s => ({ ...s, harness_start_date: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_harness_start_date')} onBlur={() => setFocusedField(null)} />
+              <DateField value={addFields.harness_start_date} onChange={(v) => setAddFields(s => ({ ...s, harness_start_date: v }))} placeholder="YYYY-MM-DD" style={styles.input} colors={colors} />
 
               <Text style={{ color: colors.muted }}>Status</Text>
               <TextInput style={[styles.input, { borderColor: focusedField === 'add_status' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Status" value={addFields.status} onChangeText={(v) => setAddFields(s => ({ ...s, status: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_status')} onBlur={() => setFocusedField(null)} />
@@ -844,7 +853,7 @@ export default function BhpScreen() {
             <Text style={[styles.modalTitle, { color: colors.text }]}>Szczegóły BHP</Text>
             {detailLoading ? <Text style={{ color: colors.muted }}>Ładowanie…</Text> : null}
             {detailError ? <Text style={{ color: colors.danger }}>{detailError}</Text> : null}
-            <ScrollView style={{ maxHeight: 460 }} contentContainerStyle={{ gap: 8, paddingVertical: 8 }} showsVerticalScrollIndicator={false}>
+            <ScrollView style={{ maxHeight: 600 }} contentContainerStyle={{ gap: 8, paddingVertical: 8 }} showsVerticalScrollIndicator={false}>
               {/* Nagłówek */}
               <Text style={{ color: colors.text, fontWeight: '700' }}>{(detailItem?.manufacturer && detailItem?.model) ? `${detailItem.manufacturer} ${detailItem.model}` : (detailItem?.name || 'Sprzęt BHP')}</Text>
 
@@ -882,6 +891,21 @@ export default function BhpScreen() {
                   <Text style={{ color: colors.muted }}>Przypisany:</Text>
                   <Text style={{ color: colors.text }}>{`${detailItem?.assigned_employee_first_name || detailItem?.employee_first_name || ''} ${detailItem?.assigned_employee_last_name || detailItem?.employee_last_name || ''}`.trim() || '—'}</Text>
                 </View>
+                {(() => {
+                  const activeIssue = (detailData?.issues || []).find(i => String(i?.status || '').toLowerCase() === 'wydane');
+                  const bn = activeIssue?.employee_brand_number
+                    || detailItem?.employee_brand_number
+                    || detailItem?.assigned_employee_brand_number
+                    || detailItem?.brand_number
+                    || '';
+                  if (!bn) return null;
+                  return (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={{ color: colors.muted }}>Numer służbowy:</Text>
+                      <Text style={{ color: colors.text }}>{bn}</Text>
+                    </View>
+                  );
+                })()}
               </View>
 
               {/* Sekcja Amortyzator, tylko jeśli są dane */}
@@ -968,7 +992,7 @@ export default function BhpScreen() {
                   <Text style={{ color: colors.text, fontWeight: '700', marginTop: 10 }}>Historia wydań/zwrotów</Text>
                   {detailData.issues.length > 0 ? detailData.issues.map((iss) => (
                     <View key={String(iss.id)} style={{ paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border }}>
-                      <Text style={{ color: colors.text }}>Zwrócono — {iss.employee_first_name} {iss.employee_last_name}</Text>
+                      <Text style={{ color: colors.text }}>Wydano — {iss.employee_first_name} {iss.employee_last_name} [{iss.employee_brand_number}]</Text>
                       <Text style={{ color: colors.muted }}>{iss.issued_at}</Text>
                     </View>
                   )) : (
@@ -982,6 +1006,7 @@ export default function BhpScreen() {
                   {detailData.returns.length > 0 ? detailData.returns.map((ret) => (
                     <View key={String(ret.id)} style={{ paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border }}>
                       <Text style={{ color: colors.text }}>Zwrot: {ret.returned_at}</Text>
+                      <Text style={{ color: colors.muted }}>Zwrócono — {ret.employee_first_name} {ret.employee_last_name} [{ret.employee_brand_number}]</Text>
                     </View>
                   )) : null}
                 </>

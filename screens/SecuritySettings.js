@@ -83,9 +83,6 @@ export default function SecuritySettings() {
 
   return (
     <ScrollView style={[styles.scrollContainer, { backgroundColor: colors.bg }]} contentContainerStyle={[styles.container, { backgroundColor: colors.bg }]}>
-      <Text style={[styles.title, { color: colors.text }]}>🔒 Bezpieczeństwo</Text>
-      <Text style={[styles.subtitle, { color: colors.muted }]}>Polityka haseł, blokada logowań, sesje, 2FA</Text>
-
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Polityka haseł</Text>
         {error ? <Text style={{ color: colors.danger, marginBottom: 8 }}>{error}</Text> : null}

@@ -243,6 +243,11 @@ export default function EmployeesScreen() {
           onFocus={() => setFocusedSearchInput(true)}
           onBlur={() => setFocusedSearchInput(false)}
         />
+        {searchRaw ? (
+          <Pressable accessibilityLabel="Wyczyść wyszukiwanie" onPress={() => { setSearchRaw(''); setSearchTerm(''); }} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.85 : 1 }] }>
+            <Ionicons name="close-circle-outline" size={25} color={colors.muted || colors.text} />
+          </Pressable>
+        ) : null}
       </View>
       <View style={styles.filterRow} className="flex-row items-center gap-2 mb-2">
         <TouchableOpacity style={[styles.dropdownToggle, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md px-2 h-9 justify-center" onPress={() => setShowDeptDropdown(v => !v)}>

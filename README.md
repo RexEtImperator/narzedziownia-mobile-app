@@ -1,6 +1,6 @@
 # Narzędziownia – aplikacja mobilna
 
-[![Wersja 1.3.0](https://img.shields.io/badge/version-1.3.0-blue.svg)](#) • Tag: 1.3.0
+[![Wersja 1.4.0](https://img.shields.io/badge/version-1.4.0-blue.svg)](#) • Tag: 1.4.0
 
 Aplikacja mobilna (React Native + Expo) do obsługi systemu Narzędziowni: logowanie, przeglądanie narzędzi, pracowników, wydawanie i zwroty, ustawienia użytkownika, skanowanie kodów.
 
@@ -11,6 +11,9 @@ Aplikacja mobilna (React Native + Expo) do obsługi systemu Narzędziowni: logow
 - Logowanie biometryczne na urządzeniach mobilnych (Expo Go/dev build).
 - Przegląd narzędzi, pracowników, działów i podstawowe ustawienia użytkownika.
 - Dodawanie pracowników z Dashboardu i ekranu Pracownicy (wspólny modal).
+ - Automatyczne wznawianie połączenia z API po powrocie internetu.
+ - Pasek „Offline” na górze informujący o próbie wznowienia połączenia.
+ - Picker daty dla pól w BHP (web: `input[type=date]`, mobile: natywny lub fallback), zapisywany jako `YYYY-MM-DD`.
 
 ## Skaner – skrócona instrukcja
 - Multi-skan: dla każdej zeskanowanej pozycji dostępne są przyciski `- / +`
@@ -38,6 +41,7 @@ Aplikacja mobilna (React Native + Expo) do obsługi systemu Narzędziowni: logow
 ## Uruchomienie
 - Web: `npm run web` lub `npm run web:lan`
 - Mobile (Expo Go): `npm run start` lub `npm run start:lan`
+ - Wersja web korzysta z portu `8081`.
 
 ## Build lokalny – Android (npx expo run:android)
 ### Wymagania wstępne
@@ -85,6 +89,7 @@ Aplikacja mobilna (React Native + Expo) do obsługi systemu Narzędziowni: logow
   jest w tej samej sieci.
 - Zezwól `node.exe` na komunikację w Windows Firewall (port 3000).
 - W razie 404 na `/` – używaj endpointów `/api/...` (np. `/api/ping`).
+ - Jeśli natywny picker daty nie jest dostępny w Expo Go, aplikacja korzysta z bezpiecznego pola tekstowego z formatem `YYYY-MM-DD`. Dla pełnego pickera użyj dev build.
 
 ## Licencja
 - Zobacz `LICENSE`.
