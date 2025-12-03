@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { View, Text, ScrollView, TextInput, Pressable, ActivityIndicator, Alert, StyleSheet, Switch } from 'react-native';
+import { View, Text, ScrollView, TextInput, Pressable, ActivityIndicator, Alert, StyleSheet, Switch, FlatList } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import api from '../lib/api';
 import { useTheme } from '../lib/theme';
@@ -43,6 +43,41 @@ export default function SettingsScreen() {
   const [backendApiHealthLoading, setBackendApiHealthLoading] = useState(false);
   const [backendRestarting, setBackendRestarting] = useState(false);
 
+  // Powiadomienia — stan i logika
+  const [notifTab, setNotifTab] = useState('all'); // 'all' | 'selected'
+  const [notifSender, setNotifSender] = useState('');
+  const [notifMessage, setNotifMessage] = useState('');
+  const [notifSending, setNotifSending] = useState(false);
+  // All recipients toggles
+  const [notifPushAllSelected, setNotifPushAllSelected] = useState(true);
+  const [notifFanoutAllSelected, setNotifFanoutAllSelected] = useState(false);
+  // Selected recipients toggles
+  const [notifPushSelected, setNotifPushSelected] = useState(true);
+  const [notifFanoutSelected, setNotifFanoutSelected] = useState(false);
+  // Users selection
+  const [notifUsers, setNotifUsers] = useState([]);
+  const [notifUsersLoading, setNotifUsersLoading] = useState(false);
+  const [notifSelectedIds, setNotifSelectedIds] = useState([]);
+  // History — all
+  const [notifHistoryAll, setNotifHistoryAll] = useState([]);
+  const [notifAllQuery, setNotifAllQuery] = useState('');
+  const [notifAllLimit, setNotifAllLimit] = useState(10);
+  const [notifAllPage, setNotifAllPage] = useState(1);
+  const [notifAllTotal, setNotifAllTotal] = useState(0);
+  const [notifHistoryLoadingAll, setNotifHistoryLoadingAll] = useState(false);
+  // History — selected
+  const [notifHistorySelected, setNotifHistorySelected] = useState([]);
+  const [notifSelQuery, setNotifSelQuery] = useState('');
+  const [notifSelLimit, setNotifSelLimit] = useState(10);
+  const [notifSelPage, setNotifSelPage] = useState(1);
+  const [notifSelTotal, setNotifSelTotal] = useState(0);
+  const [notifHistoryLoadingSelected, setNotifHistoryLoadingSelected] = useState(false);
+  // Expand rows
+  const [notifExpandedSel, setNotifExpandedSel] = useState([]);
+  const [notifExpandedAll, setNotifExpandedAll] = useState([]);
+  // Confirm broadcast modal
+  const [showConfirmBroadcast, setShowConfirmBroadcast] = useState(false);
+
   // Formatowanie uptime do dni:godzin:minut:sekund
   const formatUptime = (value) => {
     let seconds = 0;
@@ -75,6 +110,142 @@ export default function SettingsScreen() {
   const scrollTo = (key) => {
     if (scrollRef.current && sectionY[key] != null) {
       scrollRef.current.scrollTo({ y: sectionY[key], animated: true });
+    }
+  };
+
+  const formatDateTime = (value) => {
+    try {
+      const d = typeof value === 'number' ? new Date(value) : new Date(String(value));
+      return d.toLocaleString(undefined, { hour12: false });
+    } catch {
+      return String(value ?? '—');
+    }
+  };
+
+  const toggleSelectUser = (id) => {
+    setNotifSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const loadNotifUsers = async () => {
+    setNotifUsersLoading(true);
+    try {
+      // Spróbuj kilku możliwych endpointów
+      let users = [];
+      try {
+        users = await api.get('/api/users');
+      } catch {
+        try {
+          users = await api.get('/api/employees');
+        } catch {}
+      }
+      users = Array.isArray(users) ? users : (Array.isArray(users?.data) ? users.data : []);
+      const mapped = (users || []).map(u => ({
+        id: u.id ?? u.user_id ?? u.userId ?? u.employee_id ?? u.employeeId,
+        name: u.fullName ?? u.full_name ?? u.username ?? u.name ?? '—',
+        status: (typeof u.status !== 'undefined'
+          ? String(u.status).toLowerCase()
+          : (typeof u.state !== 'undefined'
+            ? String(u.state).toLowerCase()
+            : (typeof u.active !== 'undefined'
+              ? (u.active ? 'active' : 'inactive')
+              : (typeof u.is_active !== 'undefined'
+                ? (u.is_active ? 'active' : 'inactive')
+                : null))))
+      })).filter(u => u.id != null);
+      setNotifUsers(mapped);
+    } catch {
+      setNotifUsers([]);
+    } finally {
+      setNotifUsersLoading(false);
+    }
+  };
+
+  const loadNotifHistoryAll = async () => {
+    setNotifHistoryLoadingAll(true);
+    try {
+      const params = `?type=broadcast&q=${encodeURIComponent(notifAllQuery)}&page=${notifAllPage}&limit=${notifAllLimit}`;
+      const res = await api.get(`/api/notifications/history${params}`);
+      const items = Array.isArray(res?.rows) ? res.rows : (Array.isArray(res) ? res : []);
+      const total = Number(res?.total ?? items.length ?? 0);
+      setNotifHistoryAll(items || []);
+      setNotifAllTotal(total);
+    } catch {
+      setNotifHistoryAll([]);
+      setNotifAllTotal(0);
+    } finally {
+      setNotifHistoryLoadingAll(false);
+    }
+  };
+
+  const loadNotifHistorySelected = async () => {
+    setNotifHistoryLoadingSelected(true);
+    try {
+      const params = `?type=custom&q=${encodeURIComponent(notifSelQuery)}&page=${notifSelPage}&limit=${notifSelLimit}`;
+      const res = await api.get(`/api/notifications/history${params}`);
+      const items = Array.isArray(res?.rows) ? res.rows : (Array.isArray(res) ? res : []);
+      const total = Number(res?.total ?? items.length ?? 0);
+      setNotifHistorySelected(items || []);
+      setNotifSelTotal(total);
+    } catch {
+      setNotifHistorySelected([]);
+      setNotifSelTotal(0);
+    } finally {
+      setNotifHistoryLoadingSelected(false);
+    }
+  };
+
+  const reallySendAllNotifications = async () => {
+    if (!canViewSettings) {
+      showSnackbar('Brak uprawnień do wysyłania powiadomień', { type: 'error' });
+      return;
+    }
+    try {
+      setNotifSending(true);
+      const payload = {
+        sender: notifSender,
+        message: notifMessage,
+        push: !!notifPushAllSelected,
+        fanout: !!notifFanoutAllSelected,
+      };
+      await api.post('/api/notifications/broadcast', payload);
+      showSnackbar('Wysłano powiadomienia do wszystkich użytkowników.', { type: 'success' });
+      loadNotifHistoryAll().catch(() => void 0);
+    } catch (e) {
+      showSnackbar(e?.message || 'Nie udało się wysłać powiadomień (wszyscy).', { type: 'error' });
+    } finally {
+      setNotifSending(false);
+    }
+  };
+
+  const sendAllNotifications = async () => {
+    setShowConfirmBroadcast(true);
+  };
+
+  const sendSelectedNotifications = async () => {
+    if (!canViewSettings) {
+      showSnackbar('Brak uprawnień do wysyłania powiadomień', { type: 'error' });
+      return;
+    }
+    if (notifSelectedIds.length === 0) {
+      showSnackbar('Wybierz co najmniej jednego użytkownika.', { type: 'warning' });
+      return;
+    }
+    try {
+      setNotifSending(true);
+      const payload = {
+        userIds: notifSelectedIds,
+        sender: notifSender,
+        message: notifMessage,
+        push: !!notifPushSelected,
+        fanout: !!notifFanoutSelected,
+      };
+      await api.post('/api/notifications/custom', payload);
+      showSnackbar('Wysłano powiadomienia do wybranych użytkowników.', { type: 'success' });
+      loadNotifHistorySelected().catch(() => void 0);
+    } catch (e) {
+      showSnackbar(e?.message || 'Nie udało się wysłać powiadomień (wybrani).', { type: 'error' });
+    } finally {
+      setNotifSending(false);
     }
   };
 
@@ -131,6 +302,23 @@ export default function SettingsScreen() {
     }
   };
   useEffect(() => { if (!permsReady) return; load(); }, [permsReady, canViewSettings]);
+
+  // Powiadomienia — ładowanie danych zależnie od aktywnej zakładki
+  useEffect(() => {
+    if (!canViewSettings) return;
+    if (notifTab === 'all') {
+      loadNotifHistoryAll().catch(() => void 0);
+    } else {
+      if (notifUsers.length === 0 && !notifUsersLoading) {
+        loadNotifUsers().catch(() => void 0);
+      }
+      loadNotifHistorySelected().catch(() => void 0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notifTab, canViewSettings]);
+
+  useEffect(() => { if (notifTab === 'all' && canViewSettings) loadNotifHistoryAll().catch(() => void 0); }, [notifAllQuery, notifAllPage, notifAllLimit, notifTab, canViewSettings]);
+  useEffect(() => { if (notifTab === 'selected' && canViewSettings) loadNotifHistorySelected().catch(() => void 0); }, [notifSelQuery, notifSelPage, notifSelLimit, notifTab, canViewSettings]);
 
   const saveGeneral = async () => {
     if (!canViewSettings) {
@@ -214,6 +402,9 @@ export default function SettingsScreen() {
           </Pressable>
           <Pressable style={[styles.navItem, { borderBottomColor: colors.border }]} onPress={() => navigation.navigate('🎛️Funkcje')}>
             <Text style={[styles.navItemText, { color: colors.text }]}>🎛️ Funkcje</Text>
+          </Pressable>
+          <Pressable style={[styles.navItem, { borderBottomColor: colors.border }]} onPress={() => scrollTo('powiadomienia')}>
+            <Text style={[styles.navItemText, { color: colors.text }]}>🔔 Powiadomienia</Text>
           </Pressable>
           <Pressable style={[styles.navItem, { borderBottomColor: colors.border }]} onPress={() => navigation.navigate('🏢Działy')}>
             <Text style={[styles.navItemText, { color: colors.text }]}>🏢 Działy</Text>
@@ -436,6 +627,294 @@ export default function SettingsScreen() {
             {savingEmail ? 'Zapisywanie…' : 'Zapisz ustawienia e-mail'}
           </Text>
         </Pressable>
+      </View>
+
+      {/* Powiadomienia */}
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]} onLayout={registerSection('powiadomienia')}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Powiadomienia</Text>
+        {/* Zakładki */}
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+          {['all','selected'].map(key => (
+            <Pressable
+              key={key}
+              onPress={() => setNotifTab(key)}
+              style={[
+                styles.optionChip,
+                { backgroundColor: colors.card, borderColor: colors.border },
+                notifTab === key && [{ borderColor: colors.primary }, { backgroundColor: isDark ? '#1f2937' : '#eef2ff' }],
+              ]}
+            >
+              <Text style={[styles.optionChipText, { color: colors.text }, notifTab === key && [{ color: colors.primary, fontWeight: '600' }]]}>
+                {key === 'all' ? 'Wszyscy' : 'Wybrani'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {/* Formularz nadawcy i treści */}
+        <View style={{ gap: 12 }}>
+          <View>
+            <Text style={[styles.label, { color: colors.muted }]}>Nadawca</Text>
+            <TextInput
+              style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
+              value={notifSender}
+              onChangeText={setNotifSender}
+              placeholder="np. System"
+              placeholderTextColor={colors.muted}
+            />
+          </View>
+          <View>
+            <Text style={[styles.label, { color: colors.muted }]}>Wiadomość</Text>
+            <TextInput
+              style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text, minHeight: 90, textAlignVertical: 'top' }]}
+              value={notifMessage}
+              onChangeText={setNotifMessage}
+              placeholder="Treść powiadomienia"
+              placeholderTextColor={colors.muted}
+              multiline
+            />
+          </View>
+          <View>
+            <Pressable
+              style={({ pressed }) => [styles.button, { backgroundColor: colors.primary }, notifSending && styles.buttonDisabled, pressed && { opacity: 0.9 }]}
+              onPress={notifTab === 'all' ? sendAllNotifications : sendSelectedNotifications}
+              disabled={notifSending || (notifTab === 'selected' && notifSelectedIds.length === 0) || !canViewSettings}
+            >
+              <Text style={{ color: '#ffffff', fontWeight: '600' }}>{notifSending ? 'Wysyłanie…' : 'Wyślij powiadomienia'}</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Przełączniki trybu wysyłki */}
+        {notifTab === 'all' && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 8 }}>
+            <View style={styles.row}>
+              <Text style={[styles.rowText, { color: colors.text }]}>Push</Text>
+              <Switch value={!!notifPushAllSelected} onValueChange={setNotifPushAllSelected} />
+            </View>
+            <View style={styles.row}>
+              <Text style={[styles.rowText, { color: colors.text }]}>Fanout</Text>
+              <Switch value={!!notifFanoutAllSelected} onValueChange={setNotifFanoutAllSelected} />
+            </View>
+          </View>
+        )}
+        {notifTab === 'selected' && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 8 }}>
+            <View style={styles.row}>
+              <Text style={[styles.rowText, { color: colors.text }]}>Push</Text>
+              <Switch value={!!notifPushSelected} onValueChange={setNotifPushSelected} />
+            </View>
+            <View style={styles.row}>
+              <Text style={[styles.rowText, { color: colors.text }]}>Fanout</Text>
+              <Switch value={!!notifFanoutSelected} onValueChange={setNotifFanoutSelected} />
+            </View>
+          </View>
+        )}
+
+        {/* Historia i lista użytkowników */}
+        {notifTab === 'selected' && (
+          <View style={{ marginTop: 16 }}>
+            <Text style={{ color: colors.muted, marginBottom: 8 }}>Lista użytkowników</Text>
+            <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, overflow: 'hidden' }}>
+              {notifUsersLoading ? (
+                <View style={{ padding: 12 }}><Text style={{ color: colors.muted }}>Ładowanie użytkowników…</Text></View>
+              ) : (
+              <ScrollView nestedScrollEnabled style={{ maxHeight: 300 }}>
+                {(!notifUsers || notifUsers.length === 0) ? (
+                  <View style={{ padding: 12 }}>
+                    <Text style={{ color: colors.muted }}>Brak danych</Text>
+                  </View>
+                ) : (
+                  notifUsers.map((item) => {
+                    const selected = notifSelectedIds.includes(item.id);
+                    const statusLabel = item.status === 'inactive' ? 'nieaktywny' : (item.status === 'active' ? 'aktywny' : undefined);
+                    return (
+                      <Pressable
+                        key={String(item.id)}
+                        onPress={() => toggleSelectUser(item.id)}
+                        style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: selected ? (isDark ? '#1f2937' : '#eef2ff') : 'transparent' }}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text style={{ color: colors.text }}>{item.name}</Text>
+                          {statusLabel && (<Text style={{ color: colors.muted, marginLeft: 8 }}>({statusLabel})</Text>)}
+                        </View>
+                        {selected && (<Text style={{ color: colors.primary }}>✓</Text>)}
+                      </Pressable>
+                    );
+                  })
+                )}
+              </ScrollView>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Historia — Selected */}
+        {notifTab === 'selected' && (
+          <View style={{ marginTop: 16 }}>
+            <Text style={{ color: colors.text, fontWeight: '600', marginBottom: 8 }}>Historia (wybrani)</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+              <TextInput
+                style={[styles.input, { flex: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
+                value={notifSelQuery}
+                onChangeText={(v) => { setNotifSelQuery(v); setNotifSelPage(1); }}
+                placeholder="Filtruj…"
+                placeholderTextColor={colors.muted}
+              />
+              <TextInput
+                style={[styles.input, { width: 80, borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
+                value={String(notifSelLimit)}
+                onChangeText={(v) => { const n = parseInt(v || '10', 10); setNotifSelLimit(n > 0 ? n : 10); setNotifSelPage(1); }}
+                keyboardType="numeric"
+              />
+            </View>
+            <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8 }}>
+              {notifHistoryLoadingSelected ? (
+                <View style={{ padding: 12 }}><Text style={{ color: colors.muted }}>Ładowanie historii…</Text></View>
+              ) : (notifHistorySelected || []).length === 0 ? (
+                <View style={{ padding: 12 }}><Text style={{ color: colors.muted }}>Brak wpisów</Text></View>
+              ) : (
+                (notifHistorySelected || []).map((h, idx) => {
+                  const at = h.created_at || h.sent_at || h.at || h.timestamp;
+                  const sender = h.sender || h.from || '';
+                  const message = h.message || h.text || '';
+                  const recips = h.recipients || h.user_names || h.users || [];
+                  const names = Array.isArray(recips) ? recips.map(r => (typeof r === 'string' ? r : (r.fullName || r.full_name || r.username || r.name || String(r)))) : [];
+                  const hid = String(h.id ?? `sel-${idx}`);
+                  const expanded = notifExpandedSel.includes(hid);
+                  return (
+                    <View key={`${hid}-sel`} style={{ paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <View>
+                          <Text style={{ color: colors.muted, fontSize: 12 }}>Wysłano: {formatDateTime(at)}</Text>
+                          <Text style={{ color: colors.text }}>Nadawca: {sender || '—'}</Text>
+                          <Text style={{ color: colors.text }}>Wiadomość: {message || '—'}</Text>
+                        </View>
+                        <Pressable onPress={() => setNotifExpandedSel(prev => expanded ? prev.filter(id => id !== hid) : [...prev, hid])}>
+                          <Text style={{ color: colors.muted }}>{expanded ? 'Zwiń' : 'Rozwiń'}</Text>
+                        </Pressable>
+                      </View>
+                      {expanded && (
+                        <View style={{ marginTop: 6 }}>
+                          <Text style={{ color: colors.text, fontWeight: '600' }}>Odbiorcy:</Text>
+                          <Text style={{ color: colors.text }}>{names.length ? names.join(', ') : '—'}</Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })
+              )}
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+              <Text style={{ color: colors.muted, fontSize: 12 }}>Strona {notifSelPage} z {Math.max(1, Math.ceil((notifSelTotal || 0) / (notifSelLimit || 1)))} (łącznie: {notifSelTotal || 0})</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Pressable onPress={() => setNotifSelPage(p => Math.max(1, p - 1))} disabled={notifSelPage <= 1} style={[styles.button, { backgroundColor: colors.card }]}>
+                  <Text style={{ color: colors.text }}>Poprzednia</Text>
+                </Pressable>
+                <Pressable onPress={() => setNotifSelPage(p => p + 1)} disabled={Math.ceil((notifSelTotal || 0) / (notifSelLimit || 1)) <= notifSelPage} style={[styles.button, { backgroundColor: colors.card }]}>
+                  <Text style={{ color: colors.text }}>Następna</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Historia — All */}
+        {notifTab === 'all' && (
+          <View style={{ marginTop: 16 }}>
+            <Text style={{ color: colors.text, fontWeight: '600', marginBottom: 8 }}>Historia (wszyscy)</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+              <TextInput
+                style={[styles.input, { flex: 1, borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
+                value={notifAllQuery}
+                onChangeText={(v) => { setNotifAllQuery(v); setNotifAllPage(1); }}
+                placeholder="Filtruj…"
+                placeholderTextColor={colors.muted}
+              />
+              <TextInput
+                style={[styles.input, { width: 80, borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
+                value={String(notifAllLimit)}
+                onChangeText={(v) => { const n = parseInt(v || '10', 10); setNotifAllLimit(n > 0 ? n : 10); setNotifAllPage(1); }}
+                keyboardType="numeric"
+              />
+            </View>
+            <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8 }}>
+              {notifHistoryLoadingAll ? (
+                <View style={{ padding: 12 }}><Text style={{ color: colors.muted }}>Ładowanie historii…</Text></View>
+              ) : (notifHistoryAll || []).length === 0 ? (
+                <View style={{ padding: 12 }}><Text style={{ color: colors.muted }}>Brak wpisów</Text></View>
+              ) : (
+                (notifHistoryAll || []).map((h, idx) => {
+                  const at = h.created_at || h.sent_at || h.at || h.timestamp;
+                  const sender = h.sender || h.from || '';
+                  const message = h.message || h.text || '';
+                  const hid = String(h.id ?? `all-${idx}`);
+                  const expanded = notifExpandedAll.includes(hid);
+                  return (
+                    <View key={`${hid}-all`} style={{ paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <View>
+                          <Text style={{ color: colors.muted, fontSize: 12 }}>Wysłano: {formatDateTime(at)}</Text>
+                          <Text style={{ color: colors.text }}>Nadawca: {sender || '—'}</Text>
+                          <Text style={{ color: colors.text }}>Wiadomość: {message || '—'}</Text>
+                        </View>
+                        <Pressable onPress={() => {
+                          if (expanded) {
+                            setNotifExpandedAll(prev => prev.filter(id => id !== hid));
+                          } else {
+                            if ((notifUsers || []).length === 0 && !notifUsersLoading) { loadNotifUsers().catch(() => void 0); }
+                            setNotifExpandedAll(prev => [...prev, hid]);
+                          }
+                        }}>
+                          <Text style={{ color: colors.muted }}>{expanded ? 'Zwiń' : 'Rozwiń'}</Text>
+                        </Pressable>
+                      </View>
+                      {expanded && (
+                        <View style={{ marginTop: 6 }}>
+                          <Text style={{ color: colors.text, fontWeight: '600' }}>Odbiorcy:</Text>
+                          <Text style={{ color: colors.text }}>{(notifUsers || []).length ? (notifUsers || []).map(u => u.name).join(', ') : '—'}</Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })
+              )}
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+              <Text style={{ color: colors.muted, fontSize: 12 }}>Strona {notifAllPage} z {Math.max(1, Math.ceil((notifAllTotal || 0) / (notifAllLimit || 1)))} (łącznie: {notifAllTotal || 0})</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Pressable onPress={() => setNotifAllPage(p => Math.max(1, p - 1))} disabled={notifAllPage <= 1} style={[styles.button, { backgroundColor: colors.card }]}>
+                  <Text style={{ color: colors.text }}>Poprzednia</Text>
+                </Pressable>
+                <Pressable onPress={() => setNotifAllPage(p => p + 1)} disabled={Math.ceil((notifAllTotal || 0) / (notifAllLimit || 1)) <= notifAllPage} style={[styles.button, { backgroundColor: colors.card }]}>
+                  <Text style={{ color: colors.text }}>Następna</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Potwierdzenie wysyłki do wszystkich */}
+        {showConfirmBroadcast && (
+          <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+            <View style={{ width: '100%', maxWidth: 480, backgroundColor: colors.card, borderRadius: 12, borderWidth: 1, borderColor: colors.border }}>
+              <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700' }}>Wyślij do wszystkich?</Text>
+              </View>
+              <View style={{ padding: 16 }}>
+                <Text style={{ color: colors.muted, marginBottom: 16 }}>Ta akcja wyśle powiadomienie do wszystkich użytkowników.</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Pressable onPress={() => setShowConfirmBroadcast(false)} style={[styles.button, { flex: 1, backgroundColor: colors.card }]}>
+                    <Text style={{ color: colors.text }}>Anuluj</Text>
+                  </Pressable>
+                  <Pressable onPress={async () => { setShowConfirmBroadcast(false); await reallySendAllNotifications(); }} style={[styles.button, { flex: 1, backgroundColor: '#ef4444' }]}>
+                    <Text style={{ color: '#ffffff' }}>Wyślij</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          </View>
+        )}
       </View>
 
       {/* Serwer (tylko administrator) */}

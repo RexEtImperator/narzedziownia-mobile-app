@@ -3,6 +3,22 @@
 Wszystkie istotne zmiany w tym projekcie są dokumentowane w tym pliku.
 Projekt stosuje konwencję „Keep a Changelog” i SemVer.
 
+## [1.5.0] — 2025-12-03
+
+### Added
+- UserSettings: kafelek „Informacje osobowe” z edycją wyłącznie pól „Telefon” i „E‑mail”.
+- Auto‑zapis i walidacja dla telefonu/e‑maila; komunikaty w snackbarze.
+- Login: blokada logowania dla pracownika ze statusem `suspended` i czytelny komunikat snackbar.
+- API/Matching: priorytetowe dopasowanie pracownika po `user.id` → `employees.id` (fallback: `employee_id`, `username`, `email`).
+
+### Changed
+- UI: pola nieedytowalne w „Informacje osobowe” wyświetlane jako tekst; usunięty przycisk „Zapisz zmiany”.
+- Status pracownika prezentowany po polsku (np. `active` → „Aktywny”, `suspended` → „Zawieszony”).
+- Docs: README zaktualizowany o nowości 1.5.0.
+
+### Fixed
+- Snackbar: poprawione przekazywanie treści i opcji (koniec z `[object Object]`).
+
 ## [1.4.0] — 2025-11-28
 
 ### Added

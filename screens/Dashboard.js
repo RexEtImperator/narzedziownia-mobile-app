@@ -31,257 +31,208 @@ export default function DashboardScreen() {
   const [toolHistoryHasMore, setToolHistoryHasMore] = useState(false);
   const [bhpHistoryHasMore, setBhpHistoryHasMore] = useState(false);
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        await api.init();
-        const [deps, poss, emps, tls, bhp] = await Promise.all([
-          api.get('/api/departments'),
-          api.get('/api/positions'),
-          api.get('/api/employees'),
-          api.get('/api/tools'),
-          api.get('/api/bhp'),
-        ]);
-        setStats({
-          employees: Array.isArray(emps) ? emps.length : 0,
-          departments: Array.isArray(deps) ? deps.length : 0,
-          positions: Array.isArray(poss) ? poss.length : 0,
-          tools: Array.isArray(tls) ? tls.length : (Array.isArray(tls?.data) ? tls.data.length : 0),
-          bhp: Array.isArray(bhp) ? bhp.length : (Array.isArray(bhp?.data) ? bhp.data.length : 0),
-        });
-        const list = Array.isArray(tls) ? tls : (Array.isArray(tls?.data) ? tls.data : []);
-        const bhpList = Array.isArray(bhp) ? bhp : (Array.isArray(bhp?.data) ? bhp.data : []);
-        setTools(list.slice(0, 20));
-        const overdueToolsCount = computeOverdueCount(list);
-        const overdueBhpCount = computeOverdueCount(bhpList);
-        setStats(s => ({ ...s, overdueInspections: (overdueToolsCount + overdueBhpCount), overdueToolsCount, overdueBhpCount }));
+  // Funkcja ładowania danych dashboardu (wywoływana na starcie i przy powrocie na ekran)
+  const loadDashboard = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      await api.init();
+      const [deps, poss, emps, tls, bhp] = await Promise.all([
+        api.get('/api/departments'),
+        api.get('/api/positions'),
+        api.get('/api/employees'),
+        api.get('/api/tools'),
+        api.get('/api/bhp'),
+      ]);
+      setStats({
+        employees: Array.isArray(emps) ? emps.length : 0,
+        departments: Array.isArray(deps) ? deps.length : 0,
+        positions: Array.isArray(poss) ? poss.length : 0,
+        tools: Array.isArray(tls) ? tls.length : (Array.isArray(tls?.data) ? tls.data.length : 0),
+        bhp: Array.isArray(bhp) ? bhp.length : (Array.isArray(bhp?.data) ? bhp.data.length : 0),
+      });
+      const list = Array.isArray(tls) ? tls : (Array.isArray(tls?.data) ? tls.data : []);
+      const bhpList = Array.isArray(bhp) ? bhp : (Array.isArray(bhp?.data) ? bhp.data : []);
+      setTools(list.slice(0, 20));
+      const overdueToolsCount = computeOverdueCount(list);
+      const overdueBhpCount = computeOverdueCount(bhpList);
+      setStats(s => ({ ...s, overdueInspections: (overdueToolsCount + overdueBhpCount), overdueToolsCount, overdueBhpCount }));
 
-        // Build issue/return history
-        const employees = Array.isArray(emps) ? emps : (Array.isArray(emps?.data) ? emps.data : []);
-        const empMap = new Map();
-        for (const e of employees) {
-          const name = [e?.first_name, e?.last_name].filter(Boolean).join(' ') || e?.name || '—';
-          empMap.set(e?.id, name);
-        }
-        const toolMap = new Map();
-        for (const t of list) {
-          toolMap.set(t?.id, t);
-        }
-        const bhpMap = new Map();
-        for (const b of bhpList) {
-          bhpMap.set(b?.id, b);
-        }
+      // Build issue/return history
+      const employees = Array.isArray(emps) ? emps : (Array.isArray(emps?.data) ? emps.data : []);
+      const empMap = new Map();
+      for (const e of employees) {
+        const name = [e?.first_name, e?.last_name].filter(Boolean).join(' ') || e?.name || '—';
+        empMap.set(e?.id, name);
+      }
+      const toolMap = new Map();
+      for (const t of list) {
+        toolMap.set(t?.id, t);
+      }
+      const bhpMap = new Map();
+      for (const b of bhpList) {
+        bhpMap.set(b?.id, b);
+      }
 
-        // Helper to robustly extract arrays from various response shapes
-        const toArray = (resp) => {
-          try {
-            if (Array.isArray(resp)) return resp;
-            const candidates = ['data', 'rows', 'items', 'list', 'result', 'content'];
-            for (const key of candidates) {
-              const val = resp?.[key];
-              if (Array.isArray(val)) return val;
-              if (val && typeof val === 'object') {
-                const nestedCandidates = ['data', 'rows', 'items', 'list', 'content'];
-                for (const n of nestedCandidates) {
-                  const nested = val?.[n];
-                  if (Array.isArray(nested)) return nested;
-                }
+      // Helper to robustly extract arrays from various response shapes
+      const toArray = (resp) => {
+        try {
+          if (Array.isArray(resp)) return resp;
+          const candidates = ['data', 'rows', 'items', 'list', 'result', 'content'];
+          for (const key of candidates) {
+            const val = resp?.[key];
+            if (Array.isArray(val)) return val;
+            if (val && typeof val === 'object') {
+              const nestedCandidates = ['data', 'rows', 'items', 'list', 'content'];
+              for (const n of nestedCandidates) {
+                const nested = val?.[n];
+                if (Array.isArray(nested)) return nested;
               }
             }
-          } catch {}
-          return [];
-        };
+          }
+        } catch {}
+        return [];
+      };
 
-        // Normalize fields from issue event
-        const mapToolIssue = (ev) => {
-          const toolId = ev?.tool_id ?? ev?.toolId ?? ev?.tool?.id ?? ev?.item_id ?? ev?.itemId;
-          const tool = toolMap.get(toolId);
-          const toolName = tool?.name || tool?.tool_name || ev?.tool_name || ev?.name || 'Narzędzie';
-          const employeeIdVal = ev?.employee_id ?? ev?.employeeId ?? ev?.employee?.id;
-          const employeeName = empMap.get(employeeIdVal) || `${ev?.employee_first_name || ''} ${ev?.employee_last_name || ''}`.trim() || ev?.employee_name || '—';
-          const issued = ev?.issued_at ?? ev?.issuedAt ?? ev?.issued_on ?? ev?.issue_date ?? ev?.date ?? ev?.timestamp ?? ev?.created_at;
-          const returned = ev?.returned_at ?? ev?.returnedAt ?? ev?.returned_on ?? ev?.return_date ?? ev?.completed_at;
-          const ts = parseDate(returned) || parseDate(issued);
-          const type = returned ? 'return' : 'issue';
-          const filterValue = tool?.inventory_number || tool?.serial_number || tool?.qr_code || tool?.barcode || tool?.code || tool?.sku || ev?.tool_code || toolName;
-          return { id: ev?.id ?? ev?.issue_id ?? ev?.log_id ?? `${toolId || 'tool'}-${issued || returned || ''}`, type, toolName, employeeName, quantity: ev?.quantity || 1, timestamp: ts, filterValue, source: 'tools' };
-        };
-        
-        // Helpers inside load(): fetch tool and BHP history with proper fallback order
-        async function fetchToolHistory(limit) {
-          const endpointOrder = [
-            `/api/tool-issues?limit=${limit}`,
-            `/api/tool-issues`,
-            `/api/tool_issues?limit=${limit}`,
-            `/api/tool_issues`
-          ];
-          for (const path of endpointOrder) {
-            try {
-              const resp = await api.get(path);
-              const arr = toArray(resp);
-              if (arr && arr.length) {
-                const mapped = arr.map((ev) => {
-                  const toolId = ev?.tool_id ?? ev?.toolId ?? ev?.tool?.id ?? ev?.item_id ?? ev?.itemId;
-                  const tool = toolMap.get(toolId);
-                  const toolName = tool?.name || tool?.tool_name || ev?.tool_name || ev?.name || 'Narzędzie';
-                  const employeeIdVal = ev?.employee_id ?? ev?.employeeId ?? ev?.employee?.id;
-                  const employeeName = empMap.get(employeeIdVal) || `${ev?.employee_first_name || ''} ${ev?.employee_last_name || ''}`.trim() || ev?.employee_name || '—';
-                  const issued = ev?.issued_at ?? ev?.issuedAt ?? ev?.issued_on ?? ev?.issue_date ?? ev?.date ?? ev?.timestamp ?? ev?.created_at;
-                  const returned = ev?.returned_at ?? ev?.returnedAt ?? ev?.returned_on ?? ev?.return_date ?? ev?.completed_at;
-                  const ts = parseDate(returned) || parseDate(issued);
-                  const type = returned ? 'return' : 'issue';
-                  const filterValue = tool?.inventory_number || tool?.serial_number || tool?.qr_code || tool?.barcode || tool?.code || tool?.sku || ev?.tool_code || toolName;
-                  return { id: ev?.id ?? ev?.issue_id ?? ev?.log_id ?? `${toolId || 'tool'}-${issued || returned || ''}`, type, toolName, employeeName, quantity: ev?.quantity || 1, timestamp: ts, filterValue, source: 'tools' };
-                }).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-                const slice = mapped.slice(0, limit);
-                const hasMore = (arr.length >= limit) || (mapped.length > slice.length) || Boolean(resp?.has_more ?? resp?.hasMore ?? resp?.data?.has_more);
-                return { items: slice, hasMore };
-              }
-            } catch {}
+      // Normalize fields from issue event
+      const mapToolIssue = (ev) => {
+        const toolId = ev?.tool_id ?? ev?.toolId ?? ev?.tool?.id ?? ev?.item_id ?? ev?.itemId;
+        const tool = toolMap.get(toolId);
+        const toolName = tool?.name || tool?.tool_name || ev?.tool_name || ev?.name || 'Narzędzie';
+        const employeeIdVal = ev?.employee_id ?? ev?.employeeId ?? ev?.employee?.id;
+        const employeeName = empMap.get(employeeIdVal) || `${ev?.employee_first_name || ''} ${ev?.employee_last_name || ''}`.trim() || ev?.employee_name || '—';
+        const issued = ev?.issued_at ?? ev?.issuedAt ?? ev?.issued_on ?? ev?.issue_date ?? ev?.date ?? ev?.timestamp ?? ev?.created_at;
+        const returned = ev?.returned_at ?? ev?.returnedAt ?? ev?.returned_on ?? ev?.return_date ?? ev?.completed_at;
+        const ts = parseDate(returned) || parseDate(issued);
+        const type = returned ? 'return' : 'issue';
+        const filterValue = tool?.inventory_number || tool?.serial_number || tool?.qr_code || tool?.barcode || tool?.code || tool?.sku || ev?.tool_code || toolName;
+        return { id: ev?.id ?? ev?.issue_id ?? ev?.log_id ?? `${toolId || 'tool'}-${issued || returned || ''}`, type, toolName, employeeName, quantity: ev?.quantity || 1, timestamp: ts, filterValue, source: 'tools' };
+      };
+
+      // BHP normalizer
+      const mapBhpIssue = (ev) => {
+        const bhpId = ev?.bhp_id ?? ev?.bhpId ?? ev?.item_id ?? ev?.itemId ?? ev?.bhp?.id;
+        const bhpItem = bhpMap.get(bhpId);
+        const baseName = bhpItem?.manufacturer && bhpItem?.model ? `${bhpItem.manufacturer} ${bhpItem.model}` : (bhpItem?.name || ev?.bhp_name || 'Sprzęt BHP');
+        const displayName = baseName || bhpItem?.inventory_number || ev?.bhp_code || 'Sprzęt BHP';
+        const employeeIdVal = ev?.employee_id ?? ev?.employeeId ?? ev?.employee?.id;
+        const employeeName = empMap.get(employeeIdVal) || `${ev?.employee_first_name || ''} ${ev?.employee_last_name || ''}`.trim() || ev?.employee_name || '—';
+        const issued = ev?.issued_at ?? ev?.issuedAt ?? ev?.issued_on ?? ev?.issue_date ?? ev?.date ?? ev?.timestamp ?? ev?.created_at;
+        const returned = ev?.returned_at ?? ev?.returnedAt ?? ev?.returned_on ?? ev?.return_date ?? ev?.completed_at;
+        const ts = parseDate(returned) || parseDate(issued);
+        const type = returned ? 'return' : 'issue';
+        const filterValue = bhpItem?.inventory_number || bhpItem?.serial_number || ev?.bhp_code || String(bhpId || '');
+        return { id: `bhp-${ev?.id ?? ev?.issue_id ?? ev?.log_id ?? `${bhpId || 'bhp'}-${issued || returned || ''}`}`, type, toolName: displayName, employeeName, quantity: ev?.quantity || 1, timestamp: ts, filterValue, source: 'bhp' };
+      };
+
+      const disableFlagVal = (typeof process !== 'undefined' && process?.env?.EXPO_PUBLIC_DISABLE_HISTORY_FETCH != null) ? process.env.EXPO_PUBLIC_DISABLE_HISTORY_FETCH : (Constants?.expoConfig?.extra?.EXPO_PUBLIC_DISABLE_HISTORY_FETCH);
+      const historyDisabled = ['true','1','yes','on'].includes(String(disableFlagVal ?? '').toLowerCase());
+      let issues = [];
+      // 1) Primary endpoint
+      if (!historyDisabled) {
+        try {
+          const ti = await api.get('/api/tool-issues');
+          const arr = toArray(ti);
+          issues = arr.map(mapToolIssue);
+        } catch {}
+      }
+
+      // Fallback: derive issues from /api/tools (current issued tools)
+      if (!issues || issues.length === 0) {
+        issues = list
+          .filter(t => !!(t?.issued_at || t?.issuedAt || t?.issued_on || t?.issue_date || t?.last_issue_at))
+          .map(t => ({
+            id: t?.id,
+            type: 'issue',
+            toolName: t?.name || t?.tool_name || 'Narzędzie',
+            employeeName: empMap.get(t?.issued_to_employee_id ?? t?.issuedToEmployeeId) || '—',
+            quantity: 1,
+            timestamp: parseDate(t?.issued_at ?? t?.issuedAt ?? t?.issued_on ?? t?.issue_date ?? t?.last_issue_at),
+            filterValue: t?.inventory_number || t?.serial_number || t?.qr_code || t?.barcode || t?.code || t?.sku || (t?.name || t?.tool_name),
+            source: 'tools',
+          }));
+      }
+
+      // BHP issues/returns
+      if (!historyDisabled) {
+        try {
+          const bi1 = await api.get('/api/bhp-issues');
+          const bhpArr = toArray(bi1);
+          if (bhpArr && bhpArr.length) {
+            const mapped = bhpArr.map(mapBhpIssue);
+            issues = [...issues, ...mapped];
           }
-          return { items: [], hasMore: false };
-        }
-        
-        // BHP normalizer
-        const mapBhpIssue = (ev) => {
-          const bhpId = ev?.bhp_id ?? ev?.bhpId ?? ev?.item_id ?? ev?.itemId ?? ev?.bhp?.id;
-          const bhpItem = bhpMap.get(bhpId);
-          const baseName = bhpItem?.manufacturer && bhpItem?.model ? `${bhpItem.manufacturer} ${bhpItem.model}` : (bhpItem?.name || ev?.bhp_name || 'Sprzęt BHP');
-          const displayName = baseName || bhpItem?.inventory_number || ev?.bhp_code || 'Sprzęt BHP';
-          const employeeIdVal = ev?.employee_id ?? ev?.employeeId ?? ev?.employee?.id;
-          const employeeName = empMap.get(employeeIdVal) || `${ev?.employee_first_name || ''} ${ev?.employee_last_name || ''}`.trim() || ev?.employee_name || '—';
-          const issued = ev?.issued_at ?? ev?.issuedAt ?? ev?.issued_on ?? ev?.issue_date ?? ev?.date ?? ev?.timestamp ?? ev?.created_at;
-          const returned = ev?.returned_at ?? ev?.returnedAt ?? ev?.returned_on ?? ev?.return_date ?? ev?.completed_at;
-          const ts = parseDate(returned) || parseDate(issued);
-          const type = returned ? 'return' : 'issue';
-          const filterValue = bhpItem?.inventory_number || bhpItem?.serial_number || ev?.bhp_code || String(bhpId || '');
-          return { id: `bhp-${ev?.id ?? ev?.issue_id ?? ev?.log_id ?? `${bhpId || 'bhp'}-${issued || returned || ''}`}`, type, toolName: displayName, employeeName, quantity: ev?.quantity || 1, timestamp: ts, filterValue, source: 'bhp' };
-        };
-        
-        async function fetchBhpHistory(limit) {
-          const endpointOrder = [
-            `/api/bhp-issues?limit=${limit}`,
-            `/api/bhp-issues`,
-            `/api/bhp_issues?limit=${limit}`,
-            `/api/bhp_issues`
-          ];
-          for (const path of endpointOrder) {
-            try {
-              const resp = await api.get(path);
-              const arr = toArray(resp);
-              if (arr && arr.length) {
-                const mapped = arr.map(mapBhpIssue).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-                const slice = mapped.slice(0, limit);
-                const hasMore = (arr.length >= limit) || (mapped.length > slice.length) || Boolean(resp?.has_more ?? resp?.hasMore ?? resp?.data?.has_more);
-                return { items: slice, hasMore };
-              }
-            } catch {}
-          }
-          return { items: [], hasMore: false };
-        }
-        const disableFlagVal = (typeof process !== 'undefined' && process?.env?.EXPO_PUBLIC_DISABLE_HISTORY_FETCH != null) ? process.env.EXPO_PUBLIC_DISABLE_HISTORY_FETCH : (Constants?.expoConfig?.extra?.EXPO_PUBLIC_DISABLE_HISTORY_FETCH);
-        const historyDisabled = ['true','1','yes','on'].includes(String(disableFlagVal ?? '').toLowerCase());
-        let issues = [];
-        // 1) Primary endpoint
-        if (!historyDisabled) {
-          try {
-            const ti = await api.get('/api/tool-issues');
-            const arr = toArray(ti);
-            issues = arr.map(mapToolIssue);
-          } catch {}
-        }
-        
-        // Fallback: derive issues from /api/tools (current issued tools)
-        if (!issues || issues.length === 0) {
-          issues = list
-            .filter(t => !!(t?.issued_at || t?.issuedAt || t?.issued_on || t?.issue_date || t?.last_issue_at))
-            .map(t => ({
-              id: t?.id,
-              type: 'issue',
-              toolName: t?.name || t?.tool_name || 'Narzędzie',
-              employeeName: empMap.get(t?.issued_to_employee_id ?? t?.issuedToEmployeeId) || '—',
-              quantity: 1,
-              timestamp: parseDate(t?.issued_at ?? t?.issuedAt ?? t?.issued_on ?? t?.issue_date ?? t?.last_issue_at),
-              filterValue: t?.inventory_number || t?.serial_number || t?.qr_code || t?.barcode || t?.code || t?.sku || (t?.name || t?.tool_name),
-              source: 'tools',
-            }));
-        }
-        
-        // BHP issues/returns
-        if (!historyDisabled) {
-          try {
-            const bi1 = await api.get('/api/bhp-issues');
-            const bhpArr = toArray(bi1);
-            if (bhpArr && bhpArr.length) {
-              const mapped = bhpArr.map(mapBhpIssue);
+        } catch {}
+      }
+      // 3) Optional audit logs fallback (if backend records actions there)
+      if (!historyDisabled) {
+        try {
+          if (!issues || issues.length === 0) {
+            const logs = await api.get('/api/audit-logs');
+            const arr = toArray(logs);
+            const mapped = arr
+              .filter(l => {
+                const act = String(l?.action || '').toLowerCase();
+                return act.includes('issue') || act.includes('return');
+              })
+              .map(l => {
+                let detailsObj = null;
+                if (typeof l?.details === 'string') {
+                  try { detailsObj = JSON.parse(l.details); } catch {}
+                } else if (typeof l?.details === 'object' && l?.details) {
+                  detailsObj = l.details;
+                }
+                const toolId = detailsObj?.tool_id ?? detailsObj?.toolId ?? null;
+                const bhpId = detailsObj?.bhp_id ?? detailsObj?.bhpId ?? null;
+                const tool = toolMap.get(toolId);
+                const bhpItem = bhpMap.get(bhpId);
+                const isReturn = String(l?.action || '').toLowerCase().includes('return');
+                const ts = parseDate(l?.timestamp) || parseDate(detailsObj?.time) || parseDate(detailsObj?.issued_at) || parseDate(detailsObj?.returned_at);
+                const employeeIdVal = detailsObj?.employee_id ?? detailsObj?.employeeId;
+                const employeeName = empMap.get(employeeIdVal) || detailsObj?.employee_name || '—';
+                const name = tool?.name || bhpItem?.name || detailsObj?.tool_name || detailsObj?.bhp_name || 'Zdarzenie';
+                const filterValue = tool?.inventory_number || bhpItem?.inventory_number || detailsObj?.code || name;
+                return { id: l?.id ?? `${name}-${l?.timestamp || ''}`, type: isReturn ? 'return' : 'issue', toolName: name, employeeName, quantity: detailsObj?.quantity || 1, timestamp: ts, filterValue, source: 'audit' };
+              });
+            if (mapped.length) {
               issues = [...issues, ...mapped];
             }
-          } catch {}
-        }
-        // 3) Optional audit logs fallback (if backend records actions there)
-        if (!historyDisabled) {
-          try {
-            if (!issues || issues.length === 0) {
-              const logs = await api.get('/api/audit-logs');
-              const arr = toArray(logs);
-              const mapped = arr
-                .filter(l => {
-                  const act = String(l?.action || '').toLowerCase();
-                  return act.includes('issue') || act.includes('return');
-                })
-                .map(l => {
-                  let detailsObj = null;
-                  if (typeof l?.details === 'string') {
-                    try { detailsObj = JSON.parse(l.details); } catch {}
-                  } else if (typeof l?.details === 'object' && l?.details) {
-                    detailsObj = l.details;
-                  }
-                  const toolId = detailsObj?.tool_id ?? detailsObj?.toolId ?? null;
-                  const bhpId = detailsObj?.bhp_id ?? detailsObj?.bhpId ?? null;
-                  const tool = toolMap.get(toolId);
-                  const bhpItem = bhpMap.get(bhpId);
-                  const isReturn = String(l?.action || '').toLowerCase().includes('return');
-                  const ts = parseDate(l?.timestamp) || parseDate(detailsObj?.time) || parseDate(detailsObj?.issued_at) || parseDate(detailsObj?.returned_at);
-                  const employeeIdVal = detailsObj?.employee_id ?? detailsObj?.employeeId;
-                  const employeeName = empMap.get(employeeIdVal) || detailsObj?.employee_name || '—';
-                  const name = tool?.name || bhpItem?.name || detailsObj?.tool_name || detailsObj?.bhp_name || 'Zdarzenie';
-                  const filterValue = tool?.inventory_number || bhpItem?.inventory_number || detailsObj?.code || name;
-                  return { id: l?.id ?? `${name}-${l?.timestamp || ''}`, type: isReturn ? 'return' : 'issue', toolName: name, employeeName, quantity: detailsObj?.quantity || 1, timestamp: ts, filterValue, source: 'audit' };
-                });
-              if (mapped.length) {
-                issues = [...issues, ...mapped];
-              }
-            }
-          } catch {}
-        }
-        // Deduplicate by id+type+timestamp
-        const seen = new Set();
-        const unique = [];
-        for (const it of issues) {
-          const key = `${String(it.id)}|${it.type}|${String(it.timestamp || '')}`;
-          if (!seen.has(key)) { seen.add(key); unique.push(it); }
-        }
-        unique.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-        setHistory(unique.slice(0, 50));
-        const top = unique.slice(0, 50);
-        setHistory(top);
-        // Zasil sekcje historii narzędzi i BHP na podstawie znormalizowanej listy
-        const toolsHistAll = top.filter(it => it.source === 'tools');
-        setToolHistory(toolsHistAll.slice(0, toolHistoryLimit));
-        setToolHistoryHasMore(toolsHistAll.length > toolHistoryLimit);
-        const bhpHistAll = top.filter(it => it.source === 'bhp');
-        setBhpHistory(bhpHistAll.slice(0, bhpHistoryLimit));
-        setBhpHistoryHasMore(bhpHistAll.length > bhpHistoryLimit);
-      } catch (e) {
-        setError(e.message || 'Błąd pobierania danych');
-      } finally {
-        setLoading(false);
+          }
+        } catch {}
       }
-    };
-    load();
-  }, []);
+      // Deduplicate by id+type+timestamp
+      const seen = new Set();
+      const unique = [];
+      for (const it of issues) {
+        const key = `${String(it.id)}|${it.type}|${String(it.timestamp || '')}`;
+        if (!seen.has(key)) { seen.add(key); unique.push(it); }
+      }
+      unique.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      setHistory(unique.slice(0, 50));
+      const top = unique.slice(0, 50);
+      setHistory(top);
+      // Zasil sekcje historii narzędzi i BHP na podstawie znormalizowanej listy
+      const toolsHistAll = top.filter(it => it.source === 'tools');
+      setToolHistory(toolsHistAll.slice(0, toolHistoryLimit));
+      setToolHistoryHasMore(toolsHistAll.length > toolHistoryLimit);
+      const bhpHistAll = top.filter(it => it.source === 'bhp');
+      setBhpHistory(bhpHistAll.slice(0, bhpHistoryLimit));
+      setBhpHistoryHasMore(bhpHistAll.length > bhpHistoryLimit);
+    } catch (e) {
+      setError(e.message || 'Błąd pobierania danych');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboard();
+    // Odśwież przy ponownym wejściu na ekran
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadDashboard();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   if (loading) {
     return (

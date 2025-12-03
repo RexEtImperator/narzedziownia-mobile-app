@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, Platform, Linking, ToastAndroid, Vibration, Modal, ScrollView, TextInput, ActivityIndicator, Switch } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform, Linking, Vibration, Modal, ScrollView, TextInput, ActivityIndicator, Switch, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -67,6 +67,8 @@ export default function ScanScreen() {
   const prevInvConflictRef = useRef('');
   const [skuDirty, setSkuDirty] = useState(false);
   const [invDirty, setInvDirty] = useState(false);
+  // Przełącznik: zastosuj globalny prefix do SKU (widocznie w polu)
+  const [applySkuPrefix, setApplySkuPrefix] = useState(false);
   // Kategorie z bazy dla selektora
   const [categoryOptions, setCategoryOptions] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
@@ -90,7 +92,7 @@ export default function ScanScreen() {
   const setAddToolField = (key, val) => setAddToolFields(prev => ({ ...prev, [key]: val }));
   const setAddBhpField = (key, val) => setAddBhpFields(prev => ({ ...prev, [key]: val }));
 
-  // Normalizacja SKU wg prefixu: PREFIX-<wartość>
+  // SKU bez globalnego prefixu: użyj wartości wpisanej lub wygeneruj losową
   const normalizeSkuWithPrefix = (baseSku, prefix) => {
     const base = String(baseSku || '').trim();
     const p = String(prefix || '').trim();
@@ -100,12 +102,21 @@ export default function ScanScreen() {
     if (base.startsWith(p)) return `${p}-${base.slice(p.length)}`;
     return `${p}-${base}`;
   };
+  const stripSkuPrefix = (value, prefix) => {
+    const v = String(value || '').trim();
+    const p = String(prefix || '').trim();
+    if (!p) return v;
+    if (v.startsWith(`${p}-`)) return v.slice(p.length + 1);
+    if (v.startsWith(p)) return v.slice(p.length);
+    return v;
+  };
   const generateSkuWithPrefix = () => {
-    const prefix = String(toolsCodePrefix || '');
     const current = String(addToolFields.sku || '').trim();
     const randomPart = Date.now().toString(36).toUpperCase().slice(-6);
-    const suffix = current || randomPart;
-    const next = normalizeSkuWithPrefix(suffix, prefix) || suffix;
+    let next = current || randomPart;
+    if (applySkuPrefix) {
+      next = normalizeSkuWithPrefix(next, toolsCodePrefix);
+    }
     setAddToolField('sku', next);
   };
 
@@ -125,6 +136,22 @@ export default function ScanScreen() {
       }
       return str;
     } catch (_) { return String(value || ''); }
+  };
+
+  // Tłumaczenie znanych komunikatów błędów z backendu na polski
+  const translateErrorMessage = (msg) => {
+    const raw = String(msg || '').trim();
+    if (!raw) return raw;
+    // "Insufficient quantity available. Available: X, requested: Y"
+    const r = raw.match(/^Insufficient quantity available\. Available:\s*(\d+),\s*requested:\s*(\d+)/i);
+    if (r) {
+      const [, available, requested] = r;
+      return `Niewystarczająca ilość dostępna. Dostępne: ${available}, żądane: ${requested}`;
+    }
+    if (/^Insufficient quantity available/i.test(raw)) {
+      return 'Niewystarczająca ilość dostępna';
+    }
+    return raw;
   };
 
   // Bottom sheet dla kafelka „Do zwrotu” (Android: otwarty domyślnie)
@@ -230,7 +257,7 @@ export default function ScanScreen() {
   useEffect(() => { loadReturnList(); }, []);
 
   // Dodaj wybrany kod z listy „Do zwrotu” do wielo-skanu
-  const preAddByCode = async (code) => {
+  const preAddByCode = async (code, empId, empName) => {
     const val = String(code || '').trim();
     if (!val) return;
     const isDup = scannedItems.some((it) => String(it.code) === val);
@@ -241,6 +268,24 @@ export default function ScanScreen() {
         let det = null; try { det = await api.get(`/api/tools/${res.id}/details`); } catch {}
         setScannedItems((prev) => [...prev, { code: val, tool: res || null, details: det || null }]);
         setMultiScan(true);
+        if (empId) {
+          const found = employees.find((e) => String(e.id) === String(empId));
+          if (found) {
+            setSelectedEmployee(found);
+          } else {
+            const nm = String(empName || '').trim();
+            const parts = nm ? nm.split(' ') : [];
+            const first = parts[0] || '';
+            const last = parts.slice(1).join(' ') || '';
+            setSelectedEmployee({ id: empId, first_name: first, last_name: last });
+            try {
+              setEmployeesLoading(true);
+              const list = await api.get('/api/employees');
+              const items = list?.items || list || [];
+              setEmployees(Array.isArray(items) ? items : []);
+            } catch {} finally { setEmployeesLoading(false); }
+          }
+        }
       } else {
         setError('Nie znaleziono narzędzia');
       }
@@ -447,9 +492,9 @@ export default function ScanScreen() {
           } catch { fail++; }
         } else { fail++; }
       }
-      setMessage(`Wydano ${ok} z ${sumTotal} narzędzi`);
+      try { showSnackbar(`Pomyślnie wydano ${ok} z ${sumTotal} narzędzi`, { type: 'success', duration: 1800 }); } catch {}
     } catch (e) {
-      setError(e?.message || 'Nie udało się wykonać zbiorczej operacji');
+      setError(translateErrorMessage(e?.message) || 'Nie udało się wykonać zbiorczej operacji');
     } finally {
       try { await loadReturnList(); } catch {}
       setTimeout(() => { resetScanner(); }, 1200);
@@ -485,7 +530,9 @@ export default function ScanScreen() {
           } catch { fail++; }
         } else { fail++; }
       }
-      setMessage(`Przyjęto ${ok} z ${sumTotal} narzędzi`);
+      try {
+        showSnackbar(`Pomyślnie przyjęto ${ok} z ${sumTotal} narzędzi`, { type: 'success', duration: 1800 });
+      } catch {}
     } catch (e) {
       setError(e?.message || 'Nie udało się wykonać zbiorczej operacji');
     } finally {
@@ -503,11 +550,11 @@ export default function ScanScreen() {
       await api.post(`/api/tools/${tool.id}/issue`, { employee_id: selectedEmployee.id, quantity: q, qty: q });
       const det = await api.get(`/api/tools/${tool.id}/details`);
       setToolDetails(det || null);
-      setMessage('Wydano narzędzie');
+      try { showSnackbar('Pomyślnie wydano narzędzie', { type: 'success', duration: 1800 }); } catch {}
       try { await loadReturnList(); } catch {}
-      setTimeout(resetScanner, 1200);
+      setTimeout(resetScanner, 1500);
     } catch (e) {
-      setError(e?.message || 'Nie udało się wydać narzędzia');
+      setError(translateErrorMessage(e?.message) || 'Nie udało się wydać narzędzia');
     }
   };
 
@@ -528,11 +575,11 @@ export default function ScanScreen() {
       await api.post(`/api/tools/${tool.id}/return`, { issue_id: issue.id, quantity: q, qty: q });
       const det = await api.get(`/api/tools/${tool.id}/details`);
       setToolDetails(det || null);
-      setMessage('Przyjęto narzędzie');
+      try { showSnackbar('Pomyślnie zwrócono narzędzie', { type: 'success', duration: 1800 }); } catch {}
       try { await loadReturnList(); } catch {}
       setTimeout(resetScanner, 1200);
     } catch (e) {
-      setError(e?.message || 'Nie udało się przyjąć narzędzia');
+      setError(translateErrorMessage(e?.message) || 'Nie udało się przyjąć narzędzia');
     }
   };
 
@@ -542,7 +589,9 @@ export default function ScanScreen() {
     // Prefill nr ewidencyjny bieżącym kodem (jeśli dostępny)
     const code = String(codeValue || '').trim();
     // Dla narzędzi: skanowany kod wstaw do SKU, nie do nr ewidencyjnego
-    setAddToolFields(prev => ({ ...prev, sku: prev.sku || code }));
+    const pfx = String(toolsCodePrefix || '').trim();
+    const initialSku = applySkuPrefix ? normalizeSkuWithPrefix(code, pfx) : stripSkuPrefix(code, pfx);
+    setAddToolFields(prev => ({ ...prev, sku: prev.sku || initialSku }));
     setAddBhpFields(prev => ({ ...prev, inventory_number: prev.inventory_number || code }));
     // Programatyczna zmiana — nie traktuj jako ręczną edycję
     setSkuDirty(false);
@@ -590,7 +639,8 @@ export default function ScanScreen() {
       try {
         await api.init();
         const raw = String(addToolFields.sku || '').trim();
-        const norm = normalizeSkuWithPrefix(raw, toolsCodePrefix);
+        const p = String(toolsCodePrefix || '').trim();
+        const norm = applySkuPrefix ? normalizeSkuWithPrefix(raw, p) : stripSkuPrefix(raw, p);
         if (!norm) { setSkuConflict(''); prevSkuConflictRef.current = ''; return; }
         const resp = await api.get(`/api/tools?sku=${encodeURIComponent(norm)}`);
         const arr = Array.isArray(resp) ? resp : (Array.isArray(resp?.data) ? resp.data : []);
@@ -609,7 +659,7 @@ export default function ScanScreen() {
     }, 400);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [addVisible, addTab, addToolFields.sku, toolsCodePrefix, skuDirty]);
+  }, [addVisible, addTab, addToolFields.sku, toolsCodePrefix, applySkuPrefix, skuDirty]);
 
   // Walidacja konfliktu Nr ewidencyjnego podczas wpisywania (debounce)
   useEffect(() => {
@@ -704,7 +754,7 @@ export default function ScanScreen() {
       {/* Wynik / akcje */}
       <View style={styles.resultBox}>
         {multiScan && scannedItems.length > 0 ? (
-          <View style={{ marginBottom: 12 }}>
+          <View style={{ marginBottom: 36 }}>
             {dupInfo ? (<Text style={{ color: '#6b7280' }}>{dupInfo}</Text>) : null}
             <Text style={{ color: '#111827', fontWeight: '700' }}>Zeskanowane: {scannedItems.length}</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
@@ -758,11 +808,13 @@ export default function ScanScreen() {
               <View style={{ marginTop: 8 }}>
                 {employeesLoading ? <Text style={{ color: '#6b7280' }}>Ładowanie pracowników…</Text> : null}
                 {employees && employees.length > 0 ? (
-                  employees.slice(0, 50).map((emp) => (
-                    <Pressable key={emp.id} onPress={() => { setSelectedEmployee(emp); setDropdownOpen(false); }} style={[styles.card, { padding: 8 }]}> 
-                      <Text style={{ color: '#111827' }}>{emp.first_name} {emp.last_name} {emp.brand_number ? `(${emp.brand_number})` : ''}</Text>
-                    </Pressable>
-                  ))
+                  <ScrollView style={{ maxHeight: 280 }} contentContainerStyle={{ gap: 6 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                    {employees.map((emp) => (
+                      <Pressable key={emp.id} onPress={() => { setSelectedEmployee(emp); setDropdownOpen(false); }} style={[styles.card, { padding: 8 }]}> 
+                        <Text style={{ color: '#111827' }}>{emp.first_name} {emp.last_name} {emp.brand_number ? `(${emp.brand_number})` : ''}</Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
                 ) : (
                   <Text style={{ color: '#6b7280' }}>Brak pracowników</Text>
                 )}
@@ -793,7 +845,8 @@ export default function ScanScreen() {
       {/* Modal dodawania: zakładki Narzędzie / Sprzęt BHP */}
       <Modal visible={!!addVisible} animationType="slide" transparent onRequestClose={() => setAddVisible(false)}>
         <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay || 'rgba(0,0,0,0.5)' }]}> 
-          <View style={[styles.modalCard, { backgroundColor: colors.card || '#fff', borderColor: colors.border || '#eee' }]}> 
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <View style={[styles.modalCard, { backgroundColor: colors.card || '#fff', borderColor: colors.border || '#eee' }]}> 
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Dodaj</Text>
               <Pressable onPress={() => setAddVisible(false)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}> 
@@ -821,7 +874,32 @@ export default function ScanScreen() {
                 </View>
                 <View style={styles.formRow}>
                   <Text style={[styles.formLabel, { color: colors.muted }]}>SKU</Text>
-                  <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} value={addToolFields.sku} onChangeText={(v) => { setSkuDirty(true); setAddToolField('sku', v); }} placeholder="np. D-1234" placeholderTextColor={colors.muted} />
+                  <TextInput
+                    style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
+                    value={addToolFields.sku}
+                    onChangeText={(v) => {
+                      setSkuDirty(true);
+                      const p = String(toolsCodePrefix || '').trim();
+                      const next = applySkuPrefix ? normalizeSkuWithPrefix(v, p) : stripSkuPrefix(v, p);
+                      setAddToolField('sku', next);
+                    }}
+                    placeholder="np. D-1234"
+                    placeholderTextColor={colors.muted}
+                  />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                    <Switch
+                      value={!!applySkuPrefix}
+                      disabled={!String(toolsCodePrefix || '').trim()}
+                      onValueChange={(v) => {
+                        const p = String(toolsCodePrefix || '').trim();
+                        setApplySkuPrefix(!!v);
+                        const current = String(addToolFields.sku || '').trim();
+                        const next = v ? normalizeSkuWithPrefix(current, p) : stripSkuPrefix(current, p);
+                        setAddToolField('sku', next);
+                      }}
+                    />
+                    <Text style={{ color: colors.muted }}>Zastosuj prefix</Text>
+                  </View>
                   {skuConflict ? <Text style={{ color: colors.danger || '#e11d48', marginTop: 4 }}>{skuConflict}</Text> : null}
                 </View>
                 <View style={styles.formRow}>
@@ -942,12 +1020,13 @@ export default function ScanScreen() {
                       if (addTab === 'tool') {
                         const name = String(addToolFields.name || '').trim();
                         if (!name) { setAddError('Podaj nazwę narzędzia'); setAddSaving(false); return; }
-                        // Normalizuj SKU wg prefixu i ustaw barcode/qr_code na tę samą wartość
-                        const prefix = String(toolsCodePrefix || '');
-                        const normSku = normalizeSkuWithPrefix(String(addToolFields.sku || '').trim(), prefix);
+                        // SKU zgodnie z przełącznikiem: z prefixem gdy włączony, bez prefixu gdy wyłączony
+                        const rawSkuInput = String(addToolFields.sku || '').trim();
+                        const pfx = String(toolsCodePrefix || '').trim();
+                        const finalSku = applySkuPrefix ? normalizeSkuWithPrefix(rawSkuInput, pfx) : stripSkuPrefix(rawSkuInput, pfx);
                         const payload = {
                           name,
-                          sku: normSku || undefined,
+                          sku: finalSku || undefined,
                           inventory_number: String(addToolFields.inventory_number || '').trim() || undefined,
                           serial_number: String(addToolFields.serial_number || '').trim() || undefined,
                           serial_unreadable: !!addToolFields.serial_unreadable,
@@ -955,8 +1034,8 @@ export default function ScanScreen() {
                           status: 'dostępne',
                           location: String(addToolFields.location || '').trim() || undefined,
                           quantity: Number(String(addToolFields.quantity || '1').replace(/\D+/g, '')) || 1,
-                          barcode: normSku || undefined,
-                          qr_code: normSku || undefined,
+                          barcode: finalSku || undefined,
+                          qr_code: finalSku || undefined,
                         };
                         const res = await api.post('/api/tools', payload);
                         const created = Array.isArray(res?.data) ? (res.data[0] || null) : (res?.data || res || null);
@@ -989,7 +1068,8 @@ export default function ScanScreen() {
                 {addSaving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '600' }}>Zapisz</Text>}
               </Pressable>
             </View>
-          </View>
+            </View>
+          </TouchableWithoutFeedback>
         </View>
       </Modal>
 
@@ -1024,7 +1104,7 @@ export default function ScanScreen() {
                     <Text style={{ color: '#555' }}>Ilość: {itm.quantity || 1}</Text>
                   </View>
                   {itm.tool_code ? (
-                    <Pressable onPress={() => preAddByCode(itm.tool_code)} style={({ pressed }) => ({ backgroundColor: '#4f46e5', opacity: pressed ? 0.9 : 1, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 })}>
+                    <Pressable onPress={() => preAddByCode(itm.tool_code, itm.employee_id, itm.employee_name)} style={({ pressed }) => ({ backgroundColor: '#4f46e5', opacity: pressed ? 0.9 : 1, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 })}>
                       <Text style={{ color: '#fff', fontWeight: '600' }}>Szybki zwrot</Text>
                     </Pressable>
                   ) : null}

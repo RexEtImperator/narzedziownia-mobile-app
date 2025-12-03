@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, Image, Platform } from 'react-native';
 import api from '../lib/api';
+import { showSnackbar } from '../lib/snackbar';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../lib/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -85,7 +86,19 @@ export default function LoginScreen() {
     try {
       const res = await api.post('/api/login', { username, password });
       if (res && (res.token || res.accessToken)) {
+        // Ustaw token tymczasowo, aby sprawdzić status pracownika
         await api.setToken(res.token || res.accessToken);
+        try {
+          const list = await api.get('/api/employees');
+          const items = Array.isArray(list) ? list : (Array.isArray(list?.data) ? list.data : (Array.isArray(list?.items) ? list.items : []));
+          const found = items.find(e => String(e?.id ?? e?.employee_id) === String(res?.id));
+          if (found && String(found.status || '').toLowerCase() === 'suspended') {
+            // Blokuj logowanie dla zawieszonego pracownika
+            await api.setToken(null);
+            showSnackbar('Twoje konto jest zawieszone. Skontaktuj się ze swoim pracodawcą.', { type: 'error' });
+            return;
+          }
+        } catch {}
         // Zapisz pełną odpowiedź użytkownika do AsyncStorage, aby App mógł określić rolę
         try {
           await AsyncStorage.setItem('@current_user', JSON.stringify(res));
@@ -155,6 +168,17 @@ export default function LoginScreen() {
       if (res && (res.token || res.accessToken)) {
         // Zapisz token z odpowiedzi biometrycznej
         await api.setToken(res.token || res.accessToken);
+        // Sprawdź status pracownika
+        try {
+          const list = await api.get('/api/employees');
+          const items = Array.isArray(list) ? list : (Array.isArray(list?.data) ? list.data : (Array.isArray(list?.items) ? list.items : []));
+          const found = items.find(e => String(e?.id ?? e?.employee_id) === String(res?.id));
+          if (found && String(found.status || '').toLowerCase() === 'suspended') {
+            await api.setToken(null);
+            showSnackbar('Twoje konto jest zawieszone. Skontaktuj się ze swoim pracodawcą.', { type: 'error' });
+            return;
+          }
+        } catch {}
         try {
           await AsyncStorage.setItem('@current_user', JSON.stringify(res));
         } catch {}

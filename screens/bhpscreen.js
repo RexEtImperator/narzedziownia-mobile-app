@@ -4,6 +4,7 @@ import DateField from '../components/DateField';
 import { useTheme } from '../lib/theme';
 import api from '../lib/api.js';
 import { Ionicons } from '@expo/vector-icons';
+import { useRoute } from '@react-navigation/native';
 import { showSnackbar } from '../lib/snackbar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hasPermission } from '../lib/utils';
@@ -11,6 +12,7 @@ import { PERMISSIONS } from '../lib/constants';
 
 export default function BhpScreen() {
   const { colors } = useTheme();
+  const route = useRoute();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -146,6 +148,14 @@ export default function BhpScreen() {
       load();
     }
   }, [permsReady, canViewBhp]);
+
+  // Ustaw filtr z parametrów nawigacji (np. nr ewidencyjny lub etykieta)
+  useEffect(() => {
+    const f = route?.params?.filter;
+    if (typeof f === 'string' && f.trim().length > 0) {
+      setSearchTerm(String(f).trim());
+    }
+  }, [route?.params?.filter]);
 
   const statuses = [...new Set((items || []).map(it => it?.status || 'dostępne').filter(Boolean))];
   const selectedStatusLabel = selectedStatus === '__ISSUED__' ? 'Tylko wydane' : selectedStatus === '__AVAILABLE__' ? 'Tylko dostępne' : (selectedStatus || 'Wszystkie statusy');

@@ -26,6 +26,7 @@ import CodePrefixesScreen from './screens/CodePrefixesScreen';
 import UserSettingsScreen from './screens/UserSettings';
 import InventoryScreen from './screens/Inventory';
 import AuditLogScreen from './screens/AuditLog';
+import NotificationsScreen from './screens/NotificationsScreen';
 import { ThemeProvider, useTheme } from './lib/theme';
 import { setDynamicRolePermissions } from './lib/constants';
 import { isOnline, onConnectivityChange } from './lib/net';
@@ -75,7 +76,7 @@ function CustomTabBar({ state, descriptors, navigation, onPressScan }) {
   const activeColor = colors.primary;
   const inactiveColor = colors.muted;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 8, paddingBottom: 16, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 8, paddingBottom: 8, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card }}>
       {/* Lewa strona: pierwsze cztery zakładki */}
       <View style={{ flexDirection: 'row', gap: 24 }}>
         {state.routes.slice(0, 4).map((route, index) => {
@@ -100,7 +101,7 @@ function CustomTabBar({ state, descriptors, navigation, onPressScan }) {
 
       {/* Środkowy przycisk skanowania */}
       <Pressable onPress={onPressScan} style={({ pressed }) => ({ width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1, alignItems: 'center', justifyContent: 'center', ...(Platform.select({ web: { boxShadow: '0px 6px 18px rgba(0,0,0,0.18)' }, ios: { shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8 }, android: { elevation: 6 } })) })}>
-        <Ionicons name="scan" size={24} color="#fff" />
+        <Ionicons name="scan" size={30} color="#fff" />
       </Pressable>
 
       {/* Prawa strona: cztery kolejne zakładki */}
@@ -118,7 +119,7 @@ function CustomTabBar({ state, descriptors, navigation, onPressScan }) {
           }
           return (
             <Pressable key={route.key} onPress={() => navigation.navigate(route.name)} style={{ alignItems: 'center' }}>
-              <Ionicons name={iconName} size={22} color={isFocused ? activeColor : inactiveColor} />
+              <Ionicons name={iconName} size={25} color={isFocused ? activeColor : inactiveColor} />
             </Pressable>
           );
         })}
@@ -320,6 +321,7 @@ function AppContent() {
           <>
             <RootStack.Screen name="MainTabs">{() => <MainTabs openActionSheet={openActionSheet} />}</RootStack.Screen>
             <RootStack.Screen name="Scanner" component={ScanScreen} />
+            <RootStack.Screen name="Powiadomienia" component={NotificationsScreen} />
           </>
         ) : (
           <RootStack.Screen name="Login" component={LoginScreen} />
@@ -336,7 +338,7 @@ function AppContent() {
             <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 4, color: useTheme().colors.text }}>Wybierz akcję</Text>
             <Text style={{ color: useTheme().colors.muted, marginBottom: 12 }}>Co chcesz zrobić po zeskanowaniu narzędzia?</Text>
             <View style={{ gap: 12 }}>
-              <Pressable onPress={() => { closeActionSheet(); try { /* Otwórz skaner z akcją wydaj */ navigationRef?.navigate?.('Scanner', { action: 'issue' }); } catch {} }} style={({ pressed }) => ({ backgroundColor: useTheme().colors.primary, opacity: pressed ? 0.9 : 1, paddingVertical: 14, borderRadius: 10, alignItems: 'center' })}>
+              <Pressable onPress={() => { closeActionSheet(); try { navigationRef?.navigate?.('Scanner', { action: 'issue' }); } catch {} }} style={({ pressed }) => ({ backgroundColor: useTheme().colors.primary, opacity: pressed ? 0.9 : 1, paddingVertical: 14, borderRadius: 10, alignItems: 'center' })}>
                 <Text style={{ color: '#fff', fontWeight: '600' }}>Wydaj →</Text>
               </Pressable>
               <Pressable onPress={() => { closeActionSheet(); try { navigationRef?.navigate?.('Scanner', { action: 'return' }); } catch {} }} style={({ pressed }) => ({ backgroundColor: useTheme().colors.primary, opacity: pressed ? 0.9 : 1, paddingVertical: 14, borderRadius: 10, alignItems: 'center' })}>
@@ -348,7 +350,6 @@ function AppContent() {
       </Modal>
       <SnackbarHost />
       <OfflineBanner />
-      {/* Usunięto niegated baner */}
       <ApiStatusBanner status={apiStatus} isAdmin={isAdminUser} />
     </NavigationContainer>
   );
@@ -442,7 +443,7 @@ function OfflineBanner() {
 
   if (online) return null;
   return (
-    <View style={{ position: 'absolute', top: 8, left: 8, right: 8, backgroundColor: '#fff7ed', borderColor: '#f59e0b', borderWidth: 1, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, zIndex: 10000 }}>
+    <View style={{ position: 'absolute', top: 40, left: 8, right: 8, backgroundColor: '#fff7ed', borderColor: '#f59e0b', borderWidth: 1, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, zIndex: 10000 }}>
       <Text style={{ color: '#92400e', textAlign: 'center' }}>Offline: próba wznowienia połączenia…</Text>
     </View>
   );

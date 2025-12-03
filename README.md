@@ -1,6 +1,6 @@
 # Narzędziownia – aplikacja mobilna
 
-[![Wersja 1.4.0](https://img.shields.io/badge/version-1.4.0-blue.svg)](#) • Tag: 1.4.0
+[![Wersja 1.5.0](https://img.shields.io/badge/version-1.5.0-blue.svg)](#)
 
 Aplikacja mobilna (React Native + Expo) do obsługi systemu Narzędziowni: logowanie, przeglądanie narzędzi, pracowników, wydawanie i zwroty, ustawienia użytkownika, skanowanie kodów.
 
@@ -14,6 +14,13 @@ Aplikacja mobilna (React Native + Expo) do obsługi systemu Narzędziowni: logow
  - Automatyczne wznawianie połączenia z API po powrocie internetu.
  - Pasek „Offline” na górze informujący o próbie wznowienia połączenia.
  - Picker daty dla pól w BHP (web: `input[type=date]`, mobile: natywny lub fallback), zapisywany jako `YYYY-MM-DD`.
+
+### Nowości w 1.5.0
+- Informacje osobowe: edytowalne tylko „Telefon” i „E‑mail”; pozostałe pola (Imię, Nazwisko, Dział, Stanowisko, Status, Przyjęty, Numer służbowy, UID karty RFID) wyświetlane jako tekst.
+- Auto‑zapis i walidacja dla telefonu/e‑maila (komunikaty w snackbarze, bez przycisku „Zapisz zmiany”).
+- Logowanie: blokada kont zawieszonych (`employees.status = 'suspended'`) z komunikatem w snackbarze: „Twoje konto jest zawieszone. Skontaktuj się ze swoim pracodawcą.”.
+- Ulepszone dopasowanie pracownika po `user.id` (z `/api/login`) do `employees.id`, z bezpiecznymi fallbackami (m.in. `employee_id`, `username`, `email`).
+- Naprawa wyświetlania snackbarów (brak `[object Object]`).
 
 ## Skaner – skrócona instrukcja
 - Multi-skan: dla każdej zeskanowanej pozycji dostępne są przyciski `- / +`
