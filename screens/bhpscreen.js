@@ -615,16 +615,15 @@ export default function BhpScreen() {
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.toolName, { color: colors.text }]} className="text-lg font-semibold">{name}</Text>
+                    <Text style={[styles.toolMeta, { color: colors.muted }]}>Nr ew.: {inv}</Text>
+                    <Text style={[styles.toolMeta, { color: colors.muted }]}>Producent/Model: {item?.manufacturer || '—'} / {item?.model || '—'}</Text>
+                    <Text style={[styles.toolMeta, { color: colors.muted }]}>Nr fabryczny: {item?.serial_number || '—'}</Text>
+                    <Text style={[styles.toolMeta, { color: colors.muted }]}>Przypisany: {empName}</Text>
+                    <Text style={[styles.toolMeta, { color: colors.muted }]}>Data przeglądu: {item?.inspection_date || item?.last_inspection_at || '—'}</Text>
                   </View>
-                  <View style={{ flexDirection: 'row', gap: 12 }}>
-                    {canManageBhp && (
-                      <>
-                        <Pressable accessibilityLabel={`Edytuj ${id}`} onPress={() => openEdit(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}>
-                          <Ionicons name="create-outline" size={20} color={colors.text} />
-                        </Pressable>
-                        <Pressable accessibilityLabel={`Usuń ${id}`} onPress={() => deleteItem(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}>
-                          <Ionicons name="trash-outline" size={20} color={colors.danger || '#e11d48'} />
-                        </Pressable>
+                  {canManageBhp && (
+                    <View style={{ flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+                      <View style={{ flexDirection: 'row', gap: 12 }}>
                         {(() => { const isIssued = s.includes('wyd') || !!(item?.assigned_employee_first_name || item?.issued_to_employee_id); return (
                           isIssued ? (
                             <Pressable accessibilityLabel={`Zwróć ${id}`} onPress={() => openReturnModal(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}>
@@ -635,15 +634,18 @@ export default function BhpScreen() {
                               <Ionicons name="arrow-forward-circle-outline" size={20} color={colors.text} />
                             </Pressable>
                           ) ); })()}
-                      </>
-                    )}
-                  </View>
+                      </View>
+                      <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                        <Pressable accessibilityLabel={`Edytuj ${id}`} onPress={() => openEdit(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}>
+                          <Ionicons name="create-outline" size={20} color={colors.text} />
+                        </Pressable>
+                        <Pressable accessibilityLabel={`Usuń ${id}`} onPress={() => deleteItem(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}>
+                          <Ionicons name="trash-outline" size={20} color={colors.danger || '#e11d48'} />
+                        </Pressable>
+                      </View>
+                    </View>
+                  )}
                 </View>
-                <Text style={[styles.toolMeta, { color: colors.muted }]}>Nr ew.: {inv}</Text>
-                <Text style={[styles.toolMeta, { color: colors.muted }]}>Producent/Model: {item?.manufacturer || '—'} / {item?.model || '—'}</Text>
-                <Text style={[styles.toolMeta, { color: colors.muted }]}>Nr fabryczny: {item?.serial_number || '—'}</Text>
-                <Text style={[styles.toolMeta, { color: colors.muted }]}>Przypisany: {empName}</Text>
-                <Text style={[styles.toolMeta, { color: colors.muted }]}>Data przeglądu: {item?.inspection_date || item?.last_inspection_at || '—'}</Text>
               </Pressable>
             );
           }}
@@ -810,10 +812,10 @@ export default function BhpScreen() {
           <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
             <Text style={[styles.modalTitle, { color: colors.text }]}>Wydaj BHP</Text>
             {issueError ? <Text style={{ color: colors.danger || '#ef4444' }}>{issueError}</Text> : null}
-            <ScrollView style={{ maxHeight: 360 }} contentContainerStyle={{ gap: 8 }} showsVerticalScrollIndicator={false}>
+            <View style={{ gap: 8 }}>
               <Text style={{ color: colors.muted }}>Wyszukaj pracownika</Text>
               <TextInput
-                style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
+                style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text, flex: 0, height: 40 }]}
                 placeholder="Imię i nazwisko"
                 value={issueEmployeeQuery}
                 onChangeText={(v) => setIssueEmployeeQuery(v)}
@@ -821,21 +823,22 @@ export default function BhpScreen() {
               />
               {employeesLoading ? <Text style={{ color: colors.muted }}>Ładowanie pracowników…</Text> : null}
               {!employeesLoading ? (
-                <View style={{ gap: 6 }}>
-                  {(employees || [])
-                    .filter(e => {
+                <View style={{ maxHeight: 250 }}>
+                  <FlatList
+                    data={(employees || []).filter(e => {
                       const q = issueEmployeeQuery.trim().toLowerCase();
                       if (!q) return true;
                       const full = `${e.first_name || ''} ${e.last_name || ''}`.trim().toLowerCase();
                       return full.includes(q);
-                    })
-                    .slice(0, 20)
-                    .map((emp) => (
-                      <Pressable key={String(emp.id)} onPress={() => setSelectedEmployee(emp)} style={({ pressed }) => [{ padding: 8, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg, opacity: pressed ? 0.9 : 1 }]}> 
-                        <Text style={{ color: colors.text }}>{emp.first_name} {emp.last_name}</Text>
+                    })}
+                    keyExtractor={(item) => String(item.id)}
+                    renderItem={({ item }) => (
+                      <Pressable onPress={() => setSelectedEmployee(item)} style={({ pressed }) => [{ padding: 8, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg, opacity: pressed ? 0.9 : 1, marginBottom: 6 }]}> 
+                        <Text style={{ color: colors.text }}>{item.first_name} {item.last_name}</Text>
                       </Pressable>
-                    ))
-                  }
+                    )}
+                    keyboardShouldPersistTaps="handled"
+                  />
                 </View>
               ) : null}
               {selectedEmployee ? (
@@ -844,7 +847,7 @@ export default function BhpScreen() {
                   <Text style={{ color: colors.text, fontWeight: '600' }}>{selectedEmployee.first_name} {selectedEmployee.last_name}</Text>
                 </View>
               ) : null}
-            </ScrollView>
+            </View>
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
               <Pressable onPress={closeIssueModal} disabled={issueSaving} style={({ pressed }) => [{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.85 : 1 }]}> 
                 <Text style={{ color: colors.text }}>Anuluj</Text>
@@ -867,7 +870,6 @@ export default function BhpScreen() {
             <ScrollView style={{ maxHeight: 600 }} contentContainerStyle={{ gap: 8, paddingVertical: 8 }} showsVerticalScrollIndicator={false}>
               {/* Nagłówek */}
               <Text style={{ color: colors.text, fontWeight: '700' }}>{(detailItem?.manufacturer && detailItem?.model) ? `${detailItem.manufacturer} ${detailItem.model}` : (detailItem?.name || 'Sprzęt BHP')}</Text>
-
               {/* Dwukolumnowe wiersze danych */}
               <View style={{ gap: 6 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
@@ -1059,6 +1061,6 @@ const styles = StyleSheet.create({
   tile: { borderWidth: 1, borderColor: '#eee', borderRadius: 12, padding: 12, marginBottom: 12 },
   statusChip: { borderWidth: 1, borderColor: '#eee', borderRadius: 9999, paddingHorizontal: 10, paddingVertical: 4 },
   modalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  modalCard: { width: '100%', maxWidth: 480, borderWidth: 1, borderColor: '#eee', borderRadius: 12, padding: 12 },
+  modalCard: { width: '100%', maxWidth: 500, borderWidth: 1, borderColor: '#eee', borderRadius: 12, padding: 12 },
   modalTitle: { fontSize: 16, fontWeight: '700', marginBottom: 8 }
 });
