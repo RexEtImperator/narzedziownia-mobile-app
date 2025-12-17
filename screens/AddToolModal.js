@@ -28,11 +28,21 @@ export default function AddToolModal({ visible, onClose, onCreated }) {
     serial_number: '',
     serial_unreadable: false,
     category: '',
+    manufacturer: '',
+    model: '',
+    production_year: '',
     status: 'dostępne',
     location: '',
     quantity: '1',
     description: ''
   });
+
+  // Sugestie dla kategorii "Elektronarzędzia"
+  const [elSuggestionsLoading, setElSuggestionsLoading] = useState(false);
+  const [elSuggestions, setElSuggestions] = useState({ manufacturer: [], model: [], production_year: [] });
+  const [manufacturerOpen, setManufacturerOpen] = useState(false);
+  const [modelOpen, setModelOpen] = useState(false);
+  const [yearOpen, setYearOpen] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -78,6 +88,161 @@ export default function AddToolModal({ visible, onClose, onCreated }) {
         }
       })();
     }
+  }, [visible]);
+
+  // Reaguj na odświeżenie listy kategorii z innych ekranów (np. lista kategorii)
+  useEffect(() => {
+    if (!visible) return;
+    const handler = async () => {
+      try {
+        setCategoriesLoading(true);
+        await api.init();
+        try {
+          const list = await api.get('/api/categories');
+          const names = Array.isArray(list)
+            ? list.map((c) => (c?.name || c?.category_name || (typeof c === 'string' ? c : ''))).filter(Boolean)
+            : [];
+          setCategoryOptions(names);
+        } catch { setCategoryOptions([]); }
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
+    try {
+      window.addEventListener('tools:categories:refresh', handler);
+      window.addEventListener('tools:list:changed', handler);
+    } catch (_) { /* noop */ }
+    return () => {
+      try {
+        window.removeEventListener('tools:categories:refresh', handler);
+        window.removeEventListener('tools:list:changed', handler);
+      } catch (_) { /* noop */ }
+    };
+  }, [visible]);
+
+  // Ładowanie sugestii dla Elektronarzędzi z backendu; fallback do zebranych z listy narzędzi
+  useEffect(() => {
+    if (!visible) return;
+    const cat = String(fields.category || '').trim().toLowerCase();
+    if (cat !== 'elektronarzędzia') return;
+    let cancelled = false;
+    (async () => {
+      try {
+        setElSuggestionsLoading(true);
+        await api.init();
+        try {
+          const data = await api.get('/api/tools/suggestions?category=Elektronarzędzia');
+          const safe = data && typeof data === 'object' ? data : {};
+          if (!cancelled) {
+            setElSuggestions({
+              manufacturer: Array.isArray(safe.manufacturer) ? safe.manufacturer : [],
+              model: Array.isArray(safe.model) ? safe.model : [],
+              production_year: Array.isArray(safe.production_year) ? safe.production_year.map(String) : []
+            });
+          }
+        } catch {
+          // Fallback: pobierz narzędzia z tej kategorii i zbuduj podpowiedzi
+          try {
+            const list = await api.get('/api/tools?category=Elektronarzędzia');
+            const arr = Array.isArray(list) ? list : (Array.isArray(list?.data) ? list.data : []);
+            const mSet = new Set();
+            const mdSet = new Set();
+            const ySet = new Set();
+            (arr || []).forEach(t => {
+              const m = String(t?.manufacturer || '').trim();
+              if (m) mSet.add(m);
+              const md = String(t?.model || '').trim();
+              if (md) mdSet.add(md);
+              const yRaw = t?.production_year;
+              if (typeof yRaw !== 'undefined' && yRaw !== null && String(yRaw).trim() !== '') {
+                const y = parseInt(String(yRaw), 10);
+                if (!Number.isNaN(y) && y >= 1900 && y <= (new Date().getFullYear() + 1)) {
+                  ySet.add(String(y));
+                }
+              }
+            });
+            if (!cancelled) {
+              setElSuggestions({
+                manufacturer: Array.from(mSet).sort((a, b) => a.localeCompare(b)),
+                model: Array.from(mdSet).sort((a, b) => a.localeCompare(b)),
+                production_year: Array.from(ySet).sort((a, b) => Number(a) - Number(b))
+              });
+            }
+          } catch { /* noop */ }
+        }
+      } finally {
+        if (!cancelled) setElSuggestionsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, fields.category]);
+
+  // Odśwież sugestie gdy lista narzędzi się zmieni (po dodaniu nowej pozycji)
+  useEffect(() => {
+    if (!visible) return;
+    const onChange = () => {
+      const cat = String(fields.category || '').trim().toLowerCase();
+      if (cat !== 'elektronarzędzia') return;
+      try {
+        // Ponownie uruchom ładowanie sugestii
+        (async () => {
+          try {
+            setElSuggestionsLoading(true);
+            await api.init();
+            const data = await api.get('/api/tools/suggestions?category=Elektronarzędzia');
+            const safe = data && typeof data === 'object' ? data : {};
+            setElSuggestions({
+              manufacturer: Array.isArray(safe.manufacturer) ? safe.manufacturer : [],
+              model: Array.isArray(safe.model) ? safe.model : [],
+              production_year: Array.isArray(safe.production_year) ? safe.production_year.map(String) : []
+            });
+          } catch { /* ignoruj */ }
+          finally { setElSuggestionsLoading(false); }
+        })();
+      } catch { /* noop */ }
+    };
+    try {
+      window.addEventListener('tools:list:changed', onChange);
+    } catch (_) { /* noop */ }
+    return () => {
+      try { window.removeEventListener('tools:list:changed', onChange); } catch (_) { /* noop */ }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, fields.category]);
+
+  // Uzupełnianie pola "Nazwa" na podstawie sugestii z ekranu narzędzi
+  useEffect(() => {
+    if (!visible) return;
+    const handler = (e) => {
+      try {
+        const detail = e?.detail || {};
+        const token = String(detail.token || '').trim();
+        const type = String(detail.type || '').trim();
+        const cat = String(detail.category || '').trim();
+        if (cat) {
+          setFields(prev => ({ ...prev, category: cat }));
+        }
+        if (!token) return;
+        setFields(prev => {
+          const current = String(prev.name || '').trim();
+          const alreadyHas = current.toLowerCase().includes(token.toLowerCase());
+          if (alreadyHas) return prev;
+          const next = type === 'year'
+            ? (current ? `${current} (${token})` : token)
+            : (current ? `${current} ${token}` : token);
+          return { ...prev, name: next };
+        });
+      } catch { /* noop */ }
+    };
+    try {
+      window.addEventListener('tools:add:suggest-append', handler);
+    } catch (_) { /* noop */ }
+    return () => {
+      try {
+        window.removeEventListener('tools:add:suggest-append', handler);
+      } catch (_) { /* noop */ }
+    };
   }, [visible]);
 
   const close = () => {
@@ -209,6 +374,16 @@ export default function AddToolModal({ visible, onClose, onCreated }) {
       serial_number: String(fields.serial_number || '').trim() || undefined,
       serial_unreadable: !!fields.serial_unreadable || false,
       category: String(fields.category || '').trim() || undefined,
+      manufacturer: String(fields.manufacturer || '').trim() || undefined,
+      model: String(fields.model || '').trim() || undefined,
+      production_year: (function(){
+        const raw = String(fields.production_year || '').trim();
+        if (!raw) return undefined;
+        const y = parseInt(raw, 10);
+        const maxY = new Date().getFullYear() + 1;
+        if (!Number.isNaN(y) && y >= 1900 && y <= maxY) return y;
+        return undefined;
+      })(),
       status: String(fields.status || 'dostępne').trim() || 'dostępne',
       location: String(fields.location || '').trim() || undefined,
       quantity: Number(String(fields.quantity || '1').replace(/\D+/g, '')) || 1,
@@ -410,6 +585,106 @@ export default function AddToolModal({ visible, onClose, onCreated }) {
                 </View>
               )}
             </View>
+
+            {/* Dane techniczne dla Elektronarzędzi */}
+            {String(fields.category || '').trim().toLowerCase() === 'elektronarzędzia' ? (
+              <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card, padding: 10, borderRadius: 8 }]}>
+                <Text style={{ color: colors.text, fontWeight: '600', marginBottom: 8 }}>Dane techniczne</Text>
+                <View style={{ gap: 10 }}>
+                  {/* Producent */}
+                  <View>
+                    <Text style={[styles.label, { color: colors.muted }]}>Producent</Text>
+                    <View>
+                      <TextInput
+                        style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
+                        value={fields.manufacturer}
+                        onFocus={() => setManufacturerOpen(true)}
+                        onBlur={() => setTimeout(() => setManufacturerOpen(false), 150)}
+                        onChangeText={(v) => setField('manufacturer', v)}
+                        placeholder="Np. Bosch, Makita, DeWalt"
+                        placeholderTextColor={colors.muted}
+                      />
+                      {manufacturerOpen && (elSuggestionsLoading ? (
+                        <View style={{ padding: 8 }}><Text style={{ color: colors.muted }}>Ładowanie podpowiedzi…</Text></View>
+                      ) : (elSuggestions.manufacturer || []).length > 0 ? (
+                        <View style={{ position: 'absolute', top: 44, left: 0, right: 0, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, borderRadius: 8, maxHeight: 160 }}>
+                          <ScrollView style={{ maxHeight: 160 }}>
+                            {(elSuggestions.manufacturer || []).map(opt => (
+                              <Pressable key={`mf-${String(opt)}`} onPress={() => { setField('manufacturer', String(opt)); setManufacturerOpen(false); }} style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: pressed ? (colors.overlay || '#00000010') : colors.card }]}> 
+                                <Text style={{ color: colors.text }}>{String(opt)}</Text>
+                              </Pressable>
+                            ))}
+                          </ScrollView>
+                        </View>
+                      ) : null)}
+                    </View>
+                  </View>
+
+                  {/* Model */}
+                  <View>
+                    <Text style={[styles.label, { color: colors.muted }]}>Model</Text>
+                    <View>
+                      <TextInput
+                        style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
+                        value={fields.model}
+                        onFocus={() => setModelOpen(true)}
+                        onBlur={() => setTimeout(() => setModelOpen(false), 150)}
+                        onChangeText={(v) => setField('model', v)}
+                        placeholder="Np. GSR 18V-55"
+                        placeholderTextColor={colors.muted}
+                      />
+                      {modelOpen && (elSuggestionsLoading ? (
+                        <View style={{ padding: 8 }}><Text style={{ color: colors.muted }}>Ładowanie podpowiedzi…</Text></View>
+                      ) : (elSuggestions.model || []).length > 0 ? (
+                        <View style={{ position: 'absolute', top: 44, left: 0, right: 0, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, borderRadius: 8, maxHeight: 160 }}>
+                          <ScrollView style={{ maxHeight: 160 }}>
+                            {(elSuggestions.model || []).map(opt => (
+                              <Pressable key={`md-${String(opt)}`} onPress={() => { setField('model', String(opt)); setModelOpen(false); }} style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: pressed ? (colors.overlay || '#00000010') : colors.card }]}> 
+                                <Text style={{ color: colors.text }}>{String(opt)}</Text>
+                              </Pressable>
+                            ))}
+                          </ScrollView>
+                        </View>
+                      ) : null)}
+                    </View>
+                  </View>
+
+                  {/* Rok Produkcji */}
+                  <View>
+                    <Text style={[styles.label, { color: colors.muted }]}>Rok Produkcji</Text>
+                    <View>
+                      <TextInput
+                        style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
+                        value={fields.production_year}
+                        keyboardType="numeric"
+                        onFocus={() => setYearOpen(true)}
+                        onBlur={() => setTimeout(() => setYearOpen(false), 150)}
+                        onChangeText={(v) => {
+                          const n = String(v || '').replace(/[^0-9]/g, '');
+                          setField('production_year', n);
+                        }}
+                        placeholder="Np. 2024"
+                        placeholderTextColor={colors.muted}
+                      />
+                      {yearOpen && (elSuggestionsLoading ? (
+                        <View style={{ padding: 8 }}><Text style={{ color: colors.muted }}>Ładowanie podpowiedzi…</Text></View>
+                      ) : (elSuggestions.production_year || []).length > 0 ? (
+                        <View style={{ position: 'absolute', top: 44, left: 0, right: 0, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, borderRadius: 8, maxHeight: 160 }}>
+                          <ScrollView style={{ maxHeight: 160 }}>
+                            {(elSuggestions.production_year || []).map(opt => (
+                              <Pressable key={`yr-${String(opt)}`} onPress={() => { setField('production_year', String(opt)); setYearOpen(false); }} style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: pressed ? (colors.overlay || '#00000010') : colors.card }]}> 
+                                <Text style={{ color: colors.text }}>{String(opt)}</Text>
+                              </Pressable>
+                            ))}
+                          </ScrollView>
+                        </View>
+                      ) : null)}
+                    </View>
+                  </View>
+                </View>
+                <Text style={{ color: colors.muted, fontSize: 12, marginTop: 6 }}>Skorzystaj z podpowiedzi aby szybko wybrać wcześniej użyte wartości.</Text>
+              </View>
+            ) : null}
 
             <View style={styles.row}>
               <Text style={[styles.label, { color: colors.muted }]}>Lokalizacja</Text>

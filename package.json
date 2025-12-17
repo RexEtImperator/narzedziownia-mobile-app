@@ -1,6 +1,6 @@
 {
   "name": "narzedziownia",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "main": "index.js",
   "scripts": {
     "start": "expo start",
@@ -8,7 +8,9 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "start:lan": "set EXPO_PUBLIC_API_BASE_URL=http://192.168.10.99:3000 && expo start --port 8082",
-    "web:lan": "set EXPO_PUBLIC_API_BASE_URL=http://192.168.10.99:3000 && expo start --web --port 8081"
+    "web:lan": "set EXPO_PUBLIC_API_BASE_URL=http://192.168.10.99:3000 && expo start --web --port 8081",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@gorhom/bottom-sheet": "^5.2.7",
@@ -39,16 +41,18 @@
     "react-native-screens": "^4.16.0",
     "react-native-web": "^0.21.0",
     "react-native-worklets": "0.5.1",
-    "react-spring-bottom-sheet": "^3.4.1",
     "tailwindcss": "^3.4.13"
   },
   "private": true,
   "devDependencies": {
-    "@react-native-community/cli": "latest",
     "@expo/cli": "^0.17.12",
+    "@react-native-community/cli": "latest",
+    "@testing-library/jest-dom": "^6.9.1",
     "autoprefixer": "^10.4.21",
     "babel-preset-expo": "^54.0.4",
-    "postcss": "^8.5.6"
+    "jsdom": "^27.3.0",
+    "postcss": "^8.5.6",
+    "vitest": "^4.0.15"
   },
   "overrides": {
     "lightningcss": "1.30.1"

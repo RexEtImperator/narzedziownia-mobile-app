@@ -48,6 +48,7 @@ export default function CategoriesScreen() {
       await api.post('/api/categories', { name: newName.trim() });
       setNewName('');
       await load();
+      try { window.dispatchEvent(new CustomEvent('tools:categories:refresh')); window.dispatchEvent(new CustomEvent('tools:list:changed')); } catch (_) { /* noop */ }
     } catch (e) {
       showSnackbar({ type: 'error', text: e.message || 'Nie udało się dodać kategorii' });
     } finally {
@@ -76,6 +77,7 @@ export default function CategoriesScreen() {
       await api.put(`/api/categories/${encodeURIComponent(editingId)}`, { name: editName.trim() });
       cancelEdit();
       await load();
+      try { window.dispatchEvent(new CustomEvent('tools:categories:refresh')); window.dispatchEvent(new CustomEvent('tools:list:changed')); } catch (_) { /* noop */ }
     } catch (e) {
       showSnackbar({ type: 'error', text: e.message || 'Nie udało się zapisać zmian' });
     } finally {
@@ -90,6 +92,7 @@ export default function CategoriesScreen() {
         try {
           await api.delete(`/api/categories/${encodeURIComponent(c?.id)}`);
           await load();
+          try { window.dispatchEvent(new CustomEvent('tools:categories:refresh')); window.dispatchEvent(new CustomEvent('tools:list:changed')); } catch (_) { /* noop */ }
         } catch (e) {
           showSnackbar({ type: 'error', text: e.message || 'Nie udało się usunąć kategorii' });
         }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable, ScrollView, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../lib/api';
@@ -8,6 +9,8 @@ import AddEmployeeModal from './AddEmployeeModal';
 import AddToolModal from './AddToolModal';
 import AddBHPModal from './AddBHPModal';
 import Constants from 'expo-constants';
+import { hasPermission } from '../lib/utils';
+import { PERMISSIONS, setDynamicRolePermissions } from '../lib/constants';
 
 export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
@@ -30,6 +33,10 @@ export default function DashboardScreen() {
   const [bhpHistoryLoadingMore, setBhpHistoryLoadingMore] = useState(false);
   const [toolHistoryHasMore, setToolHistoryHasMore] = useState(false);
   const [bhpHistoryHasMore, setBhpHistoryHasMore] = useState(false);
+  // Uprawnienia do widoczności sekcji „Szybkie akcje”
+  const [permsReady, setPermsReady] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [canViewQuickActions, setCanViewQuickActions] = useState(false);
 
   // Funkcja ładowania danych dashboardu (wywoływana na starcie i przy powrocie na ekran)
   const loadDashboard = async () => {
@@ -225,6 +232,31 @@ export default function DashboardScreen() {
     }
   };
 
+  // Inicjalizacja uprawnień – widoczność sekcji „Szybkie akcje”
+  useEffect(() => {
+    (async () => {
+      try {
+        const saved = await AsyncStorage.getItem('@current_user');
+        const me = saved ? JSON.parse(saved) : null;
+        setCurrentUser(me);
+        setCanViewQuickActions(hasPermission(me, PERMISSIONS.VIEW_QUICK_ACTIONS));
+        // Opcjonalnie: wczytaj mapę uprawnień ról, jeśli endpoint dostępny
+        try {
+          await api.init();
+          const rolePerms = await api.get('/api/role-permissions');
+          setDynamicRolePermissions(rolePerms || null);
+          // Aktualizacja po dynamicznych uprawnieniach
+          setCanViewQuickActions(hasPermission(me, PERMISSIONS.VIEW_QUICK_ACTIONS));
+        } catch {}
+      } catch {
+        setCurrentUser(null);
+        setCanViewQuickActions(false);
+      } finally {
+        setPermsReady(true);
+      }
+    })();
+  }, []);
+
   useEffect(() => {
     loadDashboard();
     // Odśwież przy ponownym wejściu na ekran
@@ -255,6 +287,11 @@ export default function DashboardScreen() {
       )}
 
       {/* KPI cards */}
+      {(() => {
+        const roleVal = String(currentUser?.role || currentUser?.role_name || '').toLowerCase();
+        const isEmployeeRole = roleVal === 'employee' || roleVal === 'pracownik';
+        if (isEmployeeRole) return null;
+        return (
       <View style={styles.kpiRow} className="flex-row flex-wrap gap-3">
         <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.kpiHeader} className="items-center">
@@ -298,30 +335,34 @@ export default function DashboardScreen() {
           )}
         </View>
       </View>
+        );
+      })()}
 
-      {/* Quick actions */}
-      <View style={styles.section} className="mb-6">
-        <View style={styles.sectionHeaderRow} className="flex-row items-center gap-2 mb-3">
-          <View style={[styles.flashIcon, { backgroundColor: colors.card }]} className="w-8 h-8 rounded-xl items-center justify-center">
-            <Ionicons name="flash" size={18} color="#10b981" />
+      {/* Quick actions – widoczne tylko z uprawnieniem VIEW_QUICK_ACTIONS */}
+      {permsReady && canViewQuickActions ? (
+        <View style={styles.section} className="mb-6">
+          <View style={styles.sectionHeaderRow} className="flex-row items-center gap-2 mb-3">
+            <View style={[styles.flashIcon, { backgroundColor: colors.card }]} className="w-8 h-8 rounded-xl items-center justify-center">
+              <Ionicons name="flash" size={18} color="#10b981" />
+            </View>
+            <Text style={[styles.sectionTitle, { color: colors.text }]} className="text-xl font-semibold">Szybkie akcje</Text>
           </View>
-          <Text style={[styles.sectionTitle, { color: colors.text }]} className="text-xl font-semibold">Szybkie akcje</Text>
+          <View style={styles.quickRow} className="flex-row flex-wrap gap-3">
+            <Pressable style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => setAddEmpVisible(true)}>
+              <Text style={[styles.quickTitle, { color: colors.text }]}>Dodaj pracownika</Text>
+              <Text style={[styles.quickDesc, { color: colors.muted }]}>Utwórz nowy profil pracownika</Text>
+            </Pressable>
+            <Pressable style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => setAddToolVisible(true)}>
+              <Text style={[styles.quickTitle, { color: colors.text }]}>Dodaj narzędzie</Text>
+              <Text style={[styles.quickDesc, { color: colors.muted }]}>Do bazy danych</Text>
+            </Pressable>
+            <Pressable style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => setAddBHPVisible(true)}>
+              <Text style={[styles.quickTitle, { color: colors.text }]}>Dodaj sprzęt BHP</Text>
+              <Text style={[styles.quickDesc, { color: colors.muted }]}>Do bazy danych</Text>
+            </Pressable>
+          </View>
         </View>
-        <View style={styles.quickRow} className="flex-row flex-wrap gap-3">
-          <Pressable style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => setAddEmpVisible(true)}>
-            <Text style={[styles.quickTitle, { color: colors.text }]}>Dodaj pracownika</Text>
-            <Text style={[styles.quickDesc, { color: colors.muted }]}>Utwórz nowy profil pracownika</Text>
-          </Pressable>
-          <Pressable style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => setAddToolVisible(true)}>
-            <Text style={[styles.quickTitle, { color: colors.text }]}>Dodaj narzędzie</Text>
-            <Text style={[styles.quickDesc, { color: colors.muted }]}>Do bazy danych</Text>
-          </Pressable>
-          <Pressable style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => setAddBHPVisible(true)}>
-            <Text style={[styles.quickTitle, { color: colors.text }]}>Dodaj sprzęt BHP</Text>
-            <Text style={[styles.quickDesc, { color: colors.muted }]}>Do bazy danych</Text>
-          </Pressable>
-        </View>
-      </View>
+      ) : null}
 
       {/* Historia wydań/zwrotów narzędzi */}
       <View style={[styles.section, { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, borderRadius: 12, padding: 12 }]}> 

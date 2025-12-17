@@ -18,12 +18,17 @@ export default function RolesPermissionsScreen() {
   const [loadingPermissions, setLoadingPermissions] = useState(false);
   const [rolesMap, setRolesMap] = useState({
     administrator: { name: 'Administrator', description: 'Pełne uprawnienia', color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300', priority: 100 },
-    manager: { name: 'Kierownik', description: 'Zarządza, bez admina', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300', priority: 60 },
-    employee: { name: 'Pracownik', description: 'Użytkownik podstawowy', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300', priority: 20 },
+    manager: { name: 'Kierownik', description: 'Zarządzanie, bez admina', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300', priority: 90 },
+    toolsmaster: { name: 'Narzędziowiec', description: 'Dozór nad wydawaniem/zwrotem narzędzi', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300', priority: 80 },
+    hr: { name: 'HR', description: 'Zarządzanie pracownikami', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300', priority: 70 },
+    supervisor: { name: 'Mistrz', description: '8', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300', priority: 60 },
+    engineer: { name: ' Inżynier', description: 'Wsparcie produkcyjne', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300', priority: 50 },
+    employee: { name: 'Pracownik', description: 'Pracownik w dziale ze swoim stanowiskiem', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300', priority: 10 },
   });
   const [newRoleName, setNewRoleName] = useState('');
   const [rolePickerUser, setRolePickerUser] = useState(null);
   const [rolePickerOpen, setRolePickerOpen] = useState(false);
+  const [expandedRoles, setExpandedRoles] = useState({});
 
   // Dobór koloru tekstu na chipie roli w zależności od tła
   const getReadableTextColor = (bg) => {
@@ -341,8 +346,8 @@ export default function RolesPermissionsScreen() {
     });
 
   const sortedUsers = users.slice().sort((a, b) => {
-    const pa = (() => { const r = String(a.role || '').toLowerCase(); if (r === 'administrator' || r === 'admin') return 100; const p = rolesMap[r]?.priority; return typeof p === 'number' ? p : 0; })();
-    const pb = (() => { const r = String(b.role || '').toLowerCase(); if (r === 'administrator' || r === 'admin') return 100; const p = rolesMap[r]?.priority; return typeof p === 'number' ? p : 0; })();
+    const pa = (() => { const r = String(a.role || '').toLowerCase(); const p = rolesMap[r]?.priority; return typeof p === 'number' ? p : 0; })();
+    const pb = (() => { const r = String(b.role || '').toLowerCase(); const p = rolesMap[r]?.priority; return typeof p === 'number' ? p : 0; })();
     if (pb !== pa) return pb - pa;
     const na = String(a.full_name || a.username || '').toLowerCase();
     const nb = String(b.full_name || b.username || '').toLowerCase();
@@ -470,7 +475,20 @@ export default function RolesPermissionsScreen() {
                     </View>
                     <Pressable onPress={() => saveRoleMeta(roleKey)} style={[styles.button, { backgroundColor: colors.primary }]}><Text style={{ color: '#fff', fontWeight: '600' }}>Zapisz metadane roli</Text></Pressable>
 
+                    {/* Przyciski akcji pod polami edycji po prawej */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 6 }}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Pokaż uprawnienia"
+                        onPress={() => setExpandedRoles(prev => ({ ...prev, [roleKey]: !(prev[roleKey] !== false) }))}
+                        style={[styles.button, { paddingHorizontal: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }]}
+                      >
+                        <Text style={{ color: colors.text, fontWeight: '600' }}>{(expandedRoles[roleKey] !== false) ? 'Ukryj uprawnienia' : 'Pokaż uprawnienia'}</Text>
+                      </Pressable>
+                    </View>
+
                     {/* Uprawnienia */}
+                    {(expandedRoles[roleKey] !== false) && (
                     <View style={{ marginTop: 10 }}>
                       <Text style={{ color: colors.text, fontWeight: '600', marginBottom: 6 }}>Uprawnienia</Text>
                       <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
@@ -484,6 +502,7 @@ export default function RolesPermissionsScreen() {
                         })}
                       </View>
                     </View>
+                    )}
                   </View>
                 ))}
               </View>

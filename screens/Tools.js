@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, FlatList, ScrollView, TouchableOpacity, Pressable, Alert, Modal } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, FlatList, ScrollView, TouchableOpacity, Pressable, Alert, Modal, DeviceEventEmitter, RefreshControl } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { useTheme } from '../lib/theme';
 import api from '../lib/api.js';
@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AddToolModal from './AddToolModal';
 import { showSnackbar } from '../lib/snackbar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { hasPermission } from '../lib/utils';
+import { hasPermission, isAdmin } from '../lib/utils';
 import { PERMISSIONS } from '../lib/constants';
 
 export default function ToolsScreen() {
@@ -23,6 +23,9 @@ export default function ToolsScreen() {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  // Zakładki kategorii z licznikami
+  const [categoryCounts, setCategoryCounts] = useState({});
+  const [allCount, setAllCount] = useState(0);
   const [editingTool, setEditingTool] = useState(null);
   const [editFields, setEditFields] = useState({ name: '', sku: '', inventory_number: '', serial_number: '', serial_unreadable: false, category: '', status: '', location: '' });
   const [filterCategoryOptions, setFilterCategoryOptions] = useState([]);
@@ -38,6 +41,10 @@ export default function ToolsScreen() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
   const [addToolVisible, setAddToolVisible] = useState(false);
+  const [notifySending, setNotifySending] = useState(false);
+  const [confirmReturnVisible, setConfirmReturnVisible] = useState(false);
+  const [confirmReturnTool, setConfirmReturnTool] = useState(null);
+
 
   // Serwis – stan modalu i pól
   const [showServiceModal, setShowServiceModal] = useState(false);
@@ -48,8 +55,10 @@ export default function ToolsScreen() {
   // Permission-related state
   const [currentUser, setCurrentUser] = useState(null);
   const [canViewTools, setCanViewTools] = useState(false);
+  const [canViewAllTools, setCanViewAllTools] = useState(false);
   const [canManageTools, setCanManageTools] = useState(false);
   const [permsReady, setPermsReady] = useState(false);
+  const [currentEmployeeId, setCurrentEmployeeId] = useState(null);
 
   // Pomocnicze: wykryj i ukryj wartości typu data:image (zakodowane obrazy QR/kreskowe)
   const isDataUri = (val) => {
@@ -95,7 +104,27 @@ export default function ToolsScreen() {
         const user = raw ? JSON.parse(raw) : null;
         setCurrentUser(user);
         setCanViewTools(hasPermission(user, PERMISSIONS.VIEW_TOOLS));
+        setCanViewAllTools(hasPermission(user, PERMISSIONS.VIEW_ALL_TOOLS));
         setCanManageTools(hasPermission(user, PERMISSIONS.MANAGE_TOOLS));
+        // Rozpoznaj employee_id użytkownika z różnych kształtów obiektu
+        try {
+          const u = user || {};
+          // Administrator NIE powinien mieć przypisanego employee_id
+          if (isAdmin(u) || String(u?.id || '') === '1') {
+            setCurrentEmployeeId(null);
+          } else {
+            const candidates = [
+              u?.employee_id, u?.employeeId,
+              u?.user?.employee_id, u?.user?.employeeId,
+              u?.data?.employee_id, u?.data?.employeeId,
+              u?.payload?.employee_id, u?.payload?.employeeId,
+              u?.profile?.employee_id, u?.profile?.employeeId,
+              u?.currentUser?.employee_id, u?.currentUser?.employeeId,
+            ];
+            const found = candidates.find(v => typeof v === 'number' || typeof v === 'string');
+            setCurrentEmployeeId(found ? String(found) : null);
+          }
+        } catch {}
       } catch {}
       setPermsReady(true);
     })();
@@ -155,6 +184,19 @@ export default function ToolsScreen() {
     const matchesCategory = !selectedCategory || cat === selectedCategory;
     const computedStatus = (t?.quantity === 1 && (t?.service_quantity || 0) > 0) ? 'serwis' : (t?.status || 'dostępne');
     const matchesStatus = !selectedStatus || computedStatus === selectedStatus;
+    // Bramka zakresu: jeśli użytkownik nie ma VIEW_ALL_TOOLS, pokazuj tylko narzędzia wydane temu użytkownikowi
+    if (!canViewTools && currentEmployeeId) {
+      const eid = (
+        t?.issued_to_employee_id ?? t?.issuedToEmployeeId ??
+        t?.employee_id ?? t?.employeeId ??
+        t?.assigned_employee_id ?? t?.assignedEmployeeId ??
+        t?.current_employee_id ?? t?.currentEmployeeId
+      );
+      const matchesScope = typeof eid === 'number' || typeof eid === 'string'
+        ? String(eid) === String(currentEmployeeId)
+        : false;
+      return matchesSearch && matchesCategory && matchesStatus && matchesScope;
+    }
     return matchesSearch && matchesCategory && matchesStatus;
   });
 
@@ -183,6 +225,24 @@ export default function ToolsScreen() {
       return 0;
     }
   });
+
+  // Liczniki kategorii na pełnym zbiorze (niezależnie od bramki zakresu)
+  useEffect(() => {
+    try {
+      const counts = {};
+      for (const t of (tools || [])) {
+        const cat = t?.category || t?.category_name || '';
+        const key = String(cat || '').trim();
+        if (!key) continue;
+        counts[key] = (counts[key] || 0) + 1;
+      }
+      setCategoryCounts(counts);
+      setAllCount((tools || []).length);
+    } catch {
+      setCategoryCounts({});
+      setAllCount((tools || []).length);
+    }
+  }, [tools]);
 
   const openDetails = async (tool) => {
     const t = tool || {};
@@ -399,6 +459,61 @@ export default function ToolsScreen() {
     }
   };
 
+  // Prośba o zwrot – tworzy powiadomienie dla ostatnio wydanego pracownika
+  const notifyReturnFor = async (tool) => {
+    if (!canManageTools) {
+      showSnackbar('Brak uprawnień do wysyłania próśb o zwrot', { type: 'error' });
+      return;
+    }
+    const id = tool?.id || tool?.tool_id;
+    if (!id) { showSnackbar('Brak identyfikatora narzędzia', { type: 'error' }); return; }
+    try {
+      setNotifySending(true);
+      await api.init();
+      // Spróbuj wytypować pracownika z issues, jeśli lista dostępna; w przeciwnym razie backend sam zmapuje z tool_issues
+      let targetEmployeeId = null;
+      let targetBrandNumber = '';
+      try {
+        const issues = Array.isArray(tool?.issues) ? tool.issues : [];
+        const active = issues.find(i => String(i?.status || '').toLowerCase() === 'wydane') || issues[issues.length - 1];
+        if (active && (active.employee_id || active.employeeId)) {
+          targetEmployeeId = active.employee_id ?? active.employeeId;
+          try {
+            const emp = await api.get(`/api/employees/${targetEmployeeId}`);
+            targetBrandNumber = emp?.brand_number || '';
+          } catch {}
+        }
+      } catch {}
+      await api.post(`/api/tools/${id}/notify-return`, {
+        message: 'Prośba o zwrot',
+        target_employee_id: targetEmployeeId || undefined,
+        target_brand_number: targetBrandNumber || undefined,
+      });
+      showSnackbar('Wysłano prośbę o zwrot', { type: 'success' });
+      try { DeviceEventEmitter.emit('notifications:refresh', { source: 'tools' }); } catch {}
+    } catch (e) {
+      showSnackbar(e?.message || 'Nie udało się wysłać prośby o zwrot', { type: 'error' });
+    } finally {
+      setNotifySending(false);
+    }
+  };
+
+  const openConfirmReturnFor = (tool) => {
+    setConfirmReturnTool(tool);
+    setConfirmReturnVisible(true);
+  };
+
+  const closeConfirmReturn = () => {
+    setConfirmReturnVisible(false);
+    setConfirmReturnTool(null);
+  };
+
+  const confirmSendReturn = async () => {
+    if (!confirmReturnTool) return;
+    await notifyReturnFor(confirmReturnTool);
+    closeConfirmReturn();
+  };
+
   // Odbierz z serwisu dla narzędzia w szczegółach
   const serviceReceive = async () => {
     if (!detailTool) return;
@@ -419,10 +534,46 @@ export default function ToolsScreen() {
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <Text style={[styles.title, { color: colors.text }]} className="text-2xl font-bold">Narzędzia</Text>
         {canManageTools ? (
-          <Pressable onPress={() => setAddToolVisible(true)} accessibilityLabel="Dodaj narzędzie" style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 }]}>
+          <Pressable onPress={() => setAddToolVisible(true)} accessibilityLabel="Dodaj narzędzie" style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 }]}> 
             <Ionicons name="add" size={22} color={colors.primary || colors.text} />
           </Pressable>
         ) : null}
+      </View>
+      {/* Zakładki kategorii */}
+      <View style={{ borderBottomWidth: 1, borderBottomColor: colors.border, marginBottom: 8 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingHorizontal: 8 }}>
+          <Pressable
+            onPress={() => setSelectedCategory('')}
+            style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 6, borderBottomWidth: 2, borderBottomColor: selectedCategory ? 'transparent' : (colors.primary || colors.text), opacity: pressed ? 0.85 : 1 }]}
+            accessibilityLabel="Zakładka Wszystkie kategorie"
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={{ color: selectedCategory ? colors.text : (colors.primary || colors.text), fontSize: 16, fontWeight: selectedCategory ? '500' : '600' }} numberOfLines={1} ellipsizeMode="tail">Wszystkie kategorie</Text>
+              <View style={{ minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: selectedCategory ? colors.card : (colors.primary || '#6366f1') }}>
+                <Text style={{ color: selectedCategory ? colors.text : '#ffffff', fontSize: 12, fontWeight: '700' }}>{Number.isFinite(allCount) ? allCount : 0}</Text>
+              </View>
+            </View>
+          </Pressable>
+          {categories.map((cat) => {
+            const cnt = categoryCounts[String(cat)];
+            const active = String(selectedCategory || '') === String(cat);
+            return (
+              <Pressable
+                key={`cat-tab-${String(cat)}`}
+                onPress={() => setSelectedCategory(String(cat))}
+                style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 6, borderBottomWidth: 2, borderBottomColor: active ? (colors.primary || colors.text) : 'transparent', opacity: pressed ? 0.85 : 1 }]}
+                accessibilityLabel={`Zakładka kategoria ${String(cat)}`}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ color: active ? (colors.primary || colors.text) : colors.text, fontSize: 16, fontWeight: active ? '600' : '500' }} numberOfLines={1} ellipsizeMode="tail">{String(cat)}</Text>
+                  <View style={{ minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: active ? (colors.primary || colors.border) : colors.border }}>
+                    <Text style={{ color: active ? (colors.primary || colors.text) : colors.muted, fontSize: 12, fontWeight: '700' }}>{Number.isFinite(cnt) ? cnt : 0}</Text>
+                  </View>
+                </View>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       </View>
       {/* Sekcja wyszukiwarki i filtrów */}
       <View style={styles.filterRow} className="flex-row items-center gap-2 mb-2">
@@ -443,25 +594,10 @@ export default function ToolsScreen() {
         ) : null}
       </View>
       <View style={styles.filterRow} className="flex-row items-center gap-2 mb-2">
-        <TouchableOpacity style={[styles.dropdownToggle, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md px-2 h-9 justify-center" onPress={() => setShowCategoryDropdown(v => !v)}>
-          <Text style={[styles.dropdownToggleText, { color: colors.text }]}>{selectedCategory || 'Wszystkie kategorie'}</Text>
-        </TouchableOpacity>
         <TouchableOpacity style={[styles.dropdownToggle, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md px-2 h-9 justify-center" onPress={() => setShowStatusDropdown(v => !v)}>
           <Text style={[styles.dropdownToggleText, { color: colors.text }]}>{selectedStatus || 'Wszystkie statusy'}</Text>
         </TouchableOpacity>
       </View>
-      {showCategoryDropdown && (
-        <View style={[styles.dropdown, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md mb-2">
-          <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setSelectedCategory(''); setShowCategoryDropdown(false); }}>
-            <Text style={{ color: colors.text }}>Wszystkie kategorie</Text>
-          </TouchableOpacity>
-          {categories.map(cat => (
-            <TouchableOpacity key={String(cat)} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setSelectedCategory(cat); setShowCategoryDropdown(false); }}>
-              <Text style={{ color: colors.text }}>{cat}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
       {showStatusDropdown && (
         <View style={[styles.dropdown, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md mb-2">
           <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setSelectedStatus(''); setShowStatusDropdown(false); }}>
@@ -490,6 +626,7 @@ export default function ToolsScreen() {
       {error ? <Text style={[styles.error, { color: colors.danger }]} className="mb-2">{error}</Text> : null}
       {loading ? <Text style={[styles.muted, { color: colors.muted }]}>Ładowanie…</Text> : (
         <FlatList
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={load} colors={[colors.primary]} tintColor={colors.primary} />}
           data={sortedTools}
           keyExtractor={(item) => String(item.id || item.tool_id || Math.random())}
           contentContainerStyle={{ paddingVertical: 8, paddingBottom: 24 }}
@@ -524,29 +661,40 @@ export default function ToolsScreen() {
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.toolName, { color: colors.text }]} className="text-lg font-semibold">{item.name || item.tool_name || '—'}</Text>
+                    <Text style={[styles.toolMeta, { color: colors.muted }]}>Nr ew.: {item?.inventory_number || (isDataUri(item?.code) ? '' : item?.code) || (isDataUri(item?.barcode) ? '' : item?.barcode) || (isDataUri(item?.qr_code) ? '' : item?.qr_code) || '—'}</Text>
+                    <Text style={[styles.toolMeta, { color: colors.muted }]}>SKU: {isDataUri(item?.sku) ? '—' : (item?.sku || '—')}</Text>
+                    <Text style={[styles.toolMeta, { color: colors.muted }]}>Kategoria: {item.category || item.category_name || '—'}</Text>
+                    <Text style={[styles.toolMeta, { color: colors.muted }]}>Nr fabryczny: {item.serial_number || '—'}</Text>
+                    <Text style={[styles.toolMeta, { color: colors.muted }]}>Lokalizacja: {item.location || '—'}</Text>
                   </View>
-                <View style={{ flexDirection: 'row', gap: 12 }}>
-                  <Pressable accessibilityLabel={`Edytuj narzędzie ${id}`} onPress={() => openEdit(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
-                    <Ionicons name="create-outline" size={20} color={colors.text} />
-                  </Pressable>
-                  {canManageTools && (item?.service_quantity || 0) > 0 ? (
-                    <Pressable accessibilityLabel={`Odbierz z serwisu ${id}`} onPress={() => serviceReceiveFor(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
-                      <Ionicons name="download-outline" size={20} color={colors.text} />
+                <View style={{ flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    {canManageTools && String(computedStatus).toLowerCase() === 'wydane' ? (
+                      <Pressable accessibilityLabel={`Prośba o zwrot ${id}`} onPress={() => openConfirmReturnFor(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed || notifySending ? 0.75 : 1 }]}> 
+                        <Ionicons name="mail-outline" size={20} color={colors.text} />
+                      </Pressable>
+                    ) : null}
+                    {canManageTools && (item?.service_quantity || 0) > 0 ? (
+                      <Pressable accessibilityLabel={`Odbierz z serwisu ${id}`} onPress={() => serviceReceiveFor(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
+                        <Ionicons name="download-outline" size={20} color={colors.text} />
+                      </Pressable>
+                    ) : null}
+                    {canManageTools ? (
+                      <Pressable accessibilityLabel={`Serwis narzędzie ${id}`} onPress={() => openServiceModal(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
+                        <Ionicons name="construct-outline" size={20} color={colors.text} />
+                      </Pressable>
+                    ) : null}
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                    <Pressable accessibilityLabel={`Edytuj narzędzie ${id}`} onPress={() => openEdit(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
+                      <Ionicons name="create-outline" size={20} color={colors.text} />
                     </Pressable>
-                  ) : null}
-                  {canManageTools ? (
-                    <Pressable accessibilityLabel={`Serwis narzędzie ${id}`} onPress={() => openServiceModal(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
-                      <Ionicons name="construct-outline" size={20} color={colors.text} />
+                    <Pressable accessibilityLabel={`Usuń narzędzie ${id}`} onPress={() => deleteTool(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
+                      <Ionicons name="trash-outline" size={20} color={colors.danger || '#e11d48'} />
                     </Pressable>
-                  ) : null}
-                  <Pressable accessibilityLabel={`Usuń narzędzie ${id}`} onPress={() => deleteTool(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
-                    <Ionicons name="trash-outline" size={20} color={colors.danger || '#e11d48'} />
-                  </Pressable>
+                  </View>
                 </View>
                 </View>
-                <Text style={[styles.toolMeta, { color: colors.muted }]}>Nr ew.: {item?.inventory_number || (isDataUri(item?.code) ? '' : item?.code) || (isDataUri(item?.barcode) ? '' : item?.barcode) || (isDataUri(item?.qr_code) ? '' : item?.qr_code) || '—'}</Text>
-                <Text style={[styles.toolMeta, { color: colors.muted }]}>SKU: {isDataUri(item?.sku) ? '—' : (item?.sku || '—')} • Kategoria: {item.category || item.category_name || '—'}</Text>
-                <Text style={[styles.toolMeta, { color: colors.muted }]}>Nr fabryczny: {item.serial_number || '—'} • Lokalizacja: {item.location || '—'}</Text>
               </Pressable>
             );
           }}
@@ -807,7 +955,7 @@ export default function ToolsScreen() {
       </Modal>
 
       {/* Modal serwisu */}
-      <Modal visible={showServiceModal && !!serviceTool} animationType="fade" transparent onRequestClose={closeServiceModal}>
+  <Modal visible={showServiceModal && !!serviceTool} animationType="fade" transparent onRequestClose={closeServiceModal}>
         <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay || 'rgba(0,0,0,0.5)' }]}> 
           <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -852,7 +1000,24 @@ export default function ToolsScreen() {
             </View>
           </View>
         </View>
-      </Modal>
+  </Modal>
+
+  {/* Potwierdzenie wysyłki prośby o zwrot */}
+  <Modal visible={confirmReturnVisible} animationType="fade" transparent onRequestClose={closeConfirmReturn}>
+    <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ width: '88%', maxWidth: 420, borderRadius: 12, padding: 16, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
+        <Text style={{ fontSize: 16, color: colors.text, marginBottom: 12 }}>Czy na pewno wysłać prośbę o zwrot?</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
+          <Pressable accessibilityLabel="Anuluj" onPress={closeConfirmReturn} style={({ pressed }) => [{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background, opacity: pressed ? 0.8 : 1 }]}> 
+            <Text style={{ color: colors.text }}>Anuluj</Text>
+          </Pressable>
+          <Pressable accessibilityLabel="Wyślij prośbę o zwrot" disabled={notifySending} onPress={confirmSendReturn} style={({ pressed }) => [{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed || notifySending ? 0.75 : 1 }]}> 
+            <Text style={{ color: colors.text }}>Wyślij</Text>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  </Modal>
 
       <AddToolModal
         visible={addToolVisible}

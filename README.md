@@ -1,6 +1,6 @@
 # Narzędziownia – aplikacja mobilna
 
-[![Wersja 1.5.0](https://img.shields.io/badge/version-1.5.0-blue.svg)](#)
+[![Wersja 1.6.0](https://img.shields.io/badge/version-1.6.0-blue.svg)](#)
 
 Aplikacja mobilna (React Native + Expo) do obsługi systemu Narzędziowni: logowanie, przeglądanie narzędzi, pracowników, wydawanie i zwroty, ustawienia użytkownika, skanowanie kodów.
 
@@ -11,9 +11,9 @@ Aplikacja mobilna (React Native + Expo) do obsługi systemu Narzędziowni: logow
 - Logowanie biometryczne na urządzeniach mobilnych (Expo Go/dev build).
 - Przegląd narzędzi, pracowników, działów i podstawowe ustawienia użytkownika.
 - Dodawanie pracowników z Dashboardu i ekranu Pracownicy (wspólny modal).
- - Automatyczne wznawianie połączenia z API po powrocie internetu.
- - Pasek „Offline” na górze informujący o próbie wznowienia połączenia.
- - Picker daty dla pól w BHP (web: `input[type=date]`, mobile: natywny lub fallback), zapisywany jako `YYYY-MM-DD`.
+- Automatyczne wznawianie połączenia z API po powrocie internetu.
+- Pasek „Offline” na górze informujący o próbie wznowienia połączenia.
+- Picker daty dla pól w BHP (web: `input[type=date]`, mobile: natywny lub fallback), zapisywany jako `YYYY-MM-DD`.
 
 ### Nowości w 1.5.0
 - Informacje osobowe: edytowalne tylko „Telefon” i „E‑mail”; pozostałe pola (Imię, Nazwisko, Dział, Stanowisko, Status, Przyjęty, Numer służbowy, UID karty RFID) wyświetlane jako tekst.

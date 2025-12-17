@@ -9,6 +9,35 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { showSnackbar } from '../lib/snackbar';
 import { Ionicons } from '@expo/vector-icons';
+import { isAdmin } from '../lib/utils';
+
+// Helper: Base64 decode for JWT payload (polyfill-like)
+const b64Decode = (input) => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+  let str = String(input).replace(/=+$/, '');
+  let output = '';
+  if (str.length % 4 === 1) {
+    throw new Error("'atob' failed: The string to be decoded is not correctly encoded.");
+  }
+  for (let bc = 0, bs = 0, buffer, i = 0; buffer = str.charAt(i++); ~buffer && (bs = bc % 4 ? bs * 64 + buffer : buffer, bc++ % 4) ? output += String.fromCharCode(255 & bs >> (-2 * bc & 6)) : 0) {
+    buffer = chars.indexOf(buffer);
+  }
+  return output;
+};
+
+// Helper: Extract expiration from JWT token
+const decodeExpMs = (token) => {
+  try {
+    if (!token) return null;
+    const parts = String(token).split('.');
+    if (parts.length < 2) return null;
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const json = b64Decode(b64);
+    const obj = JSON.parse(json);
+    if (!obj || !obj.exp) return null;
+    return Number(obj.exp) * 1000;
+  } catch (_) { return null; }
+};
 
 export default function UserSettingsScreen() {
   const { colors, isDark, toggleDark } = useTheme();
@@ -22,6 +51,10 @@ export default function UserSettingsScreen() {
   const [bioEnabled, setBioEnabled] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [pushEnabled, setPushEnabled] = useState(false);
+  // Session timer
+  const [sessionLeft, setSessionLeft] = useState(null);
+  const [isRefreshingSession, setIsRefreshingSession] = useState(false);
+  
   // Dane pracownika (employees)
   const [employee, setEmployee] = useState(null);
   const [empLoading, setEmpLoading] = useState(false);
@@ -76,8 +109,11 @@ export default function UserSettingsScreen() {
         const ufull = String(userMe?.full_name || '').trim().toLowerCase();
         const ubr = String(userMe?.brand_number || '').trim();
         const uid = userMe?.id; // ID z odpowiedzi /api/login — potencjalnie = employees.id
+        const adminLike = (String(uid || '') === '1') || (typeof userMe === 'object' && userMe && /admin|administrator/i.test(String(userMe?.role || userMe?.role_name || '')));
         const resolveEmployeeId = (u) => {
           try {
+            // Administrator NIE powinien mieć przypisanego employee_id
+            if (isAdmin(u) || String(u?.id || '') === '1') return null;
             const candidates = [
               u?.employee_id,
               u?.employeeId,
@@ -92,24 +128,23 @@ export default function UserSettingsScreen() {
           } catch {}
           return null;
         };
-        const eid = resolveEmployeeId(userMe); // nadrzędne dopasowanie po ID pracownika
-        const found = (uid ? items.find(e => String(e?.id ?? e?.employee_id) === String(uid)) : null)
-          || (eid ? items.find(e => String(e?.id ?? e?.employee_id) === String(eid)) : null)
+        const eid = adminLike ? null : resolveEmployeeId(userMe); // nadrzędne dopasowanie po ID pracownika (admin: brak ID)
+        // UWAGA: nie dopasowujemy po userMe.id do employees.id — to różne przestrzenie ID
+        const found = adminLike ? null : (
+          (eid ? items.find(e => String(e?.id ?? e?.employee_id) === String(eid)) : null)
           || items.find(e => String(e?.login || e?.username || '').trim() === uname)
           || items.find(e => String(e?.email || '').trim().toLowerCase() === uemail)
           || items.find(e => `${String(e?.first_name||'').trim()} ${String(e?.last_name||'').trim()}`.trim().toLowerCase() === ufull)
           || (ubr ? items.find(e => String(e?.brand_number || '').trim() === ubr) : null)
-          || null;
+          || null
+        );
         try {
           console.log('[UserSettings] login user id:', uid);
           console.log('[UserSettings] resolved employee_id from current_user:', eid);
           console.log('[UserSettings] employees count:', Array.isArray(items) ? items.length : 0);
-          console.log('[UserSettings] matched employee id:', found?.id ?? found?.employee_id ?? null);
+          console.log('[UserSettings] matched employee id:', adminLike ? 0 : (found?.id ?? found?.employee_id ?? null));
           if (found) {
-            if (uid) {
-              const eqUid = String(found?.id ?? found?.employee_id) === String(uid);
-              console.log('[UserSettings] match by login user id:', eqUid);
-            }
+            // celowo nie porównujemy z userMe.id
             if (eid) {
               const eqEid = String(found?.id ?? found?.employee_id) === String(eid);
               console.log('[UserSettings] match by employee_id:', eqEid);
@@ -158,10 +193,46 @@ export default function UserSettingsScreen() {
     check();
   }, []);
 
+  useEffect(() => {
+    let timer = null;
+    const tick = () => {
+      const expMs = decodeExpMs(api.token);
+      if (!expMs) { setSessionLeft(null); return; }
+      const left = Math.max(0, Math.floor((expMs - Date.now()) / 1000));
+      setSessionLeft(left);
+    };
+    tick();
+    timer = setInterval(tick, 1000);
+    return () => { if (timer) clearInterval(timer); };
+  }, []);
+
+  const handleRefreshSession = async () => {
+    if (isRefreshingSession) return;
+    setIsRefreshingSession(true);
+    try {
+      const ok = await api.refreshToken();
+      if (ok) {
+        showSnackbar('Sesja odświeżona', { type: 'success' });
+        // Force update immediately
+        const expMs = decodeExpMs(api.token);
+        if (expMs) {
+          setSessionLeft(Math.max(0, Math.floor((expMs - Date.now()) / 1000)));
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      showSnackbar('Nie udało się odświeżyć sesji', { type: 'error' });
+    } finally {
+      setIsRefreshingSession(false);
+    }
+  };
+
   const logout = async () => {
     // Wyczyść token w kliencie API i w pamięci trwałej
     await api.setToken(null);
     await AsyncStorage.removeItem('token');
+    // Zapisz znacznik wylogowania, aby blokować auto-odświeżanie sesji
+    try { await AsyncStorage.setItem('@explicit_logout_v1', '1'); } catch {}
     setHasToken(false);
     // Nie resetujemy ręcznie nawigacji — App.js przełączy na ekran logowania po zmianie tokena
     try {
@@ -170,23 +241,6 @@ export default function UserSettingsScreen() {
     } catch {}
   };
 
-  const testConnection = async () => {
-    try {
-      await api.init();
-      const res = await api.get('/api/health');
-      if (Array.isArray(res)) {
-        showSnackbar('Połączono z API (autoryzacja OK).', { type: 'success' });
-      } else {
-        showSnackbar('Połączono z API.', { type: 'success' });
-      }
-    } catch (e) {
-      if (e.status === 401 || e.status === 403) {
-        showSnackbar('Połączono z API, ale brak autoryzacji — zaloguj się.', { type: 'warn' });
-      } else {
-        showSnackbar(`Brak połączenia z API: ${e.message || 'nieznany błąd'}`, { type: 'error' });
-      }
-    }
-  };
 
   const initNotif = async () => {
     const { granted } = await initNotifications();
@@ -323,6 +377,21 @@ export default function UserSettingsScreen() {
     return s ? String(s) : '-';
   };
 
+  const formatRole = (r) => {
+    const v = String(r || '').trim().toLowerCase();
+    if (!v) return '';
+    
+    if (v === 'admin' || v === 'administrator') return 'Administrator';
+    if (v === 'manager') return 'Kierownik';
+    if (v === 'toolsmaster') return 'Narzędziowiec';
+    if (v === 'hr') return 'Kadrowiec';
+    if (v === 'employee') return 'Pracownik';
+    if (v === 'user') return 'Użytkownik';
+    if (v === 'supervisor') return 'Mistrz';
+    if (v === 'engineer') return 'Inżynier';
+    return r ? String(r) : '';
+  };
+
   const handlePhoneBlur = async () => {
     if (!isValidPhone(empPhone)) {
       setEmpPhoneError('Nieprawidłowy numer telefonu');
@@ -374,21 +443,39 @@ export default function UserSettingsScreen() {
           </View>
           <View style={styles.identityTextWrap}>
             <Text numberOfLines={1} style={styles.identityName}>{currentUser?.full_name || currentUser?.username || 'Użytkownik'}</Text>
-            <Text numberOfLines={1} style={styles.identityRole}>{currentUser?.role_name || currentUser?.role}</Text>
+            <Text numberOfLines={1} style={styles.identityRole}>{formatRole(currentUser?.role_name || currentUser?.role)}</Text>
           </View>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Pressable accessibilityLabel="Otwórz powiadomienia" onPress={() => navigation.navigate('Powiadomienia')} style={({ pressed }) => [styles.bellBtn, { opacity: pressed ? 0.85 : 1 }] }>
-            <Ionicons name="notifications" size={22} color={colors.text} />
-          </Pressable>
+          {sessionLeft !== null && (
+            <Pressable
+              onPress={handleRefreshSession}
+              disabled={isRefreshingSession}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: colors.card,
+                paddingHorizontal: 10,
+                height: 40,
+                borderRadius: 20,
+                borderWidth: 1,
+                borderColor: colors.border,
+                opacity: (pressed || isRefreshingSession) ? 0.7 : 1
+              })}
+            >
+              <Ionicons name={isRefreshingSession ? "refresh" : "time-outline"} size={18} color={colors.text} style={{ marginRight: 6 }} />
+              <Text style={{ fontSize: 13, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', color: colors.text, fontWeight: '600' }}>
+                {isRefreshingSession ? '...' : 
+                  `${String(Math.floor(sessionLeft / 60)).padStart(2,'0')}:${String(sessionLeft % 60).padStart(2,'0')}`
+                }
+              </Text>
+            </Pressable>
+          )}
           <Pressable accessibilityLabel="Wyloguj" onPress={logout} style={({ pressed }) => [styles.bellBtn, { opacity: pressed ? 0.85 : 1 }]}>
             <Ionicons name="log-out" size={22} color={colors.text} />
           </Pressable>
         </View>
       </View>
-      
-      <Button title="Sprawdź połączenie z API" color={colors.primary} onPress={testConnection} />
-
       {/* Informacje osobowe - login (employees) */}
       <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card, marginTop: 16 }]}> 
         <Text style={styles.sectionTitle}>Informacje osobowe — {employee?.login || employee?.username || currentUser?.username || '—'}</Text>
@@ -490,10 +577,12 @@ export default function UserSettingsScreen() {
           <Switch value={expiredEnabled} onValueChange={setExpired} thumbColor={expiredEnabled ? colors.primary : colors.border} trackColor={{ true: colors.primary, false: colors.border }} />
         </View>
         <View style={{ height: 8 }} />
-        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <Pressable onPress={sendTest} style={[styles.button, { backgroundColor: colors.primary }]}> 
             <Text style={styles.buttonText}>Wyślij test</Text>
           </Pressable>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <Pressable onPress={disableAll} style={[styles.button, { backgroundColor: colors.muted }]}> 
             <Text style={styles.buttonText}>Wyłącz wszystkie</Text>
           </Pressable>
@@ -517,7 +606,7 @@ export default function UserSettingsScreen() {
           <Text style={{ color: colors.muted, marginBottom: 12 }}>
             Sprzęt: {bioAvailable ? 'Tak' : 'Nie'} • Zapis biometrii: {bioEnrolled ? 'Tak' : 'Nie'}
           </Text>
-          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <Pressable onPress={clearSavedCredentials} style={[styles.button, { backgroundColor: colors.muted }]}> 
               <Text style={styles.buttonText}>Usuń zapisane dane</Text>
             </Pressable>

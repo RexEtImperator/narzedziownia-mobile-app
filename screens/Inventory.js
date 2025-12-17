@@ -164,6 +164,15 @@ export default function InventoryScreen() {
   useEffect(() => {
     (async () => {
       try {
+        // Preferuj klucz z dokumentacji: inventoryAutoAcceptDisabled (localStorage/web)
+        let disabled = null;
+        try { if (Platform.OS === 'web' && typeof localStorage !== 'undefined') { disabled = localStorage.getItem('inventoryAutoAcceptDisabled'); } } catch {}
+        if (disabled != null) {
+          const isDisabled = String(disabled).toLowerCase() === 'true' || String(disabled) === '1';
+          setAutoAcceptCorrections(!isDisabled);
+          return;
+        }
+        // Fallback: poprzedni klucz AsyncStorage
         const v = await AsyncStorage.getItem('@inventory_auto_accept_v1');
         if (v != null) setAutoAcceptCorrections(String(v) === '1' || String(v).toLowerCase() === 'true');
       } catch {}
@@ -174,7 +183,9 @@ export default function InventoryScreen() {
   useEffect(() => {
     const restoreSelected = async () => {
       try {
-        const sid = await AsyncStorage.getItem('@inventory_selected_session_id');
+        let sid = null;
+        try { if (Platform.OS === 'web' && typeof localStorage !== 'undefined') { sid = localStorage.getItem('inventorySelectedSessionId'); } } catch {}
+        if (!sid) { try { sid = await AsyncStorage.getItem('@inventory_selected_session_id'); } catch {} }
         if (sid && Array.isArray(sessions) && sessions.length) {
           const found = sessions.find(s => String(s.id) === String(sid));
           if (found) { setSelectedSession(found); return; }
@@ -278,8 +289,10 @@ export default function InventoryScreen() {
       try {
         if (selectedSession?.id) {
           await AsyncStorage.setItem('@inventory_selected_session_id', String(selectedSession.id));
+          try { if (Platform.OS === 'web' && typeof localStorage !== 'undefined') { localStorage.setItem('inventorySelectedSessionId', String(selectedSession.id)); } } catch {}
         } else {
           await AsyncStorage.removeItem('@inventory_selected_session_id');
+          try { if (Platform.OS === 'web' && typeof localStorage !== 'undefined') { localStorage.removeItem('inventorySelectedSessionId'); } } catch {}
         }
       } catch {}
     })();
@@ -776,7 +789,12 @@ export default function InventoryScreen() {
           </View>
           <View style={[styles.row, { marginTop: 0, marginBottom: 8 }]}> 
             <Text style={{ color: colors.text }}>Auto-akceptuj korekty</Text>
-            <Switch disabled={!canAcceptCorrection} value={autoAcceptCorrections} onValueChange={async (v) => { setAutoAcceptCorrections(v); try { await AsyncStorage.setItem('@inventory_auto_accept_v1', v ? '1' : '0'); } catch {} }} thumbColor={autoAcceptCorrections ? colors.primary : colors.border} trackColor={{ true: colors.primary, false: colors.border }} />
+            <Switch disabled={!canAcceptCorrection} value={autoAcceptCorrections} onValueChange={async (v) => {
+              setAutoAcceptCorrections(v);
+              try { await AsyncStorage.setItem('@inventory_auto_accept_v1', v ? '1' : '0'); } catch {}
+              // Równoległy zapis do localStorage (web) zgodnie z dokumentacją: inventoryAutoAcceptDisabled
+              try { if (Platform.OS === 'web' && typeof localStorage !== 'undefined') { localStorage.setItem('inventoryAutoAcceptDisabled', v ? 'false' : 'true'); } } catch {}
+            }} thumbColor={autoAcceptCorrections ? colors.primary : colors.border} trackColor={{ true: colors.primary, false: colors.border }} />
             {!canAcceptCorrection ? <Text style={{ color: colors.muted, marginLeft: 8 }}>Opcja wymaga uprawnienia akceptacji korekt.</Text> : null}
           </View> 
           <Text style={[styles.sectionTitle, { marginTop: 0 }]}>Korekty</Text>
@@ -790,9 +808,9 @@ export default function InventoryScreen() {
                     <Text style={{ color: colors.muted }}>Zaakceptowano przez: {corr?.accepted_by_username || 'admin'} • {corr?.accepted_at}</Text>
                   ) : (
                     <View style={[styles.row, { marginTop: 6 }]}>
-                      <Pressable onPress={() => acceptCorrection(corr?.id)} style={[styles.button, { backgroundColor: colors.primary }]} disabled={!canAcceptCorrection}>
-                        <Text style={styles.buttonText}>Akceptuj</Text>
-                      </Pressable>
+            <Pressable onPress={() => acceptCorrection(corr?.id)} style={[styles.button, { backgroundColor: colors.primary }]} disabled={!canAcceptCorrection}>
+              <Text style={styles.buttonText}>Akceptuj</Text>
+            </Pressable>
                       <Pressable onPress={() => deleteCorrection(corr?.id)} style={[styles.button, { backgroundColor: colors.danger }]} disabled={!canDeleteCorrection}>
                         <Text style={styles.buttonText}>Usuń</Text>
                       </Pressable>

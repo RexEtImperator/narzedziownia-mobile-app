@@ -11,7 +11,11 @@ const ROLE_OPTIONS = [
   { label: 'Użytkownik', value: 'user' },
   { label: 'Pracownik', value: 'employee' },
   { label: 'Kierownik', value: 'manager' },
-  { label: 'Administrator', value: 'admin' },
+  { label: 'Narzędziowiec', value: 'toolsmaster' },
+  { label: 'Kadry', value: 'hr' },
+  { label: 'Mistrz', value: 'supervisor' },
+  { label: 'Inżynier', value: 'engineer' },
+  { label: 'Administrator', value: 'admin' }
 ];
 
 export default function UsersSettings() {
@@ -26,9 +30,13 @@ export default function UsersSettings() {
     const v = String(r || '').toLowerCase();
     if (v === 'admin' || v === 'administrator') return 'Administrator';
     if (v === 'manager') return 'Kierownik';
+    if (v === 'toolsmaster') return 'Narzędziowiec';
+    if (v === 'hr') return 'Kadry';
+    if (v === 'supervisor') return 'Mistrz';
+    if (v === 'engineer') return 'Inżynier';
     if (v === 'employee' || v === 'pracownik') return 'Pracownik';
     if (v === 'user' || !v) return 'Użytkownik';
-    return r || 'Użytkownik';
+    return r || 'Nieznane';
   };
   
   const load = async () => {
@@ -135,7 +143,6 @@ export default function UsersSettings() {
           <Text style={{ color: colors.muted, textAlign: 'center' }}>Ta funkcja wymaga uprawnień administratora</Text>
         </View>
       )}
-
 
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Szukaj</Text>

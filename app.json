@@ -32,7 +32,8 @@
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "package": "com.dbrzezinsky.narzedziownia"
     },

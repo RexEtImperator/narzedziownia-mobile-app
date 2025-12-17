@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, FlatList, TouchableOpacity, Pressable, Alert, Modal, ScrollView, Switch } from 'react-native';
+import { View, Text, TextInput, StyleSheet, FlatList, TouchableOpacity, Pressable, Alert, Modal, ScrollView, Switch, RefreshControl } from 'react-native';
 import DateField from '../components/DateField';
 import { useTheme } from '../lib/theme';
 import api from '../lib/api.js';
@@ -591,6 +591,7 @@ export default function BhpScreen() {
       {error ? <Text style={[styles.error, { color: colors.danger }]} className="mb-2">{error}</Text> : null}
       {loading ? <Text style={[styles.muted, { color: colors.muted }]}>Ładowanie…</Text> : (
         <FlatList
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={load} colors={[colors.primary]} tintColor={colors.primary} />}
           data={sortedItems}
           keyExtractor={(item) => String(item.id || item.bhp_id || Math.random())}
           contentContainerStyle={{ paddingVertical: 8, paddingBottom: 24 }}
