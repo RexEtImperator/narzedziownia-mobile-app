@@ -1,6 +1,6 @@
 {
   "name": "narzedziownia",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "main": "index.js",
   "scripts": {
     "start": "expo start",
@@ -52,6 +52,7 @@
     "@testing-library/jest-dom": "^6.9.1",
     "autoprefixer": "^10.4.21",
     "babel-preset-expo": "^54.0.4",
+    "baseline-browser-mapping": "^2.9.9",
     "eslint": "^8.19.0",
     "jest": "^29.6.3",
     "jsdom": "^27.3.0",

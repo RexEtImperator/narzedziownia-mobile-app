@@ -260,7 +260,7 @@ export default function LoginScreen() {
             textContentType="password"
             importantForAutofill="yes"
             nativeID="login-password"
-            keyboardType={Platform.OS === 'android' ? 'visible-password' : 'default'}
+            keyboardType="default"
             value={password}
             onChangeText={setPassword}
             onSubmitEditing={() => { if (!loading) handleLogin(); }}
@@ -273,7 +273,7 @@ export default function LoginScreen() {
       <Pressable
         style={({ pressed }) => [
           styles.button,
-          { backgroundColor: colors.primary },
+          { backgroundColor: '#4f46e5' },
           loading && styles.buttonDisabled,
           pressed && styles.buttonPressed,
         ]}
@@ -287,7 +287,7 @@ export default function LoginScreen() {
         <Pressable
           style={({ pressed }) => [
             styles.button,
-            { backgroundColor: colors.primary },
+            { backgroundColor: '#4f46e5' },
             (bioLoading || loading) && styles.buttonDisabled,
             pressed && styles.buttonPressed,
           ]}
@@ -297,6 +297,7 @@ export default function LoginScreen() {
           <Text style={styles.buttonText}>{bioLoading ? 'Sprawdzanie...' : 'Zaloguj odciskiem palca'}</Text>
         </Pressable>
       ) : null}
+      <Text style={{ marginTop: 20, color: colors.muted, fontSize: 10 }}>Server: {api.baseURL}</Text>
     </View>
 
       {/* Floating Dark Mode Toggle */}
