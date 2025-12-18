@@ -30,7 +30,7 @@ export default function LoginScreen() {
     container: { flex: 1, padding: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg, position: 'relative' },
     title: { fontSize: 24, fontWeight: '600', marginBottom: 12, color: colors.text },
     input: { width: '100%', borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, marginBottom: 12, color: colors.text, backgroundColor: colors.card },
-    button: { alignSelf: 'stretch', width: '100%', backgroundColor: colors.primary, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 8, alignItems: 'center', marginTop: 16 },
+    button: { alignSelf: 'stretch', width: '100%', backgroundColor: colors.primary, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 16 },
     buttonDisabled: { opacity: 0.6 },
     buttonPressed: { backgroundColor: '#4338ca' },
     buttonText: { color: '#fff', fontWeight: '600' },
@@ -273,6 +273,7 @@ export default function LoginScreen() {
       <Pressable
         style={({ pressed }) => [
           styles.button,
+          { backgroundColor: colors.primary },
           loading && styles.buttonDisabled,
           pressed && styles.buttonPressed,
         ]}
@@ -286,6 +287,7 @@ export default function LoginScreen() {
         <Pressable
           style={({ pressed }) => [
             styles.button,
+            { backgroundColor: colors.primary },
             (bioLoading || loading) && styles.buttonDisabled,
             pressed && styles.buttonPressed,
           ]}

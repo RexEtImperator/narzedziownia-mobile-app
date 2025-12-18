@@ -2,7 +2,7 @@
   "expo": {
     "name": "Narzędziownia",
     "slug": "mobilna",
-    "version": "1.5.1",
+    "version": "1.5.2",
     "extra": {
       "apiBaseUrl": "http://192.168.10.99:3000",
       "EXPO_PUBLIC_DISABLE_HISTORY_FETCH": "false",
@@ -36,7 +36,8 @@
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.FOREGROUND_SERVICE"
       ],
-      "package": "com.dbrzezinsky.narzedziownia"
+      "package": "com.dbrzezinsky.narzedziownia",
+      "usesCleartextTraffic": true
     },
     "web": {
       "bundler": "metro",
