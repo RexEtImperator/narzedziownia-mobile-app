@@ -273,7 +273,7 @@ export default function LoginScreen() {
       <Pressable
         style={({ pressed }) => [
           styles.button,
-          { backgroundColor: '#4f46e5' },
+          { backgroundColor: '#4f46e5', minHeight: 48 },
           loading && styles.buttonDisabled,
           pressed && styles.buttonPressed,
         ]}
@@ -287,7 +287,7 @@ export default function LoginScreen() {
         <Pressable
           style={({ pressed }) => [
             styles.button,
-            { backgroundColor: '#4f46e5' },
+            { backgroundColor: '#4f46e5', minHeight: 48 },
             (bioLoading || loading) && styles.buttonDisabled,
             pressed && styles.buttonPressed,
           ]}
