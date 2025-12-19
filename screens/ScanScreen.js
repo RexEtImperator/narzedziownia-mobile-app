@@ -263,7 +263,8 @@ export default function ScanScreen() {
     const isDup = scannedItems.some((it) => String(it.code) === val);
     if (isDup) { showDupNotice(); return; }
     try {
-      const res = await api.get(`/api/tools/search?code=${encodeURIComponent(val)}`);
+      const raw = await api.get(`/api/tools/search?code=${encodeURIComponent(val)}`);
+      const res = Array.isArray(raw) ? raw[0] : (raw?.data?.[0] || raw?.items?.[0] || raw);
       if (res && res.id) {
         let det = null; try { det = await api.get(`/api/tools/${res.id}/details`); } catch {}
         setScannedItems((prev) => [...prev, { code: val, tool: res || null, details: det || null }]);
@@ -374,7 +375,8 @@ export default function ScanScreen() {
       setError('');
       setMessage('');
       try {
-        const res = await api.get(`/api/tools/search?code=${encodeURIComponent(val)}`);
+        const raw = await api.get(`/api/tools/search?code=${encodeURIComponent(val)}`);
+        const res = Array.isArray(raw) ? raw[0] : (raw?.data?.[0] || raw?.items?.[0] || raw);
         if (res && res.id) {
           setScanFrameColor('#22c55e');
           // Jeśli kod już jest na liście — pokaż toast i kontynuuj skanowanie
@@ -418,7 +420,8 @@ export default function ScanScreen() {
       setSelectedEmployee(null);
       try {
         setCodeValue(val);
-        const res = await api.get(`/api/tools/search?code=${encodeURIComponent(val)}`);
+        const raw = await api.get(`/api/tools/search?code=${encodeURIComponent(val)}`);
+        const res = Array.isArray(raw) ? raw[0] : (raw?.data?.[0] || raw?.items?.[0] || raw);
         setTool(res || null);
         if (res && res.id) {
           setScanFrameColor('#22c55e');

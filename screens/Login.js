@@ -271,30 +271,44 @@ export default function LoginScreen() {
         </View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Pressable
-        style={({ pressed }) => [
-          styles.button,
-          { backgroundColor: '#4f46e5', minHeight: 48 },
-          loading && styles.buttonDisabled,
-          pressed && styles.buttonPressed,
-        ]}
+        style={({ pressed }) => ({
+          backgroundColor: '#4f46e5',
+          borderRadius: 8,
+          paddingVertical: 14,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginTop: 16,
+          width: '100%',
+          minHeight: 48,
+          opacity: (pressed || loading) ? 0.7 : 1,
+        })}
         onPress={handleLogin}
         disabled={loading}
       >
-        <Text style={styles.buttonText}>{loading ? 'Logowanie...' : 'Zaloguj się'}</Text>
+        <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '600', textAlign: 'center' }}>
+          {loading ? 'Logowanie...' : 'Zaloguj się'}
+        </Text>
       </Pressable>
 
       {(bioEnabled && bioAvailable && bioEnrolled && bioReady) ? (
         <Pressable
-          style={({ pressed }) => [
-            styles.button,
-            { backgroundColor: '#4f46e5', minHeight: 48 },
-            (bioLoading || loading) && styles.buttonDisabled,
-            pressed && styles.buttonPressed,
-          ]}
+          style={({ pressed }) => ({
+            backgroundColor: '#4f46e5',
+            borderRadius: 8,
+            paddingVertical: 14,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: 16,
+            width: '100%',
+            minHeight: 48,
+            opacity: (pressed || bioLoading || loading) ? 0.7 : 1,
+          })}
           onPress={loginWithBiometrics}
           disabled={bioLoading || loading}
         >
-          <Text style={styles.buttonText}>{bioLoading ? 'Sprawdzanie...' : 'Zaloguj odciskiem palca'}</Text>
+          <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '600', textAlign: 'center' }}>
+            {bioLoading ? 'Sprawdzanie...' : 'Zaloguj odciskiem palca'}
+          </Text>
         </Pressable>
       ) : null}
       <Text style={{ marginTop: 20, color: colors.muted, fontSize: 10 }}>Server: {api.baseURL}</Text>
