@@ -64,10 +64,14 @@ export default function DateField({ value, onChange, placeholder = 'YYYY-MM-DD',
 
   return (
     <View>
-      <Pressable onPress={() => setShow(true)} style={[style, { borderColor: borderColor, backgroundColor: bgColor, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
-        <Text style={{ color: value ? textColor : (colors?.muted || '#6b7280') }}>{value || placeholder}</Text>
-        <Ionicons name="calendar-outline" size={18} color={textColor} />
-      </Pressable>
+      <ThemedButton
+        title={value || placeholder}
+        onPress={() => setShow(true)}
+        variant="secondary"
+        style={[style, { borderColor: borderColor, backgroundColor: bgColor, flexDirection: 'row-reverse', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10 }]}
+        textStyle={{ color: value ? textColor : (colors?.muted || '#6b7280'), fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+        icon={<Ionicons name="calendar-outline" size={18} color={textColor} />}
+      />
       {show && (
         <DateTimePicker
           value={currentDate}

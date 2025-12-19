@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, FlatList, TouchableOpacity, Pressable, Alert, Modal, ScrollView, Switch, RefreshControl } from 'react-native';
+import { View, Text, TextInput, StyleSheet, FlatList, Alert, Modal, ScrollView, Switch, RefreshControl, Platform } from 'react-native';
+import ThemedButton from '../components/ThemedButton';
 import DateField from '../components/DateField';
 import { useTheme } from '../lib/theme';
 import api from '../lib/api.js';
@@ -526,64 +527,116 @@ export default function BhpScreen() {
           onBlur={() => setFocusedFilterInput(false)}
         />
         {searchTerm ? (
-          <Pressable accessibilityLabel="Wyczyść wyszukiwanie" onPress={() => setSearchTerm('')} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.85 : 1 }] }>
-            <Ionicons name="close-circle-outline" size={25} color={colors.muted || colors.text} />
-          </Pressable>
+          <ThemedButton
+            accessibilityLabel="Wyczyść wyszukiwanie"
+            onPress={() => setSearchTerm('')}
+            variant="secondary"
+            style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+            icon={<Ionicons name="close-circle-outline" size={25} color={colors.muted || colors.text} />}
+          />
         ) : null}
       </View>
 
       {/* Status / Sortowanie / Przeglądy */}
       <View style={styles.filterRow} className="flex-row items-center gap-2 mb-2">
-        <TouchableOpacity style={[styles.dropdownToggle, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md px-2 h-9 justify-center" onPress={() => { setShowStatusDropdown(v => !v); setShowSortDropdown(false); setShowReviewsDropdown(false); }}>
-          <Text style={[styles.dropdownToggleText, { color: colors.text }]}>{selectedStatusLabel}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.dropdownToggle, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md px-2 h-9 justify-center" onPress={() => { setShowSortDropdown(v => !v); setShowStatusDropdown(false); setShowReviewsDropdown(false); }}>
-          <Text style={[styles.dropdownToggleText, { color: colors.text }]}>{sortBy === 'inspection' ? 'Data przeglądu' : 'Nr ewidencyjny'}</Text>
-        </TouchableOpacity>
+        <ThemedButton
+          title={selectedStatusLabel}
+          onPress={() => { setShowStatusDropdown(v => !v); setShowSortDropdown(false); setShowReviewsDropdown(false); }}
+          variant="secondary"
+          style={{ height: 36, justifyContent: 'space-between', paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row-reverse' }}
+          textStyle={{ fontWeight: 'normal', fontSize: 12, textAlign: 'left' }}
+          icon={<Ionicons name="chevron-down" size={14} color={colors.text} />}
+        />
+        <ThemedButton
+          title={sortBy === 'inspection' ? 'Data przeglądu' : 'Nr ewidencyjny'}
+          onPress={() => { setShowSortDropdown(v => !v); setShowStatusDropdown(false); setShowReviewsDropdown(false); }}
+          variant="secondary"
+          style={{ height: 36, justifyContent: 'space-between', paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row-reverse' }}
+          textStyle={{ fontWeight: 'normal', fontSize: 12, textAlign: 'left' }}
+          icon={<Ionicons name="chevron-down" size={14} color={colors.text} />}
+        />
         {sortBy === 'inspection' && (
-          <TouchableOpacity style={[styles.dropdownToggle, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md px-2 h-9 justify-center" onPress={() => { setShowReviewsDropdown(v => !v); setShowStatusDropdown(false); setShowSortDropdown(false); }}>
-            <Text style={[styles.dropdownToggleText, { color: colors.text }]}>{reviewsOrder === 'desc' ? 'Najdalszy przegląd' : 'Najbliższy przegląd'}</Text>
-          </TouchableOpacity>
+          <ThemedButton
+            title={reviewsOrder === 'desc' ? 'Najdalszy przegląd' : 'Najbliższy przegląd'}
+            onPress={() => { setShowReviewsDropdown(v => !v); setShowStatusDropdown(false); setShowSortDropdown(false); }}
+            variant="secondary"
+            style={{ height: 36, justifyContent: 'space-between', paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row-reverse' }}
+            textStyle={{ fontWeight: 'normal', fontSize: 12, textAlign: 'left' }}
+            icon={<Ionicons name="chevron-down" size={14} color={colors.text} />}
+          />
         )}
       </View>
 
       {showStatusDropdown && (
         <View style={[styles.dropdown, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md mb-2">
-          <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setSelectedStatus(''); setShowStatusDropdown(false); }}>
-            <Text style={{ color: colors.text }}>Wszystkie statusy</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setSelectedStatus('__ISSUED__'); setShowStatusDropdown(false); }}>
-            <Text style={{ color: colors.text }}>Tylko wydane</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setSelectedStatus('__AVAILABLE__'); setShowStatusDropdown(false); }}>
-            <Text style={{ color: colors.text }}>Tylko dostępne</Text>
-          </TouchableOpacity>
+          <ThemedButton
+            title="Wszystkie statusy"
+            onPress={() => { setSelectedStatus(''); setShowStatusDropdown(false); }}
+            variant="secondary"
+            style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0 }}
+            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+          />
+          <ThemedButton
+            title="Tylko wydane"
+            onPress={() => { setSelectedStatus('__ISSUED__'); setShowStatusDropdown(false); }}
+            variant="secondary"
+            style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0 }}
+            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+          />
+          <ThemedButton
+            title="Tylko dostępne"
+            onPress={() => { setSelectedStatus('__AVAILABLE__'); setShowStatusDropdown(false); }}
+            variant="secondary"
+            style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0 }}
+            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+          />
           {(statuses || []).map((st) => (
-            <TouchableOpacity key={String(st)} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setSelectedStatus(st); setShowStatusDropdown(false); }}>
-              <Text style={{ color: colors.text }}>{st}</Text>
-            </TouchableOpacity>
+            <ThemedButton
+              key={String(st)}
+              title={st}
+              onPress={() => { setSelectedStatus(st); setShowStatusDropdown(false); }}
+              variant="secondary"
+              style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0 }}
+              textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+            />
           ))}
         </View>
       )}
 
       {showSortDropdown && (
         <View style={[styles.dropdown, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md mb-2">
-          <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setSortBy('inspection'); setShowSortDropdown(false); }}>
-            <Text style={{ color: colors.text }}>Data przeglądu</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setSortBy('inventory'); setShowSortDropdown(false); setShowReviewsDropdown(false); }}>
-            <Text style={{ color: colors.text }}>Nr ewidencyjny</Text>
-          </TouchableOpacity>
+          <ThemedButton
+            title="Data przeglądu"
+            onPress={() => { setSortBy('inspection'); setShowSortDropdown(false); }}
+            variant="secondary"
+            style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0 }}
+            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+          />
+          <ThemedButton
+            title="Nr ewidencyjny"
+            onPress={() => { setSortBy('inventory'); setShowSortDropdown(false); setShowReviewsDropdown(false); }}
+            variant="secondary"
+            style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0 }}
+            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+          />
         </View>
       )}
       {sortBy === 'inspection' && showReviewsDropdown && (
         <View style={[styles.dropdown, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md mb-2">
-          <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setReviewsOrder('asc'); setShowReviewsDropdown(false); }}>
-            <Text style={{ color: colors.text }}>Najbliższy przegląd</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setReviewsOrder('desc'); setShowReviewsDropdown(false); }}>
-            <Text style={{ color: colors.text }}>Najdalszy przegląd</Text>
-          </TouchableOpacity>
+          <ThemedButton
+            title="Najbliższy przegląd"
+            onPress={() => { setReviewsOrder('asc'); setShowReviewsDropdown(false); }}
+            variant="secondary"
+            style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0 }}
+            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+          />
+          <ThemedButton
+            title="Najdalszy przegląd"
+            onPress={() => { setReviewsOrder('desc'); setShowReviewsDropdown(false); }}
+            variant="secondary"
+            style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0 }}
+            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+          />
         </View>
       )}
 
@@ -611,7 +664,28 @@ export default function BhpScreen() {
             const empName = `${item?.assigned_employee_first_name || item?.employee_first_name || ''} ${item?.assigned_employee_last_name || item?.employee_last_name || ''}`.trim() || '—';
             const id = item?.id || item?.bhp_id || item?.item_id;
             return (
-              <Pressable onPress={() => openDetails(item)} style={({ pressed }) => [styles.tile, { backgroundColor: colors.card, borderColor: colors.border, borderRightWidth: 4, borderRightColor: statusColor, opacity: pressed ? 0.97 : 1, paddingRight: 12 }]} className="rounded-lg mb-3 p-3">
+              <ThemedButton
+                onPress={() => openDetails(item)}
+                variant="secondary"
+                style={{
+                  height: 'auto',
+                  flexDirection: 'column',
+                  alignItems: 'stretch',
+                  justifyContent: 'flex-start',
+                  padding: 12,
+                  marginBottom: 12,
+                  marginVertical: 0,
+                  borderWidth: 1,
+                  borderRightWidth: 4,
+                  borderRightColor: statusColor,
+                  borderRadius: 12,
+                  ...Platform.select({
+                    web: { boxShadow: '0px 2px 6px rgba(0,0,0,0.06)' },
+                    ios: { shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+                    android: { elevation: 2 }
+                  })
+                }}
+              >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.toolName, { color: colors.text }]} className="text-lg font-semibold">{name}</Text>
@@ -626,27 +700,39 @@ export default function BhpScreen() {
                       <View style={{ flexDirection: 'row', gap: 12 }}>
                         {(() => { const isIssued = s.includes('wyd') || !!(item?.assigned_employee_first_name || item?.issued_to_employee_id); return (
                           isIssued ? (
-                            <Pressable accessibilityLabel={`Zwróć ${id}`} onPress={() => openReturnModal(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}>
-                              <Ionicons name="return-down-back" size={20} color={colors.text} />
-                            </Pressable>
+                            <ThemedButton
+                              onPress={() => openReturnModal(item)}
+                              variant="secondary"
+                              style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                              icon={<Ionicons name="return-down-back" size={20} color={colors.text} />}
+                            />
                           ) : (
-                            <Pressable accessibilityLabel={`Wydaj ${id}`} onPress={() => openIssueModal(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }] }>
-                              <Ionicons name="arrow-forward-circle-outline" size={20} color={colors.text} />
-                            </Pressable>
+                            <ThemedButton
+                              onPress={() => openIssueModal(item)}
+                              variant="secondary"
+                              style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                              icon={<Ionicons name="arrow-forward-circle-outline" size={20} color={colors.text} />}
+                            />
                           ) ); })()}
                       </View>
                       <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
-                        <Pressable accessibilityLabel={`Edytuj ${id}`} onPress={() => openEdit(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}>
-                          <Ionicons name="create-outline" size={20} color={colors.text} />
-                        </Pressable>
-                        <Pressable accessibilityLabel={`Usuń ${id}`} onPress={() => deleteItem(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}>
-                          <Ionicons name="trash-outline" size={20} color={colors.danger || '#e11d48'} />
-                        </Pressable>
+                        <ThemedButton
+                          onPress={() => openEdit(item)}
+                          variant="secondary"
+                          style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                          icon={<Ionicons name="create-outline" size={20} color={colors.text} />}
+                        />
+                        <ThemedButton
+                          onPress={() => deleteItem(item)}
+                          variant="secondary"
+                          style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                          icon={<Ionicons name="trash-outline" size={20} color={colors.danger || '#e11d48'} />}
+                        />
                       </View>
                     </View>
                   )}
                 </View>
-              </Pressable>
+              </ThemedButton>
             );
           }}
         />
@@ -735,12 +821,8 @@ export default function BhpScreen() {
               ) : null}
             </ScrollView>
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-              <Pressable onPress={closeEdit} style={({ pressed }) => [{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.85 : 1 }]}>
-                <Text style={{ color: colors.text }}>Anuluj</Text>
-              </Pressable>
-              <Pressable onPress={saveEdit} style={({ pressed }) => [{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1 }]}>
-                <Text style={{ color: '#fff' }}>Zapisz</Text>
-              </Pressable>
+              <ThemedButton title="Anuluj" onPress={closeEdit} variant="secondary" />
+              <ThemedButton title="Zapisz" onPress={saveEdit} variant="primary" />
             </View>
           </View>
         </View>
@@ -849,12 +931,22 @@ export default function BhpScreen() {
               ) : null}
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-              <Pressable onPress={closeIssueModal} disabled={issueSaving} style={({ pressed }) => [{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.85 : 1 }]}> 
-                <Text style={{ color: colors.text }}>Anuluj</Text>
-              </Pressable>
-              <Pressable onPress={confirmIssue} disabled={issueSaving || (!selectedEmployee && !issueEmployeeQuery.trim())} style={({ pressed }) => [{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1 }]}> 
-                <Text style={{ color: '#fff' }}>{issueSaving ? 'Wydawanie…' : 'Wydaj'}</Text>
-              </Pressable>
+              <ThemedButton
+                title="Anuluj"
+                onPress={closeIssueModal}
+                disabled={issueSaving}
+                variant="secondary"
+                style={{ height: 40, paddingHorizontal: 12, marginVertical: 0 }}
+                textStyle={{ fontWeight: 'normal' }}
+              />
+              <ThemedButton
+                title="Wydaj"
+                onPress={confirmIssue}
+                disabled={issueSaving || (!selectedEmployee && !issueEmployeeQuery.trim())}
+                loading={issueSaving}
+                variant="primary"
+                style={{ height: 40, paddingHorizontal: 12, marginVertical: 0 }}
+              />
             </View>
           </View>
         </View>
@@ -1030,9 +1122,7 @@ export default function BhpScreen() {
               ) : null}
             </ScrollView>
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-              <Pressable onPress={closeDetails} style={({ pressed }) => [{ paddingHorizontal: 14, height: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg, opacity: pressed ? 0.85 : 1 }]}> 
-                <Text style={{ color: colors.text }}>Zamknij</Text>
-              </Pressable>
+              <ThemedButton title="Zamknij" onPress={closeDetails} variant="secondary" />
             </View>
           </View>
         </View>

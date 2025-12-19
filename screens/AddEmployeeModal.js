@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, Modal, ScrollView, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Modal, ScrollView, ActivityIndicator, Platform, Pressable } from 'react-native';
 import { useTheme } from '../lib/theme';
+import ThemedButton from '../components/ThemedButton';
 import api from '../lib/api';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -123,12 +124,16 @@ export default function AddEmployeeModal({ visible, onClose, onCreated }) {
                     {departments.map((dep) => {
                       const selected = String(dep?.id ?? dep?.department_id) === String(fields.department_id);
                       return (
-                        <Pressable key={String(dep?.id ?? dep?.department_id)} onPress={() => { setFields(f => ({ ...f, department_id: dep?.id ?? dep?.department_id })); setShowDeptSelect(false); }} style={({ pressed }) => [styles.dropdownItem, selected && { backgroundColor: 'rgba(99,102,241,0.12)' }, pressed && { opacity: 0.7 }]}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <Text style={{ color: colors.text }}>{dep?.name || dep?.department_name || String(dep?.id ?? dep?.department_id)}</Text>
-                            {selected ? <Ionicons name="checkmark" size={16} color={colors.primary || '#4f46e5'} /> : null}
-                          </View>
-                        </Pressable>
+                        <ThemedButton
+                          key={String(dep?.id ?? dep?.department_id)}
+                          title={dep?.name || dep?.department_name || String(dep?.id ?? dep?.department_id)}
+                          onPress={() => { setFields(f => ({ ...f, department_id: dep?.id ?? dep?.department_id })); setShowDeptSelect(false); }}
+                          variant="secondary"
+                          style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', justifyContent: 'flex-start', paddingHorizontal: 12, height: 40, borderWidth: 0, marginVertical: 0, backgroundColor: selected ? 'rgba(99,102,241,0.12)' : 'transparent' }}
+                          textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1, color: colors.text }}
+                        >
+                          {selected ? <Ionicons name="checkmark" size={16} color={colors.primary || '#4f46e5'} /> : null}
+                        </ThemedButton>
                       );
                     })}
                   </ScrollView>
@@ -173,20 +178,35 @@ export default function AddEmployeeModal({ visible, onClose, onCreated }) {
             {/* Status */}
             <View style={{ flexDirection: 'row', gap: 8 }}>
               {['active','inactive','suspended'].map(s => (
-                <Pressable key={s} onPress={() => setFields(f => ({ ...f, status: s }))} style={({ pressed }) => [{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: colors.border, backgroundColor: fields.status === s ? (colors.primary || '#4f46e5') : colors.card, opacity: pressed ? 0.8 : 1 }]}> 
-                  <Text style={{ color: fields.status === s ? '#fff' : colors.text }}>{s === 'active' ? 'Aktywny' : s === 'inactive' ? 'Nieaktywny' : 'Zawieszony'}</Text>
-                </Pressable>
+                <ThemedButton
+                  key={s}
+                  title={s === 'active' ? 'Aktywny' : s === 'inactive' ? 'Nieaktywny' : 'Zawieszony'}
+                  onPress={() => setFields(f => ({ ...f, status: s }))}
+                  variant={fields.status === s ? 'primary' : 'secondary'}
+                  style={{ borderRadius: 999, paddingHorizontal: 12, height: 36, marginVertical: 0, borderWidth: 1, borderColor: colors.border, ...(fields.status !== s ? { backgroundColor: colors.card } : {}) }}
+                  textStyle={{ fontSize: 13, fontWeight: 'normal', color: fields.status === s ? '#fff' : colors.text }}
+                />
               ))}
             </View>
           </ScrollView>
 
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
-            <Pressable onPress={close} style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.8 : 1 }]}>
-              <Text style={{ color: colors.text }}>Anuluj</Text>
-            </Pressable>
-            <Pressable disabled={loading} onPress={save} style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 10, backgroundColor: colors.primary || '#4f46e5', opacity: pressed ? 0.9 : 1, alignItems: 'center', justifyContent: 'center' }]}> 
-              {loading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '600' }}>Zapisz</Text>}
-            </Pressable>
+            <View style={{ width: 100 }}>
+              <ThemedButton
+                title="Anuluj"
+                onPress={close}
+                variant="secondary"
+              />
+            </View>
+            <View style={{ width: 100 }}>
+              <ThemedButton
+                title="Zapisz"
+                onPress={save}
+                loading={loading}
+                disabled={loading}
+                variant="primary"
+              />
+            </View>
           </View>
         </View>
       </View>

@@ -99,13 +99,7 @@ Aplikacja mobilna (React Native + Expo) do obsługi systemu Narzędziowni: logow
  - Jeśli natywny picker daty nie jest dostępny w Expo Go, aplikacja korzysta z bezpiecznego pola tekstowego z formatem `YYYY-MM-DD`. Dla pełnego pickera użyj dev build.
 
 ## Licencja
-- Zobacz `LICENSE`.
 
-## Dodawanie pracowników
-- Otwieranie modalu:
-  - Dashboard: kafelek „Dodaj pracownika”.
-  - Pracownicy: ikonka plus w nagłówku.
-- Pola formularza: `Imię`, `Nazwisko`, `Telefon`, `Numer służbowy`, `Dział`, `Stanowisko`, `Status`.
-- Listy `Działów` i `Stanowisk` są pobierane z API: `/api/departments`, `/api/positions`.
-- Zapis: `POST /api/employees`. Po sukcesie lista pracowników odświeża się automatycznie.
-- Obsługa błędów: komunikat w modalu; zamknięcie przez `Anuluj`.
+Projekt jest licencjonowany na zasadach GPL-3.0.
+Copyright (C) 2025 RexEtImperator. All rights reserved.
+Szczegóły licencji znajdziesz w pliku [license.md](license.md).

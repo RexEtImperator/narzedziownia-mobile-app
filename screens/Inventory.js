@@ -677,9 +677,7 @@ export default function InventoryScreen() {
         <Text style={styles.sectionTitle}>Utwórz nową sesję</Text>
         <View style={styles.row}>
           <TextInput style={[styles.input, { flex: 1 }]} placeholder="Nazwa sesji" placeholderTextColor={colors.muted} value={newName} onChangeText={setNewName} />
-          <Pressable disabled={!canManageSessions || creating} onPress={createSession} style={({ pressed }) => [styles.button, { backgroundColor: canManageSessions ? colors.primary : colors.muted, opacity: (creating || pressed) ? 0.8 : 1 }]}>
-            <Text style={styles.buttonText}>{creating ? 'Tworzenie…' : 'Utwórz'}</Text>
-          </Pressable>
+          <ThemedButton disabled={!canManageSessions || creating} onPress={createSession} title={creating ? 'Tworzenie…' : 'Utwórz'} loading={creating} variant="primary" style={{ height: 48, marginVertical: 0, minWidth: 100 }} />
         </View>
         <TextInput style={[styles.input, { marginTop: 8 }]} placeholder="Notatki (opcjonalnie)" placeholderTextColor={colors.muted} value={newNotes} onChangeText={setNewNotes} />
         {!canManageSessions ? <Text style={{ color: colors.muted, marginTop: 8 }}>Ta operacja wymaga uprawnienia zarządzania sesjami.</Text> : null}
@@ -808,12 +806,8 @@ export default function InventoryScreen() {
                     <Text style={{ color: colors.muted }}>Zaakceptowano przez: {corr?.accepted_by_username || 'admin'} • {corr?.accepted_at}</Text>
                   ) : (
                     <View style={[styles.row, { marginTop: 6 }]}>
-            <Pressable onPress={() => acceptCorrection(corr?.id)} style={[styles.button, { backgroundColor: colors.primary }]} disabled={!canAcceptCorrection}>
-              <Text style={styles.buttonText}>Akceptuj</Text>
-            </Pressable>
-                      <Pressable onPress={() => deleteCorrection(corr?.id)} style={[styles.button, { backgroundColor: colors.danger }]} disabled={!canDeleteCorrection}>
-                        <Text style={styles.buttonText}>Usuń</Text>
-                      </Pressable>
+                      <ThemedButton onPress={() => acceptCorrection(corr?.id)} title="Akceptuj" disabled={!canAcceptCorrection} variant="primary" style={{ height: 36, marginVertical: 0 }} textStyle={{ fontSize: 14 }} />
+                      <ThemedButton onPress={() => deleteCorrection(corr?.id)} title="Usuń" disabled={!canDeleteCorrection} variant="danger" style={{ height: 36, marginVertical: 0 }} textStyle={{ fontSize: 14 }} />
                       {!canManageSessions ? <Text style={{ color: colors.muted, marginLeft: 8 }}>Brak uprawnień do akcji</Text> : null}
                     </View>
                   )}
@@ -828,9 +822,7 @@ export default function InventoryScreen() {
         <Text style={styles.sectionTitle}>Stan magazynu</Text>
         <View style={[styles.row, { marginBottom: 8 }]}> 
           <TextInput style={[styles.input, { flex: 1 }]} placeholder="Szukaj (nazwa/kod)" placeholderTextColor={colors.muted} value={invSearch} onChangeText={setInvSearch} />
-          <Pressable disabled={!canScan} onPress={() => openScanner('inv')} style={[styles.button, { backgroundColor: canScan ? colors.primary : colors.muted }]} > 
-            <Text style={styles.buttonText}>Skanuj (Magazyn)</Text>
-          </Pressable>
+          <ThemedButton disabled={!canScan} onPress={() => openScanner('inv')} title="Skanuj (Magazyn)" variant="primary" style={{ height: 48, marginVertical: 0 }} />
         </View>
         <View style={[styles.row, { marginBottom: 8, justifyContent: 'space-between' }]}>
           <View style={styles.row}>
@@ -955,12 +947,8 @@ export default function InventoryScreen() {
           </View>
           <Text style={{ color: colors.muted, marginTop: 8 }}>Ta operacja wymaga uprawnienia usuwania korekt.</Text>
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
-            <Pressable onPress={closeDeleteModal} style={[styles.button, { backgroundColor: colors.border }]}>
-              <Text style={{ color: colors.text }}>Anuluj</Text>
-            </Pressable>
-            <Pressable disabled={!canDeleteCorrection || deleteSubmitting} onPress={confirmDeleteCorrection} style={[styles.button, { backgroundColor: colors.danger }]}>
-              <Text style={styles.buttonText}>{deleteSubmitting ? 'Usuwanie…' : 'Usuń'}</Text>
-            </Pressable>
+            <ThemedButton onPress={closeDeleteModal} title="Anuluj" variant="secondary" style={{ height: 48, marginVertical: 0 }} />
+            <ThemedButton disabled={!canDeleteCorrection || deleteSubmitting} onPress={confirmDeleteCorrection} title={deleteSubmitting ? 'Usuwanie…' : 'Usuń'} loading={deleteSubmitting} variant="danger" style={{ height: 48, marginVertical: 0 }} />
           </View>
         </View>
       </View>

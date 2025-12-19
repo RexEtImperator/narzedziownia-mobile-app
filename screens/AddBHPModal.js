@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, TextInput, Modal, Pressable, ScrollView, StyleSheet, Switch, ActivityIndicator } from 'react-native';
 import DateField from '../components/DateField';
 import { useTheme } from '../lib/theme';
+import ThemedButton from '../components/ThemedButton';
 import api from '../lib/api';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -108,9 +109,12 @@ export default function AddBHPModal({ visible, onClose, onCreated }) {
         <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>Dodaj sprzęt BHP</Text>
-            <Pressable onPress={close} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}> 
-              <Ionicons name="close" size={18} color={colors.text} />
-            </Pressable>
+            <ThemedButton
+              onPress={close}
+              variant="outline"
+              style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+              icon={<Ionicons name="close" size={18} color={colors.text} />}
+            />
           </View>
           {error ? <Text style={{ color: colors.danger || '#e11d48', marginBottom: 6 }}>{error}</Text> : null}
           <ScrollView style={{ maxHeight: 440 }} contentContainerStyle={{ gap: 8 }} showsVerticalScrollIndicator={false}>
@@ -158,12 +162,23 @@ export default function AddBHPModal({ visible, onClose, onCreated }) {
             <TextInput style={[styles.input, { borderColor: focusedField === 'assigned_employee' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Imię i nazwisko" value={fields.assigned_employee} onChangeText={(v) => setFields(s => ({ ...s, assigned_employee: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('assigned_employee')} onBlur={() => setFocusedField(null)} />
           </ScrollView>
           <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-            <Pressable onPress={close} disabled={saving} style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.8 : 1 }]}> 
-              <Text style={{ color: colors.text }}>Anuluj</Text>
-            </Pressable>
-            <Pressable onPress={save} disabled={saving} style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 10, backgroundColor: colors.primary || '#4f46e5', opacity: pressed ? 0.9 : 1, alignItems: 'center', justifyContent: 'center' }]}> 
-              {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '600' }}>Zapisz</Text>}
-            </Pressable>
+            <View style={{ width: 100 }}>
+              <ThemedButton
+                title="Anuluj"
+                onPress={close}
+                disabled={saving}
+                variant="secondary"
+              />
+            </View>
+            <View style={{ width: 100 }}>
+              <ThemedButton
+                title="Zapisz"
+                onPress={save}
+                disabled={saving}
+                loading={saving}
+                variant="primary"
+              />
+            </View>
           </View>
         </View>
       </View>

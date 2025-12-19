@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TextInput, Pressable, ActivityIndicator, Alert,
 import { useNavigation } from '@react-navigation/native';
 import api from '../lib/api';
 import { useTheme } from '../lib/theme';
+import ThemedButton from '../components/ThemedButton';
 import { showSnackbar, subscribe } from '../lib/snackbar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hasPermission } from '../lib/utils';
@@ -537,20 +538,12 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        <Pressable
-          style={({ pressed }) => [
-            styles.button,
-            { backgroundColor: colors.primary },
-            savingGeneral && styles.buttonDisabled,
-            pressed && { opacity: 0.9 },
-          ]}
+        <ThemedButton
+          title={savingGeneral ? 'Zapisywanie…' : 'Zapisz ustawienia ogólne'}
           onPress={saveGeneral}
+          loading={savingGeneral}
           disabled={savingGeneral || !canViewSettings}
-        >
-          <Text style={{ color: '#ffffff', fontWeight: '600' }}>
-            {savingGeneral ? 'Zapisywanie…' : 'Zapisz ustawienia ogólne'}
-          </Text>
-        </Pressable>
+        />
       </View>
 
       {/* E-mail (SMTP) */}
@@ -618,15 +611,12 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        <Pressable
-          style={({ pressed }) => [styles.button, { backgroundColor: colors.primary }, savingEmail && styles.buttonDisabled, pressed && { opacity: 0.9 }]}
+        <ThemedButton
+          title={savingEmail ? 'Zapisywanie…' : 'Zapisz ustawienia e-mail'}
           onPress={saveEmail}
+          loading={savingEmail}
           disabled={savingEmail || !canViewSettings}
-        >
-          <Text style={{ color: '#ffffff', fontWeight: '600' }}>
-            {savingEmail ? 'Zapisywanie…' : 'Zapisz ustawienia e-mail'}
-          </Text>
-        </Pressable>
+        />
       </View>
 
       {/* Powiadomienia */}
@@ -675,13 +665,12 @@ export default function SettingsScreen() {
             />
           </View>
           <View>
-            <Pressable
-              style={({ pressed }) => [styles.button, { backgroundColor: colors.primary }, notifSending && styles.buttonDisabled, pressed && { opacity: 0.9 }]}
+            <ThemedButton
+              title={notifSending ? 'Wysyłanie…' : 'Wyślij powiadomienia'}
               onPress={notifTab === 'all' ? sendAllNotifications : sendSelectedNotifications}
+              loading={notifSending}
               disabled={notifSending || (notifTab === 'selected' && notifSelectedIds.length === 0) || !canViewSettings}
-            >
-              <Text style={{ color: '#ffffff', fontWeight: '600' }}>{notifSending ? 'Wysyłanie…' : 'Wyślij powiadomienia'}</Text>
-            </Pressable>
+            />
           </View>
         </View>
 
@@ -808,12 +797,22 @@ export default function SettingsScreen() {
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
               <Text style={{ color: colors.muted, fontSize: 12 }}>Strona {notifSelPage} z {Math.max(1, Math.ceil((notifSelTotal || 0) / (notifSelLimit || 1)))} (łącznie: {notifSelTotal || 0})</Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
-                <Pressable onPress={() => setNotifSelPage(p => Math.max(1, p - 1))} disabled={notifSelPage <= 1} style={[styles.button, { backgroundColor: colors.card }]}>
-                  <Text style={{ color: colors.text }}>Poprzednia</Text>
-                </Pressable>
-                <Pressable onPress={() => setNotifSelPage(p => p + 1)} disabled={Math.ceil((notifSelTotal || 0) / (notifSelLimit || 1)) <= notifSelPage} style={[styles.button, { backgroundColor: colors.card }]}>
-                  <Text style={{ color: colors.text }}>Następna</Text>
-                </Pressable>
+                <View style={{ flex: 1 }}>
+                  <ThemedButton
+                    title="Poprzednia"
+                    onPress={() => setNotifSelPage(p => Math.max(1, p - 1))}
+                    disabled={notifSelPage <= 1}
+                    variant="secondary"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ThemedButton
+                    title="Następna"
+                    onPress={() => setNotifSelPage(p => p + 1)}
+                    disabled={Math.ceil((notifSelTotal || 0) / (notifSelLimit || 1)) <= notifSelPage}
+                    variant="secondary"
+                  />
+                </View>
               </View>
             </View>
           </View>
@@ -904,12 +903,20 @@ export default function SettingsScreen() {
               <View style={{ padding: 16 }}>
                 <Text style={{ color: colors.muted, marginBottom: 16 }}>Ta akcja wyśle powiadomienie do wszystkich użytkowników.</Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <Pressable onPress={() => setShowConfirmBroadcast(false)} style={[styles.button, { flex: 1, backgroundColor: colors.card }]}>
-                    <Text style={{ color: colors.text }}>Anuluj</Text>
-                  </Pressable>
-                  <Pressable onPress={async () => { setShowConfirmBroadcast(false); await reallySendAllNotifications(); }} style={[styles.button, { flex: 1, backgroundColor: '#ef4444' }]}>
-                    <Text style={{ color: '#ffffff' }}>Wyślij</Text>
-                  </Pressable>
+                  <View style={{ flex: 1 }}>
+                    <ThemedButton
+                      title="Anuluj"
+                      onPress={() => setShowConfirmBroadcast(false)}
+                      variant="secondary"
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <ThemedButton
+                      title="Wyślij"
+                      onPress={async () => { setShowConfirmBroadcast(false); await reallySendAllNotifications(); }}
+                      variant="danger"
+                    />
+                  </View>
                 </View>
               </View>
             </View>
@@ -924,49 +931,50 @@ export default function SettingsScreen() {
           <Text style={{ color: colors.muted, marginBottom: 12 }}>Akcje administracyjne backendu: restart i health-check.</Text>
 
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-            <Pressable
-              style={({ pressed }) => [styles.serverButton, { backgroundColor: colors.primary }, pressed && { opacity: 0.95 }]}
-              disabled={backendApiHealthLoading}
-              onPress={async () => {
-                try {
-                  setBackendApiHealthLoading(true);
-                  await api.init();
-                  const resp = await api.get('/api/health');
-                  const normalized = resp && typeof resp === 'object' ? resp : { status: 'unknown' };
-                  setBackendApiHealth(normalized);
-                  showSnackbar('Health-check backendu OK', { type: 'success' });
-                } catch (e) {
-                  showSnackbar(e?.message || 'Błąd health-check backendu', { type: 'error' });
-                } finally {
-                  setBackendApiHealthLoading(false);
-                }
-              }}
-            >
-              <Text style={{ color: '#ffffff', fontWeight: '600', textAlign: 'center' }}>{backendApiHealthLoading ? 'Sprawdzanie…' : 'Sprawdź zdrowie backendu'}</Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [styles.serverButton, { backgroundColor: colors.danger }, pressed && { opacity: 0.95 }]}
-              disabled={backendRestarting}
-              onPress={() => {
-                Alert.alert('Restart backendu', 'Czy na pewno zrestartować backend?', [
-                  { text: 'Anuluj', style: 'cancel' },
-                  { text: 'Restartuj', style: 'destructive', onPress: async () => {
-                    try {
-                      setBackendRestarting(true);
-                      await api.init();
-                      await api.post('/api/process/backend/restart', {});
-                      showSnackbar('Restart backendu rozpoczęty', { type: 'success' });
-                    } catch (e) {
-                      showSnackbar(e?.message || 'Błąd restartu backendu', { type: 'error' });
-                    } finally {
-                      setBackendRestarting(false);
-                    }
-                  } }
-                ]);
-              }}
-            >
-              <Text style={{ color: '#ffffff', fontWeight: '600', textAlign: 'center' }}>{backendRestarting ? 'Restartowanie…' : 'Restart backendu'}</Text>
-            </Pressable>
+            <View style={{ flex: 1 }}>
+              <ThemedButton
+                title={backendApiHealthLoading ? 'Sprawdzanie…' : 'Sprawdź zdrowie backendu'}
+                loading={backendApiHealthLoading}
+                onPress={async () => {
+                  try {
+                    setBackendApiHealthLoading(true);
+                    await api.init();
+                    const resp = await api.get('/api/health');
+                    const normalized = resp && typeof resp === 'object' ? resp : { status: 'unknown' };
+                    setBackendApiHealth(normalized);
+                    showSnackbar('Health-check backendu OK', { type: 'success' });
+                  } catch (e) {
+                    showSnackbar(e?.message || 'Błąd health-check backendu', { type: 'error' });
+                  } finally {
+                    setBackendApiHealthLoading(false);
+                  }
+                }}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <ThemedButton
+                title={backendRestarting ? 'Restartowanie…' : 'Restart backendu'}
+                loading={backendRestarting}
+                variant="danger"
+                onPress={() => {
+                  Alert.alert('Restart backendu', 'Czy na pewno zrestartować backend?', [
+                    { text: 'Anuluj', style: 'cancel' },
+                    { text: 'Restartuj', style: 'destructive', onPress: async () => {
+                      try {
+                        setBackendRestarting(true);
+                        await api.init();
+                        await api.post('/api/process/backend/restart', {});
+                        showSnackbar('Restart backendu rozpoczęty', { type: 'success' });
+                      } catch (e) {
+                        showSnackbar(e?.message || 'Błąd restartu backendu', { type: 'error' });
+                      } finally {
+                        setBackendRestarting(false);
+                      }
+                    } }
+                  ]);
+                }}
+              />
+            </View>
           </View>
 
           <View style={{ gap: 6 }}>

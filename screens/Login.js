@@ -4,6 +4,7 @@ import api from '../lib/api';
 import { showSnackbar } from '../lib/snackbar';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../lib/theme';
+import ThemedButton from '../components/ThemedButton';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -270,46 +271,22 @@ export default function LoginScreen() {
           </Pressable>
         </View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Pressable
-        style={({ pressed }) => ({
-          backgroundColor: '#4f46e5',
-          borderRadius: 8,
-          paddingVertical: 14,
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginTop: 16,
-          width: '100%',
-          minHeight: 48,
-          opacity: (pressed || loading) ? 0.7 : 1,
-        })}
+      <ThemedButton
+        title={loading ? 'Logowanie...' : 'Zaloguj się'}
         onPress={handleLogin}
+        loading={loading}
         disabled={loading}
-      >
-        <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '600', textAlign: 'center' }}>
-          {loading ? 'Logowanie...' : 'Zaloguj się'}
-        </Text>
-      </Pressable>
+        style={{ marginTop: 16, width: '100%' }}
+      />
 
       {(bioEnabled && bioAvailable && bioEnrolled && bioReady) ? (
-        <Pressable
-          style={({ pressed }) => ({
-            backgroundColor: '#4f46e5',
-            borderRadius: 8,
-            paddingVertical: 14,
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginTop: 16,
-            width: '100%',
-            minHeight: 48,
-            opacity: (pressed || bioLoading || loading) ? 0.7 : 1,
-          })}
+        <ThemedButton
+          title={bioLoading ? 'Sprawdzanie...' : 'Zaloguj odciskiem palca'}
           onPress={loginWithBiometrics}
+          loading={bioLoading}
           disabled={bioLoading || loading}
-        >
-          <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '600', textAlign: 'center' }}>
-            {bioLoading ? 'Sprawdzanie...' : 'Zaloguj odciskiem palca'}
-          </Text>
-        </Pressable>
+          style={{ marginTop: 16, width: '100%' }}
+        />
       ) : null}
       <Text style={{ marginTop: 20, color: colors.muted, fontSize: 10 }}>Server: {api.baseURL}</Text>
     </View>

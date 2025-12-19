@@ -38,9 +38,13 @@ export default function ReturnSheet({ visible, onClose, items = [], loading, err
                 <Text style={{ color: '#555' }}>Ilość: {itm.quantity || 1}</Text>
               </View>
               {itm.tool_code ? (
-                <Pressable onPress={() => onQuickReturn?.(itm.tool_code)} style={({ pressed }) => ({ backgroundColor: '#4f46e5', opacity: pressed ? 0.9 : 1, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 })}>
-                  <Text style={{ color: '#fff', fontWeight: '600' }}>Szybki zwrot</Text>
-                </Pressable>
+                <ThemedButton
+                  title="Szybki zwrot"
+                  onPress={() => onQuickReturn?.(itm.tool_code)}
+                  variant="primary"
+                  style={{ paddingVertical: 8, paddingHorizontal: 12, height: 'auto', minHeight: 36, marginVertical: 0 }}
+                  textStyle={{ fontWeight: '600', fontSize: 14 }}
+                />
               ) : null}
             </View>
           ))

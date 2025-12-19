@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, FlatList, ScrollView, TouchableOpacity, Pressable, Alert, Modal, DeviceEventEmitter, RefreshControl } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, FlatList, ScrollView, Alert, Modal, DeviceEventEmitter, RefreshControl, Platform } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { useTheme } from '../lib/theme';
+import ThemedButton from '../components/ThemedButton';
 import api from '../lib/api.js';
 import { Ionicons } from '@expo/vector-icons';
 import AddToolModal from './AddToolModal';
@@ -534,17 +535,30 @@ export default function ToolsScreen() {
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <Text style={[styles.title, { color: colors.text }]} className="text-2xl font-bold">Narzędzia</Text>
         {canManageTools ? (
-          <Pressable onPress={() => setAddToolVisible(true)} accessibilityLabel="Dodaj narzędzie" style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 }]}> 
-            <Ionicons name="add" size={22} color={colors.primary || colors.text} />
-          </Pressable>
+          <ThemedButton
+            onPress={() => setAddToolVisible(true)}
+            variant="secondary"
+            style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+            icon={<Ionicons name="add" size={22} color={colors.primary || colors.text} />}
+          />
         ) : null}
       </View>
       {/* Zakładki kategorii */}
       <View style={{ borderBottomWidth: 1, borderBottomColor: colors.border, marginBottom: 8 }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingHorizontal: 8 }}>
-          <Pressable
+          <ThemedButton
             onPress={() => setSelectedCategory('')}
-            style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 6, borderBottomWidth: 2, borderBottomColor: selectedCategory ? 'transparent' : (colors.primary || colors.text), opacity: pressed ? 0.85 : 1 }]}
+            variant="outline"
+            style={{ 
+              borderRadius: 0, 
+              borderWidth: 0, 
+              borderBottomWidth: 2, 
+              borderBottomColor: selectedCategory ? 'transparent' : (colors.primary || colors.text),
+              paddingHorizontal: 6,
+              paddingVertical: 10,
+              height: 'auto',
+              marginVertical: 0
+            }}
             accessibilityLabel="Zakładka Wszystkie kategorie"
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -553,15 +567,25 @@ export default function ToolsScreen() {
                 <Text style={{ color: selectedCategory ? colors.text : '#ffffff', fontSize: 12, fontWeight: '700' }}>{Number.isFinite(allCount) ? allCount : 0}</Text>
               </View>
             </View>
-          </Pressable>
+          </ThemedButton>
           {categories.map((cat) => {
             const cnt = categoryCounts[String(cat)];
             const active = String(selectedCategory || '') === String(cat);
             return (
-              <Pressable
+              <ThemedButton
                 key={`cat-tab-${String(cat)}`}
                 onPress={() => setSelectedCategory(String(cat))}
-                style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 6, borderBottomWidth: 2, borderBottomColor: active ? (colors.primary || colors.text) : 'transparent', opacity: pressed ? 0.85 : 1 }]}
+                variant="outline"
+                style={{ 
+                  borderRadius: 0, 
+                  borderWidth: 0, 
+                  borderBottomWidth: 2, 
+                  borderBottomColor: active ? (colors.primary || colors.text) : 'transparent',
+                  paddingHorizontal: 6,
+                  paddingVertical: 10,
+                  height: 'auto',
+                  marginVertical: 0
+                }}
                 accessibilityLabel={`Zakładka kategoria ${String(cat)}`}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -570,7 +594,7 @@ export default function ToolsScreen() {
                     <Text style={{ color: active ? (colors.primary || colors.text) : colors.muted, fontSize: 12, fontWeight: '700' }}>{Number.isFinite(cnt) ? cnt : 0}</Text>
                   </View>
                 </View>
-              </Pressable>
+              </ThemedButton>
             );
           })}
         </ScrollView>
@@ -588,31 +612,48 @@ export default function ToolsScreen() {
           onBlur={() => setFocusedFilterInput(false)}
         />
         {searchTerm ? (
-          <Pressable accessibilityLabel="Wyczyść wyszukiwanie" onPress={() => setSearchTerm('')} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.85 : 1 }] }>
-            <Ionicons name="close-circle-outline" size={25} color={colors.muted || colors.text} />
-          </Pressable>
+          <ThemedButton
+            onPress={() => setSearchTerm('')}
+            variant="secondary"
+            style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+            icon={<Ionicons name="close-circle-outline" size={25} color={colors.muted || colors.text} />}
+          />
         ) : null}
       </View>
       <View style={styles.filterRow} className="flex-row items-center gap-2 mb-2">
-        <TouchableOpacity style={[styles.dropdownToggle, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md px-2 h-9 justify-center" onPress={() => setShowStatusDropdown(v => !v)}>
-          <Text style={[styles.dropdownToggleText, { color: colors.text }]}>{selectedStatus || 'Wszystkie statusy'}</Text>
-        </TouchableOpacity>
+        <ThemedButton
+          title={selectedStatus || 'Wszystkie statusy'}
+          onPress={() => setShowStatusDropdown(v => !v)}
+          variant="secondary"
+          style={{ height: 36, justifyContent: 'flex-start', paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border }}
+          textStyle={{ fontWeight: 'normal', fontSize: 14, flex: 1, textAlign: 'left' }}
+          icon={<Ionicons name={showStatusDropdown ? "chevron-up" : "chevron-down"} size={16} color={colors.text} style={{ marginRight: 8 }} />}
+        />
       </View>
       {showStatusDropdown && (
         <View style={[styles.dropdown, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md mb-2">
-          <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setSelectedStatus(''); setShowStatusDropdown(false); }}>
-            <Text style={{ color: colors.text }}>Wszystkie statusy</Text>
-          </TouchableOpacity>
+          <ThemedButton
+            title="Wszystkie statusy"
+            onPress={() => { setSelectedStatus(''); setShowStatusDropdown(false); }}
+            variant="secondary"
+            style={{ height: 40, borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, borderWidth: 0 }}
+            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+          />
           {statuses.map(st => (
-            <TouchableOpacity key={String(st)} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setSelectedStatus(st); setShowStatusDropdown(false); }}>
-              <Text style={{ color: colors.text }}>{st}</Text>
-            </TouchableOpacity>
+            <ThemedButton
+              key={String(st)}
+              title={st}
+              onPress={() => { setSelectedStatus(st); setShowStatusDropdown(false); }}
+              variant="secondary"
+              style={{ height: 40, borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, borderWidth: 0 }}
+              textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+            />
           ))}
         </View>
       )}
       <View style={styles.row} className="flex-row items-center gap-2 mb-3">
         <TextInput style={[styles.input, { borderColor: focusedCodeInput ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} className="flex-1 border rounded-md px-2 h-10" placeholder="Kod/QR/SKU" value={code} onChangeText={setCode} placeholderTextColor={colors.muted} onFocus={() => setFocusedCodeInput(true)} onBlur={() => setFocusedCodeInput(false)} />
-        <Button title="Szukaj" onPress={searchByCode} />
+        <ThemedButton title="Szukaj" onPress={searchByCode} variant="primary" style={{ marginVertical: 0, height: 40 }} />
       </View>
       {foundTool && (
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]} className="p-3 rounded-lg mb-3">
@@ -643,20 +684,27 @@ export default function ToolsScreen() {
                   ? (colors.success || '#10b981')
                   : colors.border));
             return (
-              <Pressable
+              <ThemedButton
                 onPress={() => openDetails(item)}
-                style={({ pressed }) => [
-                  styles.tile,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: colors.border,
-                    borderRightWidth: 4,
-                    borderRightColor: statusColor,
-                    opacity: pressed ? 0.97 : 1,
-                    paddingRight: 12,
-                  },
-                ]}
-                className="rounded-lg mb-3 p-3"
+                variant="secondary"
+                style={{
+                  height: 'auto',
+                  flexDirection: 'column',
+                  alignItems: 'stretch',
+                  justifyContent: 'flex-start',
+                  padding: 12,
+                  marginBottom: 12,
+                  marginVertical: 0,
+                  borderWidth: 1,
+                  borderRightWidth: 4,
+                  borderRightColor: statusColor,
+                  borderRadius: 12,
+                  ...Platform.select({
+                    web: { boxShadow: '0px 2px 6px rgba(0,0,0,0.06)' },
+                    ios: { shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+                    android: { elevation: 2 }
+                  })
+                }}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <View style={{ flex: 1 }}>
@@ -670,32 +718,48 @@ export default function ToolsScreen() {
                 <View style={{ flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
                   <View style={{ flexDirection: 'row', gap: 12 }}>
                     {canManageTools && String(computedStatus).toLowerCase() === 'wydane' ? (
-                      <Pressable accessibilityLabel={`Prośba o zwrot ${id}`} onPress={() => openConfirmReturnFor(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed || notifySending ? 0.75 : 1 }]}> 
-                        <Ionicons name="mail-outline" size={20} color={colors.text} />
-                      </Pressable>
+                      <ThemedButton
+                        onPress={() => openConfirmReturnFor(item)}
+                        variant="secondary"
+                        style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                        icon={<Ionicons name="mail-outline" size={20} color={colors.text} />}
+                        disabled={notifySending}
+                      />
                     ) : null}
                     {canManageTools && (item?.service_quantity || 0) > 0 ? (
-                      <Pressable accessibilityLabel={`Odbierz z serwisu ${id}`} onPress={() => serviceReceiveFor(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
-                        <Ionicons name="download-outline" size={20} color={colors.text} />
-                      </Pressable>
+                      <ThemedButton
+                        onPress={() => serviceReceiveFor(item)}
+                        variant="secondary"
+                        style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                        icon={<Ionicons name="download-outline" size={20} color={colors.text} />}
+                      />
                     ) : null}
                     {canManageTools ? (
-                      <Pressable accessibilityLabel={`Serwis narzędzie ${id}`} onPress={() => openServiceModal(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
-                        <Ionicons name="construct-outline" size={20} color={colors.text} />
-                      </Pressable>
+                      <ThemedButton
+                        onPress={() => openServiceModal(item)}
+                        variant="secondary"
+                        style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                        icon={<Ionicons name="construct-outline" size={20} color={colors.text} />}
+                      />
                     ) : null}
                   </View>
                   <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
-                    <Pressable accessibilityLabel={`Edytuj narzędzie ${id}`} onPress={() => openEdit(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
-                      <Ionicons name="create-outline" size={20} color={colors.text} />
-                    </Pressable>
-                    <Pressable accessibilityLabel={`Usuń narzędzie ${id}`} onPress={() => deleteTool(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
-                      <Ionicons name="trash-outline" size={20} color={colors.danger || '#e11d48'} />
-                    </Pressable>
+                    <ThemedButton
+                      onPress={() => openEdit(item)}
+                      variant="secondary"
+                      style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                      icon={<Ionicons name="create-outline" size={20} color={colors.text} />}
+                    />
+                    <ThemedButton
+                      onPress={() => deleteTool(item)}
+                      variant="secondary"
+                      style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                      icon={<Ionicons name="trash-outline" size={20} color={colors.danger || '#e11d48'} />}
+                    />
                   </View>
                 </View>
                 </View>
-              </Pressable>
+              </ThemedButton>
             );
           }}
         />
@@ -735,26 +799,25 @@ export default function ToolsScreen() {
                 onBlur={() => setFocusedField(null)}
               />
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                <Pressable onPress={() => setEditFields(s => ({ ...s, serial_unreadable: !s.serial_unreadable }))} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.85 : 1 }]}> 
-                  <Ionicons name={editFields.serial_unreadable ? 'checkbox' : 'square-outline'} size={18} color={colors.text} />
-                  <Text style={{ color: colors.text }}>Numer nieczytelny</Text>
-                </Pressable>
+                <ThemedButton
+                  onPress={() => setEditFields(s => ({ ...s, serial_unreadable: !s.serial_unreadable }))}
+                  variant="secondary"
+                  style={{ justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 1, borderColor: colors.border }}
+                  icon={<Ionicons name={editFields.serial_unreadable ? 'checkbox' : 'square-outline'} size={18} color={colors.text} style={{ marginRight: 8 }} />}
+                  title="Numer nieczytelny"
+                  textStyle={{ fontWeight: 'normal', color: colors.text }}
+                />
               </View>
 
               <Text style={{ color: colors.muted }}>Kategoria</Text>
-              <Pressable
+              <ThemedButton
+                title={editFields.category || (editCategoriesLoading ? 'Ładowanie kategorii…' : (editCategoryOptions.length ? 'Wybierz kategorię' : 'Brak kategorii'))}
                 onPress={() => setEditCategoryOpen(v => !v)}
-                style={({ pressed }) => [
-                  styles.input,
-                  { borderColor: colors.border, backgroundColor: colors.card, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-                  pressed && { opacity: 0.9 }
-                ]}
-              >
-                <Text style={{ color: editFields.category ? colors.text : colors.muted }}>
-                  {editFields.category || (editCategoriesLoading ? 'Ładowanie kategorii…' : (editCategoryOptions.length ? 'Wybierz kategorię' : 'Brak kategorii'))}
-                </Text>
-                <Ionicons name={editCategoryOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} />
-              </Pressable>
+                variant="secondary"
+                style={{ height: 40, justifyContent: 'space-between', paddingHorizontal: 8, flexDirection: 'row-reverse' }}
+                textStyle={{ fontWeight: 'normal', color: editFields.category ? colors.text : colors.muted, flex: 1, textAlign: 'left' }}
+                icon={<Ionicons name={editCategoryOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} />}
+              />
               {editCategoryOpen && (
                 <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, marginTop: 6, backgroundColor: colors.card, maxHeight: 160 }}>
                   {editCategoriesLoading ? (
@@ -762,13 +825,14 @@ export default function ToolsScreen() {
                   ) : (editCategoryOptions && editCategoryOptions.length > 0) ? (
                     <ScrollView style={{ maxHeight: 160 }}>
                       {editCategoryOptions.map((opt) => (
-                        <Pressable
+                        <ThemedButton
                           key={String(opt)}
+                          title={opt}
                           onPress={() => { setEditFields(s => ({ ...s, category: opt })); setEditCategoryOpen(false); }}
-                          style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: pressed ? (colors.overlay || '#00000010') : colors.card }]}
-                        >
-                          <Text style={{ color: colors.text }}>{opt}</Text>
-                        </Pressable>
+                          variant="secondary"
+                          style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 12, height: 40, borderWidth: 0, marginVertical: 0 }}
+                          textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+                        />
                       ))}
                     </ScrollView>
                   ) : (
@@ -783,12 +847,18 @@ export default function ToolsScreen() {
               <TextInput style={[styles.input, { borderColor: focusedField === 'location' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Lokalizacja" value={editFields.location} onChangeText={(v) => setEditFields(s => ({ ...s, location: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('location')} onBlur={() => setFocusedField(null)} />
             </ScrollView>
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-              <Pressable onPress={closeEdit} style={({ pressed }) => [{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.85 : 1 }]}>
-                <Text style={{ color: colors.text }}>Anuluj</Text>
-              </Pressable>
-              <Pressable onPress={saveEdit} style={({ pressed }) => [{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1 }]}>
-                 <Text style={{ color: '#fff' }}>Zapisz</Text>
-              </Pressable>
+              <ThemedButton
+                title="Anuluj"
+                onPress={closeEdit}
+                variant="secondary"
+                style={{ width: 100 }}
+              />
+              <ThemedButton
+                title="Zapisz"
+                onPress={saveEdit}
+                variant="primary"
+                style={{ width: 100 }}
+              />
             </View>
           </View>
         </View>
@@ -923,9 +993,12 @@ export default function ToolsScreen() {
                   ) : null}
                   {canManageTools ? (
                     <View style={{ marginTop: 6 }}>
-                      <Pressable onPress={serviceReceive} style={({ pressed }) => [{ paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8, backgroundColor: colors.success || '#10b981', opacity: pressed ? 0.9 : 1 }]}> 
-                        <Text style={{ color: '#fff', fontWeight: '600' }}>Odebrano</Text>
-                      </Pressable>
+                      <ThemedButton
+                        title="Odebrano"
+                        onPress={serviceReceive}
+                        variant="success"
+                        style={{ height: 36, width: 120, marginVertical: 0 }}
+                      />
                     </View>
                   ) : null}
                 </View>
@@ -946,9 +1019,12 @@ export default function ToolsScreen() {
               ) : null}
             </ScrollView>
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-              <Pressable onPress={closeDetails} style={({ pressed }) => [{ paddingHorizontal: 14, height: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg, opacity: pressed ? 0.85 : 1 }]}> 
-                <Text style={{ color: colors.text }}>Zamknij</Text>
-              </Pressable>
+              <ThemedButton
+                title="Zamknij"
+                onPress={closeDetails}
+                variant="secondary"
+                style={{ height: 40, width: 100 }}
+              />
             </View>
           </View>
         </View>
@@ -960,9 +1036,12 @@ export default function ToolsScreen() {
           <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Wyślij na serwis</Text>
-              <Pressable onPress={closeServiceModal}>
-                <Ionicons name="close" size={22} color={colors.muted} />
-              </Pressable>
+              <ThemedButton
+                onPress={closeServiceModal}
+                variant="outline"
+                style={{ width: 32, height: 32, borderRadius: 16, paddingHorizontal: 0, borderWidth: 0, marginVertical: 0 }}
+                icon={<Ionicons name="close" size={22} color={colors.muted} />}
+              />
             </View>
             {serviceTool ? (
               <ScrollView style={{ maxHeight: 360 }} contentContainerStyle={{ gap: 8 }} showsVerticalScrollIndicator={false}>
@@ -991,12 +1070,20 @@ export default function ToolsScreen() {
               </ScrollView>
             ) : null}
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-              <Pressable onPress={closeServiceModal} style={({ pressed }) => [{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.85 : 1 }]}> 
-                <Text style={{ color: colors.text }}>Anuluj</Text>
-              </Pressable>
-              <Pressable onPress={confirmService} style={({ pressed }) => [{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1 }]}> 
-                <Text style={{ color: '#fff' }}>Wyślij</Text>
-              </Pressable>
+              <View style={{ flex: 1 }}>
+                <ThemedButton
+                  title="Anuluj"
+                  onPress={closeServiceModal}
+                  variant="secondary"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedButton
+                  title="Wyślij"
+                  onPress={confirmService}
+                  variant="primary"
+                />
+              </View>
             </View>
           </View>
         </View>
@@ -1008,12 +1095,19 @@ export default function ToolsScreen() {
       <View style={{ width: '88%', maxWidth: 420, borderRadius: 12, padding: 16, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
         <Text style={{ fontSize: 16, color: colors.text, marginBottom: 12 }}>Czy na pewno wysłać prośbę o zwrot?</Text>
         <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
-          <Pressable accessibilityLabel="Anuluj" onPress={closeConfirmReturn} style={({ pressed }) => [{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background, opacity: pressed ? 0.8 : 1 }]}> 
-            <Text style={{ color: colors.text }}>Anuluj</Text>
-          </Pressable>
-          <Pressable accessibilityLabel="Wyślij prośbę o zwrot" disabled={notifySending} onPress={confirmSendReturn} style={({ pressed }) => [{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed || notifySending ? 0.75 : 1 }]}> 
-            <Text style={{ color: colors.text }}>Wyślij</Text>
-          </Pressable>
+          <ThemedButton
+            title="Anuluj"
+            onPress={closeConfirmReturn}
+            variant="secondary"
+            style={{ width: 100 }}
+          />
+          <ThemedButton
+            title="Wyślij"
+            onPress={confirmSendReturn}
+            disabled={notifySending}
+            variant="primary"
+            style={{ width: 100 }}
+          />
         </View>
       </View>
     </View>

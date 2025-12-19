@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, Pressable, Modal, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, Modal, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useTheme } from '../lib/theme';
+import ThemedButton from '../components/ThemedButton';
 import api from '../lib/api.js';
 import { showSnackbar } from '../lib/snackbar';
 import { Ionicons } from '@expo/vector-icons';
@@ -482,9 +483,12 @@ export default function AddToolModal({ visible, onClose, onCreated }) {
         <View style={[styles.card, { backgroundColor: colors.card || '#fff', borderColor: colors.border || '#eee' }]}> 
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <Text style={[styles.title, { color: colors.text }]}>Dodaj narzędzie</Text>
-            <Pressable onPress={close} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}> 
-              <Ionicons name="close" size={18} color={colors.text} />
-            </Pressable>
+            <ThemedButton
+              onPress={close}
+              variant="outline"
+              style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+              icon={<Ionicons name="close" size={18} color={colors.text} />}
+            />
           </View>
 
           {!!error && <Text style={{ color: colors.danger || '#e11d48', marginBottom: 6 }}>{error}</Text>}
@@ -512,9 +516,12 @@ export default function AddToolModal({ visible, onClose, onCreated }) {
               />
               {!!skuConflict && <Text style={{ color: colors.warn || '#eab308', marginTop: 4 }}>{skuConflict}</Text>}
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                <Pressable onPress={generateSkuWithPrefix} style={({ pressed }) => [{ paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.85 : 1 }]}> 
-                  <Text style={{ color: colors.text }}>Generuj SKU</Text>
-                </Pressable>
+                <ThemedButton
+                  title="Generuj SKU"
+                  onPress={generateSkuWithPrefix}
+                  variant="secondary"
+                  style={{ height: 36, paddingVertical: 0, marginVertical: 0 }}
+                />
               </View>
             </View>
 
@@ -570,13 +577,14 @@ export default function AddToolModal({ visible, onClose, onCreated }) {
                   ) : (categoryOptions && categoryOptions.length > 0) ? (
                     <ScrollView style={{ maxHeight: 200 }}>
                       {categoryOptions.map((opt) => (
-                        <Pressable
+                        <ThemedButton
                           key={String(opt)}
+                          title={opt}
                           onPress={() => { setField('category', opt); setCategoryOpen(false); }}
-                          style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: pressed ? (colors.overlay || '#00000010') : colors.card }]}
-                        >
-                          <Text style={{ color: colors.text }}>{opt}</Text>
-                        </Pressable>
+                          variant="secondary"
+                          style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 12, height: 40, borderWidth: 0, marginVertical: 0 }}
+                          textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+                        />
                       ))}
                     </ScrollView>
                   ) : (
@@ -672,9 +680,14 @@ export default function AddToolModal({ visible, onClose, onCreated }) {
                         <View style={{ position: 'absolute', top: 44, left: 0, right: 0, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, borderRadius: 8, maxHeight: 160 }}>
                           <ScrollView style={{ maxHeight: 160 }}>
                             {(elSuggestions.production_year || []).map(opt => (
-                              <Pressable key={`yr-${String(opt)}`} onPress={() => { setField('production_year', String(opt)); setYearOpen(false); }} style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: pressed ? (colors.overlay || '#00000010') : colors.card }]}> 
-                                <Text style={{ color: colors.text }}>{String(opt)}</Text>
-                              </Pressable>
+                              <ThemedButton
+                                key={`yr-${String(opt)}`}
+                                title={String(opt)}
+                                onPress={() => { setField('production_year', String(opt)); setYearOpen(false); }}
+                                variant="secondary"
+                                style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 12, height: 40, borderWidth: 0, marginVertical: 0 }}
+                                textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+                              />
                             ))}
                           </ScrollView>
                         </View>
@@ -723,21 +736,23 @@ export default function AddToolModal({ visible, onClose, onCreated }) {
           </ScrollView>
 
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
-            <Pressable
-              onPress={close}
-              disabled={saving}
-              style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.8 : 1 }]}
-            >
-              <Text style={{ color: colors.text }}>Anuluj</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={save}
-              disabled={saveDisabled}
-              style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 10, backgroundColor: colors.primary || '#4f46e5', opacity: pressed ? 0.9 : 1, alignItems: 'center', justifyContent: 'center' }]}
-            >
-              {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '600' }}>Zapisz</Text>}
-            </Pressable>
+            <View style={{ width: 100 }}>
+              <ThemedButton
+                title="Anuluj"
+                onPress={close}
+                disabled={saving}
+                variant="secondary"
+              />
+            </View>
+            <View style={{ width: 100 }}>
+              <ThemedButton
+                title="Zapisz"
+                onPress={save}
+                disabled={saveDisabled}
+                loading={saving}
+                variant="primary"
+              />
+            </View>
           </View>
         </View>
       </View>

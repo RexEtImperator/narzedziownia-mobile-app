@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../lib/api';
 import { useTheme } from '../lib/theme';
+import ThemedButton from '../components/ThemedButton';
 import AddEmployeeModal from './AddEmployeeModal';
 import AddToolModal from './AddToolModal';
 import AddBHPModal from './AddBHPModal';
@@ -409,34 +410,27 @@ export default function DashboardScreen() {
           </View>
         )}
         {toolHistoryHasMore && (
-          <Pressable
-            disabled={toolHistoryLoadingMore}
-            onPress={async () => {
-              try {
-                setToolHistoryLoadingMore(true);
-                const next = toolHistoryLimit + 6;
-                setToolHistoryLimit(next);
-                const { items, hasMore } = await fetchToolHistory(next);
-                setToolHistory(items);
-                setToolHistoryHasMore(hasMore);
-              } finally {
-                setToolHistoryLoadingMore(false);
-              }
-              try {
-                setToolHistoryLoadingMore(true);
-                const next = toolHistoryLimit + 6;
-                setToolHistoryLimit(next);
-                const toolsAll = history.filter(h => h.source === 'tools');
-                setToolHistory(toolsAll.slice(0, next));
-                setToolHistoryHasMore(toolsAll.length > next);
-              } finally {
-                setToolHistoryLoadingMore(false);
-              }
-            }}
-            style={{ marginTop: 8, alignSelf: 'center' }}
-          >
-            <Text style={{ color: colors.primary }}>{toolHistoryLoadingMore ? 'Ładowanie…' : 'Zobacz więcej'}</Text>
-          </Pressable>
+          <View style={{ alignSelf: 'center', marginTop: 8 }}>
+            <ThemedButton
+              title="Zobacz więcej"
+              variant="outline"
+              loading={toolHistoryLoadingMore}
+              disabled={toolHistoryLoadingMore}
+              onPress={async () => {
+                try {
+                  setToolHistoryLoadingMore(true);
+                  const next = toolHistoryLimit + 6;
+                  setToolHistoryLimit(next);
+                  const toolsAll = history.filter(h => h.source === 'tools');
+                  setToolHistory(toolsAll.slice(0, next));
+                  setToolHistoryHasMore(toolsAll.length > next);
+                } finally {
+                  setToolHistoryLoadingMore(false);
+                }
+              }}
+              style={{ paddingVertical: 6, paddingHorizontal: 12, minWidth: 120, height: 36 }}
+            />
+          </View>
         )}
       </View>
 
@@ -484,34 +478,27 @@ export default function DashboardScreen() {
           </View>
         )}
         {bhpHistoryHasMore && (
-          <Pressable
-            disabled={bhpHistoryLoadingMore}
-            onPress={async () => {
-              try {
-                setBhpHistoryLoadingMore(true);
-                const next = bhpHistoryLimit + 6;
-                setBhpHistoryLimit(next);
-                const { items, hasMore } = await fetchBhpHistory(next);
-                setBhpHistory(items);
-                setBhpHistoryHasMore(hasMore);
-              } finally {
-                setBhpHistoryLoadingMore(false);
-              }
-              try {
-                setBhpHistoryLoadingMore(true);
-                const next = bhpHistoryLimit + 6;
-                setBhpHistoryLimit(next);
-                const bhpAll = history.filter(h => h.source === 'bhp');
-                setBhpHistory(bhpAll.slice(0, next));
-                setBhpHistoryHasMore(bhpAll.length > next);
-              } finally {
-                setBhpHistoryLoadingMore(false);
-              }
-            }}
-            style={{ marginTop: 8, alignSelf: 'center' }}
-          >
-            <Text style={{ color: colors.primary }}>{bhpHistoryLoadingMore ? 'Ładowanie…' : 'Zobacz więcej'}</Text>
-          </Pressable>
+          <View style={{ alignSelf: 'center', marginTop: 8 }}>
+            <ThemedButton
+              title="Zobacz więcej"
+              variant="outline"
+              loading={bhpHistoryLoadingMore}
+              disabled={bhpHistoryLoadingMore}
+              onPress={async () => {
+                try {
+                  setBhpHistoryLoadingMore(true);
+                  const next = bhpHistoryLimit + 6;
+                  setBhpHistoryLimit(next);
+                  const bhpAll = history.filter(h => h.source === 'bhp');
+                  setBhpHistory(bhpAll.slice(0, next));
+                  setBhpHistoryHasMore(bhpAll.length > next);
+                } finally {
+                  setBhpHistoryLoadingMore(false);
+                }
+              }}
+              style={{ paddingVertical: 6, paddingHorizontal: 12, minWidth: 120, height: 36 }}
+            />
+          </View>
         )}
       </View>
       <AddEmployeeModal visible={addEmpVisible} onClose={() => setAddEmpVisible(false)} onCreated={() => { try { setStats(s => ({ ...s, employees: (s.employees || 0) + 1 })); } catch {} }} />

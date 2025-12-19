@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, FlatList, ScrollView, TouchableOpacity, Pressable, Alert, Modal, Platform, RefreshControl } from 'react-native';
+import { View, Text, TextInput, StyleSheet, FlatList, ScrollView, Alert, Modal, Platform, RefreshControl } from 'react-native';
 import { useTheme } from '../lib/theme';
+import ThemedButton from '../components/ThemedButton';
 import api from '../lib/api';
 import { Ionicons } from '@expo/vector-icons';
 import AddEmployeeModal from './AddEmployeeModal';
@@ -342,9 +343,12 @@ export default function EmployeesScreen() {
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <Text style={[styles.title, { color: colors.text }]} className="text-2xl font-bold">Pracownicy</Text>
         {canManageEmployees ? (
-          <Pressable accessibilityLabel="Dodaj nowego pracownika" onPress={() => setAddEmpVisible(true)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }, pressed && { opacity: 0.8 }]}>
-            <Ionicons name="add" size={22} color={colors.primary || colors.text} />
-          </Pressable>
+          <ThemedButton
+            onPress={() => setAddEmpVisible(true)}
+            variant="secondary"
+            style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+            icon={<Ionicons name="add" size={22} color={colors.primary || colors.text} />}
+          />
         ) : null}
       </View>
       {/* Sekcja wyszukiwarki i filtrów */}
@@ -360,40 +364,71 @@ export default function EmployeesScreen() {
           onBlur={() => setFocusedSearchInput(false)}
         />
         {searchRaw ? (
-          <Pressable accessibilityLabel="Wyczyść wyszukiwanie" onPress={() => { setSearchRaw(''); setSearchTerm(''); }} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.85 : 1 }] }>
-            <Ionicons name="close-circle-outline" size={25} color={colors.muted || colors.text} />
-          </Pressable>
+          <ThemedButton
+            onPress={() => { setSearchRaw(''); setSearchTerm(''); }}
+            variant="secondary"
+            style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+            icon={<Ionicons name="close-circle-outline" size={25} color={colors.muted || colors.text} />}
+          />
         ) : null}
       </View>
       <View style={styles.filterRow} className="flex-row items-center gap-2 mb-2">
-        <TouchableOpacity style={[styles.dropdownToggle, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md px-2 h-9 justify-center" onPress={() => setShowDeptDropdown(v => !v)}>
-          <Text style={[styles.dropdownToggleText, { color: colors.text }]}>{filterDepartment === 'all' ? 'Wszystkie działy' : filterDepartment}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.dropdownToggle, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md px-2 h-9 justify-center" onPress={() => setShowPosDropdown(v => !v)}>
-          <Text style={[styles.dropdownToggleText, { color: colors.text }]}>{filterPosition === 'all' ? 'Wszystkie stanowiska' : filterPosition}</Text>
-        </TouchableOpacity>
+        <ThemedButton
+          title={filterDepartment === 'all' ? 'Wszystkie działy' : filterDepartment}
+          onPress={() => setShowDeptDropdown(v => !v)}
+          variant="secondary"
+          style={{ height: 36, justifyContent: 'flex-start', paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border }}
+          textStyle={{ fontWeight: 'normal', fontSize: 14, flex: 1, textAlign: 'left' }}
+          icon={<Ionicons name={showDeptDropdown ? "chevron-up" : "chevron-down"} size={16} color={colors.text} style={{ marginRight: 8 }} />}
+        />
+        <ThemedButton
+          title={filterPosition === 'all' ? 'Wszystkie stanowiska' : filterPosition}
+          onPress={() => setShowPosDropdown(v => !v)}
+          variant="secondary"
+          style={{ height: 36, justifyContent: 'flex-start', paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border }}
+          textStyle={{ fontWeight: 'normal', fontSize: 14, flex: 1, textAlign: 'left' }}
+          icon={<Ionicons name={showPosDropdown ? "chevron-up" : "chevron-down"} size={16} color={colors.text} style={{ marginRight: 8 }} />}
+        />
       </View>
       {showDeptDropdown && (
         <View style={[styles.dropdown, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md mb-2">
-          <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setFilterDepartment('all'); setShowDeptDropdown(false); }}>
-            <Text style={{ color: colors.text }}>Wszystkie działy</Text>
-          </TouchableOpacity>
+          <ThemedButton
+            title="Wszystkie działy"
+            onPress={() => { setFilterDepartment('all'); setShowDeptDropdown(false); }}
+            variant="secondary"
+            style={{ height: 40, borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, borderWidth: 0 }}
+            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+          />
           {departmentNames.map(dep => (
-            <TouchableOpacity key={String(dep)} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setFilterDepartment(dep); setShowDeptDropdown(false); }}>
-              <Text style={{ color: colors.text }}>{dep}</Text>
-            </TouchableOpacity>
+            <ThemedButton
+              key={String(dep)}
+              title={dep}
+              onPress={() => { setFilterDepartment(dep); setShowDeptDropdown(false); }}
+              variant="secondary"
+              style={{ height: 40, borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, borderWidth: 0 }}
+              textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+            />
           ))}
         </View>
       )}
       {showPosDropdown && (
         <View style={[styles.dropdown, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md mb-2">
-          <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setFilterPosition('all'); setShowPosDropdown(false); }}>
-            <Text style={{ color: colors.text }}>Wszystkie stanowiska</Text>
-          </TouchableOpacity>
+          <ThemedButton
+            title="Wszystkie stanowiska"
+            onPress={() => { setFilterPosition('all'); setShowPosDropdown(false); }}
+            variant="secondary"
+            style={{ height: 40, borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, borderWidth: 0 }}
+            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+          />
           {positionNames.map(pos => (
-            <TouchableOpacity key={String(pos)} style={[styles.dropdownItem, { borderBottomColor: colors.border }]} className="py-2 px-2" onPress={() => { setFilterPosition(pos); setShowPosDropdown(false); }}>
-              <Text style={{ color: colors.text }}>{pos}</Text>
-            </TouchableOpacity>
+            <ThemedButton
+              key={String(pos)}
+              title={pos}
+              onPress={() => { setFilterPosition(pos); setShowPosDropdown(false); }}
+              variant="secondary"
+              style={{ height: 40, borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, borderWidth: 0 }}
+              textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+            />
           ))}
         </View>
       )}
@@ -426,20 +461,32 @@ export default function EmployeesScreen() {
                 {canManageEmployees ? (
                   <View style={{ flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
                     <View style={{ flexDirection: 'row', gap: 12 }}>
-                      <Pressable accessibilityLabel={`Regeneruj login pracownika ${item?.id}`} onPress={() => regenerateLogin(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
-                        <Ionicons name="refresh-circle-outline" size={20} color={colors.text} />
-                      </Pressable>
-                      <Pressable accessibilityLabel={`Wyślij dane logowania ${item?.id}`} onPress={() => sendCredentials(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
-                        <Ionicons name="mail-outline" size={20} color={colors.text} />
-                      </Pressable>
+                      <ThemedButton
+                        onPress={() => regenerateLogin(item)}
+                        variant="secondary"
+                        style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                        icon={<Ionicons name="refresh-circle-outline" size={20} color={colors.text} />}
+                      />
+                      <ThemedButton
+                        onPress={() => sendCredentials(item)}
+                        variant="secondary"
+                        style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                        icon={<Ionicons name="mail-outline" size={20} color={colors.text} />}
+                      />
                     </View>
                     <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
-                      <Pressable accessibilityLabel={`Edytuj pracownika ${item?.id}`} onPress={() => openEdit(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
-                        <Ionicons name="create-outline" size={20} color={colors.text} />
-                      </Pressable>
-                      <Pressable accessibilityLabel={`Usuń pracownika ${item?.id}`} onPress={() => deleteEmployee(item)} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}> 
-                        <Ionicons name="trash-outline" size={20} color={colors.danger || '#e11d48'} />
-                      </Pressable>
+                      <ThemedButton
+                        onPress={() => openEdit(item)}
+                        variant="secondary"
+                        style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                        icon={<Ionicons name="create-outline" size={20} color={colors.text} />}
+                      />
+                      <ThemedButton
+                        onPress={() => deleteEmployee(item)}
+                        variant="secondary"
+                        style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                        icon={<Ionicons name="trash-outline" size={20} color={colors.danger || '#e11d48'} />}
+                      />
                     </View>
                   </View>
                 ) : null}
@@ -473,115 +520,93 @@ export default function EmployeesScreen() {
 
               <Text style={{ color: colors.muted }}>UID karty RFID</Text>
               <TextInput style={[styles.filterInput, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="UID karty RFID" placeholderTextColor={colors.muted} value={editEmpFields.rfid_uid} onChangeText={v => setEditEmpFields(f => ({ ...f, rfid_uid: v }))} autoCapitalize="none" />
-              <Pressable style={[{ borderColor: colors.border, backgroundColor: colors.card, borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, height: 36, justifyContent: 'center', marginBottom: 8 }]} className="border rounded-md px-2 h-9 justify-center" onPress={() => setShowDeptSelect(v => !v)}>
-                <Text style={{ color: colors.text }}>{
+              <ThemedButton
+                title={
                   (departments.find(d => String(d?.id) === String(editEmpFields?.department_id))?.name
                     || departments.find(d => String(d?.department_id) === String(editEmpFields?.department_id))?.name
                     || editEmpFields.department
                     || 'Wybierz dział')
-                }</Text>
-              </Pressable>
+                }
+                onPress={() => setShowDeptSelect(v => !v)}
+                variant="secondary"
+                style={{ height: 36, justifyContent: 'space-between', paddingHorizontal: 8, flexDirection: 'row-reverse', marginBottom: 8 }}
+                textStyle={{ fontWeight: 'normal', color: colors.text, flex: 1, textAlign: 'left' }}
+                icon={<Ionicons name={showDeptSelect ? "chevron-up" : "chevron-down"} size={16} color={colors.text} />}
+              />
               {showDeptSelect && (
                 <View style={[{ borderColor: colors.border, backgroundColor: colors.card, borderWidth: 1, borderRadius: 6, marginBottom: 8 }]} className="border rounded-md mb-2">
                   <ScrollView style={{ maxHeight: 240 }}>
-                    {departments.map(dep => (
-                      <Pressable
-                        key={String(dep?.id ?? dep?.department_id)}
-                        style={({ pressed }) => {
-                          const selected = editEmpFields?.department_id === (dep?.id ?? dep?.department_id);
-                          return [
-                            {
-                              borderBottomColor: colors.border,
-                              borderBottomWidth: 1,
-                              paddingVertical: 8,
-                              paddingHorizontal: 8,
-                              backgroundColor: (pressed || selected) ? colors.primary : 'transparent'
-                            }
-                          ];
-                        }}
-                        className="py-2 px-2"
-                        onPress={() => {
-                          setEditEmpFields(f => ({ ...f, department_id: dep?.id ?? dep?.department_id }));
-                          setShowDeptSelect(false);
-                        }}
-                      >
-                        {({ pressed }) => {
-                          const selected = editEmpFields?.department_id === (dep?.id ?? dep?.department_id);
-                          const tint = (pressed || selected) ? '#fff' : colors.text;
-                          return (
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <Text style={{ color: tint }}>
-                                {dep?.name || dep?.department_name || String(dep?.id ?? dep?.department_id)}
-                              </Text>
-                              {selected && (
-                                <Ionicons name="checkmark" size={18} color={tint} />
-                              )}
-                            </View>
-                          );
-                        }}
-                      </Pressable>
-                    ))}
+                    {departments.map(dep => {
+                      const selected = editEmpFields?.department_id === (dep?.id ?? dep?.department_id);
+                      return (
+                        <ThemedButton
+                          key={String(dep?.id ?? dep?.department_id)}
+                          title={dep?.name || dep?.department_name || String(dep?.id ?? dep?.department_id)}
+                          onPress={() => {
+                            setEditEmpFields(f => ({ ...f, department_id: dep?.id ?? dep?.department_id }));
+                            setShowDeptSelect(false);
+                          }}
+                          variant={selected ? 'primary' : 'outline'}
+                          style={{ height: 40, borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'space-between', paddingHorizontal: 8, flexDirection: 'row-reverse', borderWidth: 0, marginVertical: 0 }}
+                          textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+                          icon={selected ? <Ionicons name="checkmark" size={18} color="#fff" /> : null}
+                        />
+                      );
+                    })}
                   </ScrollView>
                 </View>
               )}
-              <Pressable style={[{ borderColor: colors.border, backgroundColor: colors.card, borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, height: 36, justifyContent: 'center', marginBottom: 8 }]} className="border rounded-md px-2 h-9 justify-center" onPress={() => setShowPosSelect(v => !v)}>
-                <Text style={{ color: colors.text }}>{
+              <ThemedButton
+                title={
                   (positions.find(p => String(p?.id) === String(editEmpFields?.position_id))?.name
                     || positions.find(p => String(p?.position_id) === String(editEmpFields?.position_id))?.name
                     || editEmpFields.position
                     || 'Wybierz stanowisko')
-                }</Text>
-              </Pressable>
+                }
+                onPress={() => setShowPosSelect(v => !v)}
+                variant="secondary"
+                style={{ height: 36, justifyContent: 'space-between', paddingHorizontal: 8, flexDirection: 'row-reverse', marginBottom: 8 }}
+                textStyle={{ fontWeight: 'normal', color: colors.text, flex: 1, textAlign: 'left' }}
+                icon={<Ionicons name={showPosSelect ? "chevron-up" : "chevron-down"} size={16} color={colors.text} />}
+              />
               {showPosSelect && (
                 <View style={[{ borderColor: colors.border, backgroundColor: colors.card, borderWidth: 1, borderRadius: 6, marginBottom: 8 }]} className="border rounded-md mb-2">
                   <ScrollView style={{ maxHeight: 240 }}>
-                    {positions.map(pos => (
-                      <Pressable
-                        key={String(pos?.id ?? pos?.position_id)}
-                        style={({ pressed }) => {
-                          const selected = editEmpFields?.position_id === (pos?.id ?? pos?.position_id);
-                          return [
-                            {
-                              borderBottomColor: colors.border,
-                              borderBottomWidth: 1,
-                              paddingVertical: 8,
-                              paddingHorizontal: 8,
-                              backgroundColor: (pressed || selected) ? colors.primary : 'transparent'
-                            }
-                          ];
-                        }}
-                        className="py-2 px-2"
-                        onPress={() => {
-                          setEditEmpFields(f => ({ ...f, position_id: pos?.id ?? pos?.position_id }));
-                          setShowPosSelect(false);
-                        }}
-                      >
-                        {({ pressed }) => {
-                          const selected = editEmpFields?.position_id === (pos?.id ?? pos?.position_id);
-                          const tint = (pressed || selected) ? '#fff' : colors.text;
-                          return (
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <Text style={{ color: tint }}>
-                                {pos?.name || pos?.position_name || String(pos?.id ?? pos?.position_id)}
-                              </Text>
-                              {selected && (
-                                <Ionicons name="checkmark" size={18} color={tint} />
-                              )}
-                            </View>
-                          );
-                        }}
-                      </Pressable>
-                    ))}
+                    {positions.map(pos => {
+                      const selected = editEmpFields?.position_id === (pos?.id ?? pos?.position_id);
+                      return (
+                        <ThemedButton
+                          key={String(pos?.id ?? pos?.position_id)}
+                          title={pos?.name || pos?.position_name || String(pos?.id ?? pos?.position_id)}
+                          onPress={() => {
+                            setEditEmpFields(f => ({ ...f, position_id: pos?.id ?? pos?.position_id }));
+                            setShowPosSelect(false);
+                          }}
+                          variant={selected ? 'primary' : 'outline'}
+                          style={{ height: 40, borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'space-between', paddingHorizontal: 8, flexDirection: 'row-reverse', borderWidth: 0, marginVertical: 0 }}
+                          textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+                          icon={selected ? <Ionicons name="checkmark" size={18} color="#fff" /> : null}
+                        />
+                      );
+                    })}
                   </ScrollView>
                 </View>
               )}
 
               <Text style={{ color: colors.muted }}>Status</Text>
-              <Pressable style={[{ borderColor: colors.border, backgroundColor: colors.card, borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, height: 36, justifyContent: 'center', marginBottom: 8 }]} className="border rounded-md px-2 h-9 justify-center" onPress={() => setShowStatusSelect(v => !v)}>
-                <Text style={{ color: colors.text }}>
-                  {editEmpFields.status === 'active' ? 'Aktywny' : editEmpFields.status === 'inactive' ? 'Nieaktywny' : editEmpFields.status === 'suspended' ? 'Zawieszony' : (editEmpFields.status || 'Wybierz status')}
-                </Text>
-              </Pressable>
+              <ThemedButton
+                title={
+                  editEmpFields.status === 'active' ? 'Aktywny' :
+                  editEmpFields.status === 'inactive' ? 'Nieaktywny' :
+                  editEmpFields.status === 'suspended' ? 'Zawieszony' :
+                  (editEmpFields.status || 'Wybierz status')
+                }
+                onPress={() => setShowStatusSelect(v => !v)}
+                variant="secondary"
+                style={{ height: 36, justifyContent: 'space-between', paddingHorizontal: 8, flexDirection: 'row-reverse', marginBottom: 8 }}
+                textStyle={{ fontWeight: 'normal', color: colors.text, flex: 1, textAlign: 'left' }}
+                icon={<Ionicons name={showStatusSelect ? "chevron-up" : "chevron-down"} size={16} color={colors.text} />}
+              />
               {showStatusSelect && (
                 <View style={[{ borderColor: colors.border, backgroundColor: colors.card, borderWidth: 1, borderRadius: 6, marginBottom: 8 }]} className="border rounded-md mb-2">
                   <ScrollView style={{ maxHeight: 240 }}>
@@ -589,52 +614,41 @@ export default function EmployeesScreen() {
                       { key: 'active', label: 'Aktywny' },
                       { key: 'inactive', label: 'Nieaktywny' },
                       { key: 'suspended', label: 'Zawieszony' }
-                    ].map(s => (
-                      <Pressable
-                        key={s.key}
-                        style={({ pressed }) => {
-                          const selected = editEmpFields?.status === s.key;
-                          return [
-                            {
-                              borderBottomColor: colors.border,
-                              borderBottomWidth: 1,
-                              paddingVertical: 8,
-                              paddingHorizontal: 8,
-                              backgroundColor: (pressed || selected) ? colors.primary : 'transparent'
-                            }
-                          ];
-                        }}
-                        className="py-2 px-2"
-                        onPress={() => {
-                          setEditEmpFields(f => ({ ...f, status: s.key }));
-                          setShowStatusSelect(false);
-                        }}
-                      >
-                        {({ pressed }) => {
-                          const selected = editEmpFields?.status === s.key;
-                          const tint = (pressed || selected) ? '#fff' : colors.text;
-                          return (
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <Text style={{ color: tint }}>{s.label}</Text>
-                              {selected && (
-                                <Ionicons name="checkmark" size={18} color={tint} />
-                              )}
-                            </View>
-                          );
-                        }}
-                      </Pressable>
-                    ))}
+                    ].map(s => {
+                      const selected = editEmpFields?.status === s.key;
+                      return (
+                        <ThemedButton
+                          key={s.key}
+                          title={s.label}
+                          onPress={() => {
+                            setEditEmpFields(f => ({ ...f, status: s.key }));
+                            setShowStatusSelect(false);
+                          }}
+                          variant={selected ? 'primary' : 'outline'}
+                          style={{ height: 40, borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'space-between', paddingHorizontal: 8, flexDirection: 'row-reverse', borderWidth: 0, marginVertical: 0 }}
+                          textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+                          icon={selected ? <Ionicons name="checkmark" size={18} color="#fff" /> : null}
+                        />
+                      );
+                    })}
                   </ScrollView>
                 </View>
               )}
             </ScrollView>
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-              <Pressable onPress={closeEdit} style={({ pressed }) => [{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.85 : 1 }]}>
-                <Text style={{ color: colors.text }}>Anuluj</Text>
-              </Pressable>
-              <Pressable disabled={editEmpLoading} onPress={saveEmployee} style={({ pressed }) => [{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 }]}>
-                <Text style={{ color: '#fff' }}>{editEmpLoading ? 'Zapisywanie…' : 'Zapisz'}</Text>
-              </Pressable>
+              <ThemedButton
+                title="Anuluj"
+                onPress={closeEdit}
+                variant="secondary"
+                style={{ marginVertical: 0 }}
+              />
+              <ThemedButton
+                title={editEmpLoading ? 'Zapisywanie…' : 'Zapisz'}
+                onPress={saveEmployee}
+                loading={editEmpLoading}
+                variant="primary"
+                style={{ marginVertical: 0 }}
+              />
             </View>
           </View>
         </View>
@@ -664,7 +678,7 @@ const styles = StyleSheet.create({
   dropdownToggleText: { color: '#111827' },
   dropdown: { borderWidth: 1, borderColor: '#eee', borderRadius: 6, marginBottom: 8, backgroundColor: '#fff' },
   dropdownItem: { paddingVertical: 8, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  separator: { height: 1, backgroundColor: '#eee' },
+  separator: { height: 1 },
   error: { color: 'red', marginBottom: 8 },
   muted: { color: '#666' },
   tile: { borderWidth: 1, borderColor: '#eee', borderRadius: 12, padding: 12, marginBottom: 12, ...(Platform.select({ web: { boxShadow: '0px 2px 6px rgba(0,0,0,0.06)' }, ios: { shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } }, android: { elevation: 2 } })) },

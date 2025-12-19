@@ -7,6 +7,7 @@ import api from '../lib/api';
 import * as Haptics from 'expo-haptics'
 import { showSnackbar } from '../lib/snackbar';
 import { useTheme } from '../lib/theme';
+import ThemedButton from '../components/ThemedButton';
 import DateField from '../components/DateField';
 
 export default function ScanScreen() {
@@ -701,9 +702,7 @@ export default function ScanScreen() {
         <Pressable onPress={() => navigation.goBack()} style={styles.closeBtn}>
           <Ionicons name="close" size={25} color="#374151" />
         </Pressable>
-        <Pressable onPress={() => setMultiScan((v)=>!v)} style={{ position: 'absolute', left: 16, top: 10, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: multiScan ? '#16a34a' : '#6b7280' }}>
-          <Text style={{ color: '#fff', fontWeight: '600' }}>{multiScan ? 'Wielo-skan ON' : 'Wielo-skan OFF'}</Text>
-        </Pressable>
+        <ThemedButton onPress={() => setMultiScan((v)=>!v)} title={multiScan ? 'Wielo-skan ON' : 'Wielo-skan OFF'} variant={multiScan ? 'success' : 'secondary'} style={{ position: 'absolute', left: 16, top: 10, height: 32, paddingVertical: 0, minWidth: 120 }} textStyle={{ fontSize: 13 }} />
       </View>
 
       {/* Podgląd kamery / skanera */}
@@ -717,15 +716,11 @@ export default function ScanScreen() {
         <View style={styles.centerBox}>
           <Text>Brak uprawnień do kamery</Text>
           <View style={{ height: 8 }} />
-          <Pressable onPress={requestCamPermission} style={styles.primaryBtn}>
-            <Text style={styles.btnText}>Nadaj dostęp</Text>
-          </Pressable>
+          <ThemedButton onPress={requestCamPermission} title="Nadaj dostęp" variant="primary" style={{ minWidth: 150 }} />
           {!canAskAgain && (
             <>
               <View style={{ height: 8 }} />
-              <Pressable onPress={() => { try { Linking.openSettings(); } catch {} }} style={[styles.primaryBtn, styles.btnMuted]}>
-                <Text style={styles.btnText}>Otwórz ustawienia</Text>
-              </Pressable>
+              <ThemedButton onPress={() => { try { Linking.openSettings(); } catch {} }} title="Otwórz ustawienia" variant="secondary" style={{ minWidth: 150 }} />
             </>
           )}
           {cameraModuleError ? (
@@ -780,15 +775,15 @@ export default function ScanScreen() {
               ))}
             </View>
             <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
-              <Pressable onPress={clearScannedList} style={({ pressed }) => [styles.primaryBtn, pressed && styles.btnPressed, styles.btnMuted]}>
-                <Text style={styles.btnText}>Wyczyść listę</Text>
-              </Pressable>
-              <Pressable onPress={issueAll} disabled={!selectedEmployee} style={({ pressed }) => [styles.primaryBtn, pressed && styles.btnPressed, !selectedEmployee && styles.btnDisabled]}>
-                <Text style={styles.btnText}>Wydaj wszystkie</Text>
-              </Pressable>
-              <Pressable onPress={returnAll} disabled={!selectedEmployee} style={({ pressed }) => [styles.primaryBtn, pressed && styles.btnPressed, !selectedEmployee && styles.btnDisabled]}>
-                <Text style={styles.btnText}>Zwróć wszystkie</Text>
-              </Pressable>
+              <View style={{ flex: 1 }}>
+                <ThemedButton onPress={clearScannedList} title="Wyczyść listę" variant="secondary" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedButton onPress={issueAll} disabled={!selectedEmployee} title="Wydaj wszystkie" variant="primary" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedButton onPress={returnAll} disabled={!selectedEmployee} title="Zwróć wszystkie" variant="primary" />
+              </View>
             </View>
           </View>
         ) : null}
@@ -804,9 +799,7 @@ export default function ScanScreen() {
               </>
             )}
             <View style={{ height: 8 }} />
-            <Pressable onPress={() => setDropdownOpen((v)=>!v)} style={({ pressed }) => [styles.primaryBtn, pressed && styles.btnPressed]}>
-              <Text style={styles.btnText}>{selectedEmployee ? `${selectedEmployee.first_name} ${selectedEmployee.last_name}` : 'Wybierz pracownika'}</Text>
-            </Pressable>
+            <ThemedButton onPress={() => setDropdownOpen((v)=>!v)} title={selectedEmployee ? `${selectedEmployee.first_name} ${selectedEmployee.last_name}` : 'Wybierz pracownika'} variant="primary" />
             {dropdownOpen && (
               <View style={{ marginTop: 8 }}>
                 {employeesLoading ? <Text style={{ color: '#6b7280' }}>Ładowanie pracowników…</Text> : null}
@@ -825,12 +818,12 @@ export default function ScanScreen() {
             )}
             <View style={{ height: 8 }} />
             <View style={{ flexDirection: 'row', gap: 12 }}>
-              <Pressable onPress={issueTool} disabled={!selectedEmployee} style={({ pressed }) => [styles.primaryBtn, pressed && styles.btnPressed, !selectedEmployee && styles.btnDisabled]}>
-                <Text style={styles.btnText}>Wydaj</Text>
-              </Pressable>
-              <Pressable onPress={returnTool} disabled={!selectedEmployee} style={({ pressed }) => [styles.primaryBtn, pressed && styles.btnPressed, !selectedEmployee && styles.btnDisabled]}>
-                <Text style={styles.btnText}>Zwróć</Text>
-              </Pressable>
+              <View style={{ flex: 1 }}>
+                <ThemedButton onPress={issueTool} disabled={!selectedEmployee} title="Wydaj" variant="primary" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedButton onPress={returnTool} disabled={!selectedEmployee} title="Zwróć" variant="primary" />
+              </View>
             </View>
             {message ? (<Text style={{ color: '#16a34a', marginTop: 8 }}>{message}</Text>) : null}
             {error ? (<Text style={{ color: '#b91c1c', marginTop: 8 }}>{error}</Text>) : null}
@@ -838,9 +831,7 @@ export default function ScanScreen() {
         ) : error ? (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>{error}</Text>
-            <Pressable onPress={goAdd} style={({ pressed }) => [styles.primaryBtn, pressed && styles.btnPressed]}>
-              <Text style={styles.btnText}>Dodaj</Text>
-            </Pressable>
+            <ThemedButton onPress={goAdd} title="Dodaj" variant="primary" />
           </View>
         ) : null}
       </View>
@@ -859,12 +850,12 @@ export default function ScanScreen() {
 
             {/* Zakładki */}
             <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-              <Pressable onPress={() => setAddTab('tool')} style={[styles.tabBtn, addTab === 'tool' ? [styles.tabBtnActive, { backgroundColor: colors.primary || '#4f46e5' }] : [styles.tabBtnInactive, { borderColor: colors.border }]]}>
-                <Text style={{ color: addTab === 'tool' ? '#fff' : (colors.text || '#111827'), fontWeight: '600' }}>Dodaj narzędzie</Text>
-              </Pressable>
-              <Pressable onPress={() => setAddTab('bhp')} style={[styles.tabBtn, addTab === 'bhp' ? [styles.tabBtnActive, { backgroundColor: colors.primary || '#4f46e5' }] : [styles.tabBtnInactive, { borderColor: colors.border }]]}>
-                <Text style={{ color: addTab === 'bhp' ? '#fff' : (colors.text || '#111827'), fontWeight: '600' }}>Dodaj sprzęt BHP</Text>
-              </Pressable>
+              <View style={{ flex: 1 }}>
+                <ThemedButton onPress={() => setAddTab('tool')} title="Dodaj narzędzie" variant={addTab === 'tool' ? 'primary' : 'outline'} style={{ height: 40, marginVertical: 0 }} textStyle={{ fontSize: 14 }} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedButton onPress={() => setAddTab('bhp')} title="Dodaj sprzęt BHP" variant={addTab === 'bhp' ? 'primary' : 'outline'} style={{ height: 40, marginVertical: 0 }} textStyle={{ fontSize: 14 }} />
+              </View>
             </View>
 
             {addError ? <Text style={{ color: colors.danger || '#e11d48', marginBottom: 6 }}>{addError}</Text> : null}
@@ -1012,64 +1003,75 @@ export default function ScanScreen() {
             )}
 
                 <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
-                  <Pressable onPress={() => setAddVisible(false)} disabled={addSaving} style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.8 : 1 }]}>
-                    <Text style={{ color: colors.text }}>Anuluj</Text>
-                  </Pressable>
-                  <Pressable onPress={async () => {
-                    setAddError('');
-                    setAddSaving(true);
-                    try {
-                      await api.init();
-                      if (addTab === 'tool') {
-                        const name = String(addToolFields.name || '').trim();
-                        if (!name) { setAddError('Podaj nazwę narzędzia'); setAddSaving(false); return; }
-                        // SKU zgodnie z przełącznikiem: z prefixem gdy włączony, bez prefixu gdy wyłączony
-                        const rawSkuInput = String(addToolFields.sku || '').trim();
-                        const pfx = String(toolsCodePrefix || '').trim();
-                        const finalSku = applySkuPrefix ? normalizeSkuWithPrefix(rawSkuInput, pfx) : stripSkuPrefix(rawSkuInput, pfx);
+                  <View style={{ width: 100 }}>
+                    <ThemedButton
+                      title="Anuluj"
+                      onPress={() => setAddVisible(false)}
+                      disabled={addSaving}
+                      variant="secondary"
+                    />
+                  </View>
+                  <View style={{ width: 100 }}>
+                    <ThemedButton
+                      title="Zapisz"
+                      onPress={async () => {
+                        setAddError('');
+                        setAddSaving(true);
+                        try {
+                          await api.init();
+                          if (addTab === 'tool') {
+                            const name = String(addToolFields.name || '').trim();
+                            if (!name) { setAddError('Podaj nazwę narzędzia'); setAddSaving(false); return; }
+                            // SKU zgodnie z przełącznikiem: z prefixem gdy włączony, bez prefixu gdy wyłączony
+                            const rawSkuInput = String(addToolFields.sku || '').trim();
+                            const pfx = String(toolsCodePrefix || '').trim();
+                            const finalSku = applySkuPrefix ? normalizeSkuWithPrefix(rawSkuInput, pfx) : stripSkuPrefix(rawSkuInput, pfx);
+                            const payload = {
+                              name,
+                              sku: finalSku || undefined,
+                              inventory_number: String(addToolFields.inventory_number || '').trim() || undefined,
+                              serial_number: String(addToolFields.serial_number || '').trim() || undefined,
+                              serial_unreadable: !!addToolFields.serial_unreadable,
+                              category: String(addToolFields.category || '').trim() || undefined,
+                              status: 'dostępne',
+                              location: String(addToolFields.location || '').trim() || undefined,
+                              quantity: Number(String(addToolFields.quantity || '1').replace(/\D+/g, '')) || 1,
+                              barcode: finalSku || undefined,
+                              qr_code: finalSku || undefined,
+                            };
+                            const res = await api.post('/api/tools', payload);
+                            const created = Array.isArray(res?.data) ? (res.data[0] || null) : (res?.data || res || null);
+                            if (!created) throw new Error('Błąd tworzenia narzędzia');
+                            try { showSnackbar('Dodano narzędzie', { type: 'success' }); } catch {}
+                            setTool(created);
+                            setAddVisible(false);
+                          } else {
                         const payload = {
-                          name,
-                          sku: finalSku || undefined,
-                          inventory_number: String(addToolFields.inventory_number || '').trim() || undefined,
-                          serial_number: String(addToolFields.serial_number || '').trim() || undefined,
-                          serial_unreadable: !!addToolFields.serial_unreadable,
-                          category: String(addToolFields.category || '').trim() || undefined,
-                          status: 'dostępne',
-                          location: String(addToolFields.location || '').trim() || undefined,
-                          quantity: Number(String(addToolFields.quantity || '1').replace(/\D+/g, '')) || 1,
-                          barcode: finalSku || undefined,
-                          qr_code: finalSku || undefined,
+                          ...addBhpFields,
+                          production_date: normalizeDate(addBhpFields.production_date),
+                          inspection_date: normalizeDate(addBhpFields.inspection_date),
+                          harness_start_date: normalizeDate(addBhpFields.harness_start_date),
+                          is_set: !!(addBhpFields.shock_absorber || addBhpFields.srd_device),
+                          has_shock_absorber: !!addBhpFields.shock_absorber,
+                          has_srd: !!addBhpFields.srd_device,
                         };
-                        const res = await api.post('/api/tools', payload);
-                        const created = Array.isArray(res?.data) ? (res.data[0] || null) : (res?.data || res || null);
-                        if (!created) throw new Error('Błąd tworzenia narzędzia');
-                        try { showSnackbar('Dodano narzędzie', { type: 'success' }); } catch {}
-                        setTool(created);
+                        const res = await api.post('/api/bhp', payload);
+                        const created = Array.isArray(res?.data) ? res.data[0] : (res?.data || res);
+                        if (!created) throw new Error('Błąd dodawania BHP');
+                        try { showSnackbar('Dodano sprzęt BHP', { type: 'success' }); } catch {}
                         setAddVisible(false);
-                      } else {
-                    const payload = {
-                      ...addBhpFields,
-                      production_date: normalizeDate(addBhpFields.production_date),
-                      inspection_date: normalizeDate(addBhpFields.inspection_date),
-                      harness_start_date: normalizeDate(addBhpFields.harness_start_date),
-                      is_set: !!(addBhpFields.shock_absorber || addBhpFields.srd_device),
-                      has_shock_absorber: !!addBhpFields.shock_absorber,
-                      has_srd: !!addBhpFields.srd_device,
-                    };
-                    const res = await api.post('/api/bhp', payload);
-                    const created = Array.isArray(res?.data) ? res.data[0] : (res?.data || res);
-                    if (!created) throw new Error('Błąd dodawania BHP');
-                    try { showSnackbar('Dodano sprzęt BHP', { type: 'success' }); } catch {}
-                    setAddVisible(false);
-                  }
-                } catch (e) {
-                  setAddError(e?.message || 'Nie udało się zapisać');
-                } finally {
-                  setAddSaving(false);
-                }
-              }} disabled={addSaving} style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 10, backgroundColor: colors.primary || '#4f46e5', opacity: pressed ? 0.9 : 1, alignItems: 'center', justifyContent: 'center' }]}>
-                {addSaving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '600' }}>Zapisz</Text>}
-              </Pressable>
+                      }
+                    } catch (e) {
+                      setAddError(e?.message || 'Nie udało się zapisać');
+                    } finally {
+                      setAddSaving(false);
+                    }
+                  }}
+                  disabled={addSaving}
+                  loading={addSaving}
+                  variant="primary"
+                />
+              </View>
             </View>
             </View>
           </TouchableWithoutFeedback>
@@ -1107,9 +1109,7 @@ export default function ScanScreen() {
                     <Text style={{ color: '#555' }}>Ilość: {itm.quantity || 1}</Text>
                   </View>
                   {itm.tool_code ? (
-                    <Pressable onPress={() => preAddByCode(itm.tool_code, itm.employee_id, itm.employee_name)} style={({ pressed }) => ({ backgroundColor: '#4f46e5', opacity: pressed ? 0.9 : 1, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 })}>
-                      <Text style={{ color: '#fff', fontWeight: '600' }}>Szybki zwrot</Text>
-                    </Pressable>
+                    <ThemedButton onPress={() => preAddByCode(itm.tool_code, itm.employee_id, itm.employee_name)} title="Szybki zwrot" variant="primary" style={{ height: 36, paddingVertical: 0, paddingHorizontal: 12, minWidth: 100 }} textStyle={{ fontSize: 13 }} />
                   ) : null}
                 </View>
               ))
