@@ -2,9 +2,9 @@
   "expo": {
     "name": "Narzędziownia",
     "slug": "mobilna",
-    "version": "1.5.5",
+    "version": "1.5.6",
     "extra": {
-      "apiBaseUrl": "https://192.168.10.97:3000",
+      "apiBaseUrl": "http://192.168.10.97:3000",
       "EXPO_PUBLIC_DISABLE_HISTORY_FETCH": "false",
       "eas": {
         "projectId": "2b0d8aaa-dada-4b64-a737-03f7c55b9012"
