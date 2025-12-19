@@ -87,10 +87,6 @@ Aplikacja mobilna (React Native + Expo) do obsługi systemu Narzędziowni: logow
 - `screens/` – ekrany aplikacji (m.in. `Login`, `Dashboard`, `Tools`, `Employees`,
   `ScanScreen`, `UserSettings`)
 
-## Backend
-- Repozytorium backendu jest poza tym projektem lub ignorowane w tym repo.
-- W środowisku lokalnym serwer działa zwykle na `PORT=3000`.
-
 ## Troubleshooting (LAN)
 - Sprawdź IP komputera (`ipconfig`) i upewnij się, że urządzenie mobilne
   jest w tej samej sieci.
@@ -101,5 +97,7 @@ Aplikacja mobilna (React Native + Expo) do obsługi systemu Narzędziowni: logow
 ## Licencja
 
 Projekt jest licencjonowany na zasadach GPL-3.0.
+
 Copyright (C) 2025 RexEtImperator. All rights reserved.
-Szczegóły licencji znajdziesz w pliku [license.md](license.md).
+
+Szczegóły licencji znajdziesz w pliku [LICENSE](LICENSE).

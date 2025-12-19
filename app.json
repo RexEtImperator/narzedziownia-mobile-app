@@ -2,6 +2,7 @@
   "expo": {
     "name": "Narzędziownia",
     "slug": "mobilna",
+    "scheme": "narzedziownia",
     "version": "1.5.7",
     "extra": {
       "apiBaseUrl": "http://192.168.10.97:3000",
