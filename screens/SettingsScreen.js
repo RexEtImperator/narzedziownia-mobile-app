@@ -5,7 +5,6 @@ import api from '../lib/api';
 import { useTheme } from '../lib/theme';
 import ThemedButton from '../components/ThemedButton';
 import { showSnackbar, subscribe } from '../lib/snackbar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hasPermission } from '../lib/utils';
 import { PERMISSIONS } from '../lib/constants';
 
@@ -22,9 +21,13 @@ const LANG_OPTIONS = [
   { label: 'Deutsch', value: 'de' }
 ];
 
+import { usePermissions } from '../lib/PermissionsContext';
+
 export default function SettingsScreen() {
   const navigation = useNavigation();
   const { isDark, toggleDark, colors } = useTheme();
+  const { currentUser, ready: permsReady, hasPermission: hasPerm } = usePermissions();
+  const canViewSettings = hasPerm(PERMISSIONS.SYSTEM_SETTINGS) || hasPerm(PERMISSIONS.ADMIN); // Check for system settings permission
   const [loading, setLoading] = useState(true);
   const [savingGeneral, setSavingGeneral] = useState(false);
   const [general, setGeneral] = useState({
@@ -38,6 +41,10 @@ export default function SettingsScreen() {
   });
   const [emailCfg, setEmailCfg] = useState({ host: '', port: 587, secure: false, user: '', pass: '', from: 'no-reply@example.com' });
   const [savingEmail, setSavingEmail] = useState(false);
+
+  // Baza danych
+  const [dbConfig, setDbConfig] = useState({ dbSource: 'local', supabaseUrl: '', supabaseKey: '' });
+  const [savingDb, setSavingDb] = useState(false);
 
   // Serwer — zdrowie i restart
   const [backendApiHealth, setBackendApiHealth] = useState(null);
@@ -95,11 +102,6 @@ export default function SettingsScreen() {
     const pad = (x) => String(x).padStart(2, '0');
     return `${days}:${pad(hours)}:${pad(minutes)}:${pad(secs)}`;
   };
-
-  // Permission-related state
-  const [currentUser, setCurrentUser] = useState(null);
-  const [canViewSettings, setCanViewSettings] = useState(false);
-  const [permsReady, setPermsReady] = useState(false);
 
   // Sekcje i przewijanie do nich
   const scrollRef = useRef(null);
@@ -250,18 +252,6 @@ export default function SettingsScreen() {
     }
   };
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const raw = await AsyncStorage.getItem('@current_user');
-        const user = raw ? JSON.parse(raw) : null;
-        setCurrentUser(user);
-        setCanViewSettings(hasPermission(user, PERMISSIONS.SYSTEM_SETTINGS));
-      } catch {}
-      setPermsReady(true);
-    })();
-  }, []);
-
   const load = async () => {
     try {
       setLoading(true);
@@ -283,7 +273,6 @@ export default function SettingsScreen() {
         }));
       } catch (e) { /* brak endpointu lub błąd – użyj domyślnych */ }
 
-
       // Pobierz konfigurację e-mail (SMTP)
       try {
         const e = await api.get('/api/config/email');
@@ -296,13 +285,27 @@ export default function SettingsScreen() {
           from: e?.from ?? prev.from,
         }));
       } catch (e2) { /* opcjonalne */ }
+
+      // Pobierz konfigurację bazy danych
+      try {
+        const db = await api.get('/api/config/database');
+        setDbConfig(prev => ({
+            dbSource: db?.dbSource ?? prev.dbSource,
+            supabaseUrl: db?.supabaseUrl ?? prev.supabaseUrl,
+            supabaseKey: db?.supabaseKey ?? prev.supabaseKey,
+        }));
+      } catch (e) { /* opcjonalne */ }
   
       // Powiadomienia — sekcja nieużywana; Funkcje — obsługa w dedykowanym ekranie
     } finally {
       setLoading(false);
     }
   };
-  useEffect(() => { if (!permsReady) return; load(); }, [permsReady, canViewSettings]);
+
+  useEffect(() => {
+    if (!permsReady) return;
+    load();
+  }, [permsReady, canViewSettings]);
 
   // Powiadomienia — ładowanie danych zależnie od aktywnej zakładki
   useEffect(() => {
@@ -357,6 +360,22 @@ export default function SettingsScreen() {
       showSnackbar(e?.message || 'Nie udało się zapisać ustawień e-mail', { type: 'error' });
     } finally {
       setSavingEmail(false);
+    }
+  };
+
+  const saveDatabase = async () => {
+    if (!canViewSettings) {
+      showSnackbar('Brak uprawnień do zapisywania ustawień', { type: 'error' });
+      return;
+    }
+    try {
+      setSavingDb(true);
+      await api.put('/api/config/database', dbConfig);
+      showSnackbar('Ustawienia bazy danych zapisane.', { type: 'success' });
+    } catch (e) {
+      showSnackbar(e?.message || 'Nie udało się zapisać ustawień bazy danych', { type: 'error' });
+    } finally {
+      setSavingDb(false);
     }
   };
 
@@ -424,6 +443,9 @@ export default function SettingsScreen() {
           </Pressable>
           <Pressable style={[styles.navItem, { borderBottomColor: colors.border }]} onPress={() => navigation.navigate('💾Kopia zapasowa')}>
             <Text style={[styles.navItemText, { color: colors.text }]}>💾 Kopia zapasowa</Text>
+          </Pressable>
+          <Pressable style={[styles.navItem, { borderBottomColor: colors.border }]} onPress={() => scrollTo('database')}>
+            <Text style={[styles.navItemText, { color: colors.text }]}>🗄️ Baza danych</Text>
           </Pressable>
           {hasPermission(currentUser, PERMISSIONS.ADMIN) && (
             <Pressable style={[styles.navItem, { borderBottomColor: colors.border }]} onPress={() => scrollTo('server')}>
@@ -924,6 +946,71 @@ export default function SettingsScreen() {
         )}
       </View>
 
+      {/* Baza danych */}
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]} onLayout={registerSection('database')}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Baza danych</Text>
+        <View style={{ gap: 12 }}>
+            <View>
+                <Text style={[styles.label, { color: colors.muted }]}>Źródło danych</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    <Pressable
+                        style={[
+                            styles.optionChip,
+                            { backgroundColor: colors.card, borderColor: colors.border },
+                            dbConfig.dbSource === 'local' && [{ borderColor: colors.primary }, { backgroundColor: isDark ? '#1f2937' : '#eef2ff' }],
+                        ]}
+                        onPress={() => setDbConfig({ ...dbConfig, dbSource: 'local' })}
+                    >
+                        <Text style={[styles.optionChipText, { color: colors.text }, dbConfig.dbSource === 'local' && { color: colors.primary, fontWeight: '600' }]}>Lokalna (SQLite)</Text>
+                    </Pressable>
+                    <Pressable
+                        style={[
+                            styles.optionChip,
+                            { backgroundColor: colors.card, borderColor: colors.border },
+                            dbConfig.dbSource === 'supabase' && [{ borderColor: colors.primary }, { backgroundColor: isDark ? '#1f2937' : '#eef2ff' }],
+                        ]}
+                        onPress={() => setDbConfig({ ...dbConfig, dbSource: 'supabase' })}
+                    >
+                        <Text style={[styles.optionChipText, { color: colors.text }, dbConfig.dbSource === 'supabase' && { color: colors.primary, fontWeight: '600' }]}>Supabase (Chmura)</Text>
+                    </Pressable>
+                </View>
+                <Text style={{ fontSize: 12, color: colors.muted, marginTop: 4 }}>
+                    {dbConfig.dbSource === 'local' ? 'Dane są przechowywane w lokalnym pliku SQLite.' : 'Dane są pobierane z chmury Supabase.'}
+                </Text>
+            </View>
+
+        {dbConfig.dbSource === 'supabase' && (
+            <>
+                <View>
+                    <Text style={[styles.label, { color: colors.muted }]}>Supabase URL</Text>
+                    <TextInput
+                        style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
+                        value={dbConfig.supabaseUrl}
+                        onChangeText={(v) => setDbConfig({ ...dbConfig, supabaseUrl: v })}
+                        placeholder="https://your-project.supabase.co"
+                        placeholderTextColor={colors.muted}
+                    />
+                </View>
+                <View>
+                    <Text style={[styles.label, { color: colors.muted }]}>Supabase Key</Text>
+                    <TextInput
+                        style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
+                        value={dbConfig.supabaseKey}
+                        onChangeText={(v) => setDbConfig({ ...dbConfig, supabaseKey: v })}
+                        placeholder="public-anon-key"
+                        placeholderTextColor={colors.muted}
+                        secureTextEntry
+                    />
+                </View>
+            </>
+        )}
+
+        <View>
+            <ThemedButton title={savingDb ? "Zapisywanie..." : "Zapisz ustawienia bazy"} onPress={saveDatabase} disabled={savingDb} />
+        </View>
+        </View>
+      </View>
+
       {/* Serwer (tylko administrator) */}
       {hasPermission(currentUser, PERMISSIONS.ADMIN) && (
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]} onLayout={registerSection('server')}>
@@ -1013,4 +1100,3 @@ navItemText:{fontSize:16,color:'#0f172a',},
 loadingContainer:{flex:1,alignItems:'center',justifyContent:'center',backgroundColor:'#f8fafc',},
 loadingText:{marginTop:8,color:'#475569',}
 });
-// StyleSheet usunięty — ekrany korzystają z klas Nativewind/Tailwind

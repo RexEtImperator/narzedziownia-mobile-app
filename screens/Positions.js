@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, Pressable, Modal, TextInput, ActivityIndicator } from 'react-native';
 import api from '../lib/api';
 import { useTheme } from '../lib/theme';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { hasPermission } from '../lib/utils';
+import { usePermissions } from '../lib/PermissionsContext';
 
 export default function PositionsScreen() {
   const { colors } = useTheme();
@@ -13,10 +12,11 @@ export default function PositionsScreen() {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [currentUser, setCurrentUser] = useState(null);
-  const [canViewPositions, setCanViewPositions] = useState(false);
-  const [canManagePositions, setCanManagePositions] = useState(false);
-  const [permsReady, setPermsReady] = useState(false);
+  
+  // Uprawnienia z kontekstu
+  const { currentUser, hasPermission, ready: permsReady } = usePermissions();
+  const canManagePositions = hasPermission('manage_positions');
+  const canViewPositions = canManagePositions || hasPermission('view_admin') || hasPermission('system_settings');
 
   const [showModal, setShowModal] = useState(false);
   const [editingPosition, setEditingPosition] = useState(null);
@@ -32,22 +32,7 @@ export default function PositionsScreen() {
 
   useEffect(() => {
     (async () => {
-      try { await api.init(); } catch {}
-      try {
-        const raw = await AsyncStorage.getItem('@current_user');
-        const me = raw ? JSON.parse(raw) : null;
-        setCurrentUser(me);
-        const canManage = hasPermission(me, 'manage_positions');
-        const canView = canManage || hasPermission(me, 'view_admin') || hasPermission(me, 'system_settings');
-        setCanManagePositions(canManage);
-        setCanViewPositions(!!canView);
-      } catch {
-        setCurrentUser(null);
-        setCanManagePositions(false);
-        setCanViewPositions(false);
-      } finally {
-        setPermsReady(true);
-      }
+       try { await api.init(); } catch {}
     })();
   }, []);
 

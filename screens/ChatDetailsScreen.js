@@ -6,7 +6,8 @@ import api from '../lib/api';
 import { useTheme } from '../lib/theme';
 import { showSnackbar } from '../lib/snackbar';
 import { formatDateTime } from '../lib/utils';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { usePermissions } from '../lib/PermissionsContext';
+import { getStorageItem, KEYS } from '../lib/storage';
 
 export default function ChatDetailsScreen() {
   const { colors } = useTheme();
@@ -18,7 +19,7 @@ export default function ChatDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [inputText, setInputText] = useState('');
-  const [currentUser, setCurrentUser] = useState(null);
+  const { currentUser } = usePermissions();
   
   const [replyingTo, setReplyingTo] = useState(null);
   const [editingMessage, setEditingMessage] = useState(null);
@@ -33,31 +34,6 @@ export default function ChatDetailsScreen() {
       headerShown: false, // Hide default header to use custom one
     });
   }, [navigation]);
-
-  useEffect(() => {
-    // Get current user info (id) for determining self messages
-    const fetchUser = async () => {
-        try {
-            // Try AsyncStorage first for speed
-            const saved = await AsyncStorage.getItem('@current_user');
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                if (parsed && parsed.id) {
-                    setCurrentUser(parsed);
-                }
-            }
-            // Verify with API
-            const user = await api.get('/api/auth/me');
-            if (user && user.id) {
-                setCurrentUser(user);
-                await AsyncStorage.setItem('@current_user', JSON.stringify(user));
-            }
-        } catch (e) {
-            console.log('Error fetching user', e);
-        }
-    };
-    fetchUser();
-  }, []);
 
   const fetchMessages = async () => {
     try {
@@ -97,7 +73,7 @@ export default function ChatDetailsScreen() {
       if (!conversationId) return;
       
       // Ensure token is available
-      const token = await AsyncStorage.getItem('token');
+      const token = await getStorageItem(KEYS.TOKEN);
       if (!token) return;
 
       const baseURL = api.baseURL || 'http://localhost:3000'; // Fallback

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, Button, StyleSheet, Pressable, Switch, Platform, ScrollView, Image, TextInput } from 'react-native';
 import api from '../lib/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getStorageItem, setStorageItem, removeStorageItem, KEYS } from '../lib/storage';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import { useTheme } from '../lib/theme';
 import { initNotifications, sendImmediate, saveSettings, getSettings, rescheduleFromSettings, disableAllNotifications, clearAcknowledgements } from '../lib/notifications';
@@ -10,6 +10,7 @@ import * as SecureStore from 'expo-secure-store';
 import { showSnackbar } from '../lib/snackbar';
 import { Ionicons } from '@expo/vector-icons';
 import { isAdmin } from '../lib/utils';
+import { usePermissions } from '../lib/PermissionsContext';
 
 // Helper: Base64 decode for JWT payload (polyfill-like)
 const b64Decode = (input) => {
@@ -49,7 +50,6 @@ export default function UserSettingsScreen() {
   const [bioAvailable, setBioAvailable] = useState(false);
   const [bioEnrolled, setBioEnrolled] = useState(false);
   const [bioEnabled, setBioEnabled] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
   const [pushEnabled, setPushEnabled] = useState(false);
   // Session timer
   const [sessionLeft, setSessionLeft] = useState(null);
@@ -64,6 +64,9 @@ export default function UserSettingsScreen() {
   const [empPhoneError, setEmpPhoneError] = useState('');
   const [empEmailError, setEmpEmailError] = useState('');
   const navigation = useNavigation();
+
+  // Permissions Context
+  const { currentUser, refreshPermissions } = usePermissions();
 
   const styles = StyleSheet.create({
     wrapper: { flex: 1, backgroundColor: colors.bg, padding: 16 },
@@ -88,15 +91,42 @@ export default function UserSettingsScreen() {
 
   useEffect(() => {
     const check = async () => {
-      let userMe = null;
-      const token = await AsyncStorage.getItem('token');
+      const token = await getStorageItem(KEYS.TOKEN);
       setHasToken(!!token);
       setBaseUrl(api.baseURL || '');
+      
       try {
-        const raw = await AsyncStorage.getItem('@current_user');
-        userMe = raw ? JSON.parse(raw) : null;
-        setCurrentUser(userMe);
+        const s = await getSettings();
+        setReviewsEnabled(!!s.reviewsEnabled);
+        setExpiredEnabled(!!s.expiredEnabled);
       } catch {}
+      // Biometria: sprawdź sprzęt, status i przełącznik
+      try {
+        const enabled = await getStorageItem(KEYS.BIO_ENABLED);
+        setBioEnabled(enabled === '1');
+        if (Platform.OS !== 'web') {
+          const hasHw = await LocalAuthentication.hasHardwareAsync();
+          const enrolled = hasHw ? await LocalAuthentication.isEnrolledAsync() : false;
+          setBioAvailable(!!hasHw);
+          setBioEnrolled(!!enrolled);
+        } else {
+          setBioAvailable(false);
+          setBioEnrolled(false);
+        }
+      } catch {}
+      // Preferencje: push
+      try {
+        const p = await getStorageItem(KEYS.PUSH_ENABLED);
+        setPushEnabled(p === '1');
+      } catch {}
+    };
+    check();
+  }, []);
+
+  // Effect to resolve employee when currentUser changes
+  useEffect(() => {
+    const resolveEmployee = async () => {
+      const userMe = currentUser;
       // Pobierz pracownika z bazy i dopasuj do aktualnego użytkownika
       try {
         setEmpLoading(true);
@@ -138,19 +168,7 @@ export default function UserSettingsScreen() {
           || (ubr ? items.find(e => String(e?.brand_number || '').trim() === ubr) : null)
           || null
         );
-        try {
-          console.log('[UserSettings] login user id:', uid);
-          console.log('[UserSettings] resolved employee_id from current_user:', eid);
-          console.log('[UserSettings] employees count:', Array.isArray(items) ? items.length : 0);
-          console.log('[UserSettings] matched employee id:', adminLike ? 0 : (found?.id ?? found?.employee_id ?? null));
-          if (found) {
-            // celowo nie porównujemy z userMe.id
-            if (eid) {
-              const eqEid = String(found?.id ?? found?.employee_id) === String(eid);
-              console.log('[UserSettings] match by employee_id:', eqEid);
-            }
-          }
-        } catch {}
+        
         if (found) {
           setEmployee(found);
           setEmpPhone(String(found?.phone || ''));
@@ -165,33 +183,14 @@ export default function UserSettingsScreen() {
       } finally {
         setEmpLoading(false);
       }
-      try {
-        const s = await getSettings();
-        setReviewsEnabled(!!s.reviewsEnabled);
-        setExpiredEnabled(!!s.expiredEnabled);
-      } catch {}
-      // Biometria: sprawdź sprzęt, status i przełącznik
-      try {
-        const enabled = await AsyncStorage.getItem('@bio_enabled_v1');
-        setBioEnabled(enabled === '1');
-        if (Platform.OS !== 'web') {
-          const hasHw = await LocalAuthentication.hasHardwareAsync();
-          const enrolled = hasHw ? await LocalAuthentication.isEnrolledAsync() : false;
-          setBioAvailable(!!hasHw);
-          setBioEnrolled(!!enrolled);
-        } else {
-          setBioAvailable(false);
-          setBioEnrolled(false);
-        }
-      } catch {}
-      // Preferencje: push
-      try {
-        const p = await AsyncStorage.getItem('@pref_push_enabled_v1');
-        setPushEnabled(p === '1');
-      } catch {}
     };
-    check();
-  }, []);
+    
+    if (currentUser) {
+      resolveEmployee();
+    } else {
+        setEmployee(null);
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     let timer = null;
@@ -230,10 +229,18 @@ export default function UserSettingsScreen() {
   const logout = async () => {
     // Wyczyść token w kliencie API i w pamięci trwałej
     await api.setToken(null);
-    await AsyncStorage.removeItem('token');
+    await removeStorageItem(KEYS.TOKEN);
+    await removeStorageItem(KEYS.CURRENT_USER);
+    await removeStorageItem(KEYS.ROLE_PERMISSIONS);
+    
     // Zapisz znacznik wylogowania, aby blokować auto-odświeżanie sesji
-    try { await AsyncStorage.setItem('@explicit_logout_v1', '1'); } catch {}
+    try { await setStorageItem(KEYS.EXPLICIT_LOGOUT, '1'); } catch {}
+    
     setHasToken(false);
+    
+    // Refresh context to reflect logout
+    await refreshPermissions();
+
     // Nie resetujemy ręcznie nawigacji — App.js przełączy na ekran logowania po zmianie tokena
     try {
       // Opcjonalnie przejdź do ekranu logowania, jeśli aktualny navigator to root
@@ -288,7 +295,7 @@ export default function UserSettingsScreen() {
       if (Platform.OS === 'web') {
         alert('Biometria nie jest dostępna w wersji web.');
         setBioEnabled(false);
-        await AsyncStorage.setItem('@bio_enabled_v1', '0');
+        await setStorageItem(KEYS.BIO_ENABLED, '0');
         return;
       }
       if (value) {
@@ -299,7 +306,7 @@ export default function UserSettingsScreen() {
           setBioAvailable(!!hasHw);
           setBioEnrolled(!!enrolled);
           setBioEnabled(false);
-          await AsyncStorage.setItem('@bio_enabled_v1', '0');
+          await setStorageItem(KEYS.BIO_ENABLED, '0');
           return;
         }
         const savedUser = await SecureStore.getItemAsync('auth_username');
@@ -307,14 +314,14 @@ export default function UserSettingsScreen() {
         if (!savedUser || !savedPass) {
           alert('Najpierw zaloguj się tradycyjnie, aby zapisać dane do logowania biometrycznego.');
           setBioEnabled(false);
-          await AsyncStorage.setItem('@bio_enabled_v1', '0');
+          await setStorageItem(KEYS.BIO_ENABLED, '0');
           return;
         }
-        await AsyncStorage.setItem('@bio_enabled_v1', '1');
+        await setStorageItem(KEYS.BIO_ENABLED, '1');
         setBioEnabled(true);
         alert('Biometria włączona. Przy kolejnym logowaniu możesz użyć odcisku palca.');
       } else {
-        await AsyncStorage.setItem('@bio_enabled_v1', '0');
+        await setStorageItem(KEYS.BIO_ENABLED, '0');
         setBioEnabled(false);
         alert('Biometria wyłączona.');
       }
@@ -325,7 +332,7 @@ export default function UserSettingsScreen() {
     try {
       await SecureStore.deleteItemAsync('auth_username');
       await SecureStore.deleteItemAsync('auth_password');
-      await AsyncStorage.removeItem('@bio_enabled_v1');
+      await removeStorageItem(KEYS.BIO_ENABLED);
       setBioEnabled(false);
       alert('Usunięto zapisane dane logowania biometrycznego.');
     } catch {
@@ -334,8 +341,7 @@ export default function UserSettingsScreen() {
   };
 
   const setDarkMode = async (value) => {
-    // toggleDark przełącza tryb — ignorujemy wartość i przełączamy
-    try { await toggleDark(); } catch { toggleDark(); }
+    try { await toggleDark(value); } catch { toggleDark(value); }
   };
 
   const setPushPref = async (value) => {
@@ -345,16 +351,16 @@ export default function UserSettingsScreen() {
         if (!granted) {
           alert('Brak zgody na powiadomienia push. Zezwól, aby włączyć.');
           setPushEnabled(false);
-          await AsyncStorage.setItem('@pref_push_enabled_v1', '0');
+          await setStorageItem(KEYS.PUSH_ENABLED, '0');
           return;
         }
         setNotifReady(true);
       }
       setPushEnabled(!!value);
-      await AsyncStorage.setItem('@pref_push_enabled_v1', value ? '1' : '0');
+      await setStorageItem(KEYS.PUSH_ENABLED, value ? '1' : '0');
     } catch {
       setPushEnabled(false);
-      try { await AsyncStorage.setItem('@pref_push_enabled_v1', '0'); } catch {}
+      try { await setStorageItem(KEYS.PUSH_ENABLED, '0'); } catch {}
     }
   };
 
@@ -454,21 +460,25 @@ export default function UserSettingsScreen() {
               style={({ pressed }) => ({
                 flexDirection: 'row',
                 alignItems: 'center',
+                justifyContent: 'center',
                 backgroundColor: colors.card,
-                paddingHorizontal: 10,
+                paddingHorizontal: 12,
                 height: 40,
                 borderRadius: 20,
                 borderWidth: 1,
                 borderColor: colors.border,
-                opacity: (pressed || isRefreshingSession) ? 0.7 : 1
+                opacity: (pressed || isRefreshingSession) ? 0.7 : 1,
+                minWidth: 110
               })}
             >
-              <Ionicons name={isRefreshingSession ? "refresh" : "time-outline"} size={18} color={colors.text} style={{ marginRight: 6 }} />
-              <Text style={{ fontSize: 13, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', color: colors.text, fontWeight: '600' }}>
-                {isRefreshingSession ? '...' : 
-                  `${String(Math.floor(sessionLeft / 60)).padStart(2,'0')}:${String(sessionLeft % 60).padStart(2,'0')}`
-                }
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name={isRefreshingSession ? "refresh" : "time-outline"} size={18} color={colors.text} style={{ marginRight: 6 }} />
+                <Text style={{ fontSize: 14, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', color: colors.text, fontWeight: '600', minWidth: 48, textAlign: 'center', includeFontPadding: false, textAlignVertical: 'center' }}>
+                  {isRefreshingSession ? '...' : 
+                    `${String(Math.floor(sessionLeft / 60)).padStart(2,'0')}:${String(sessionLeft % 60).padStart(2,'0')}`
+                  }
+                </Text>
+              </View>
             </Pressable>
           )}
           <Pressable accessibilityLabel="Wyloguj" onPress={logout} style={({ pressed }) => [styles.bellBtn, { opacity: pressed ? 0.85 : 1 }]}>

@@ -507,22 +507,24 @@ export default function AddToolModal({ visible, onClose, onCreated }) {
 
             <View style={styles.row}>
               <Text style={[styles.label, { color: colors.muted }]}>SKU</Text>
-              <TextInput
-                style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
-                value={fields.sku}
-                onChangeText={(v) => { setSkuDirty(true); setField('sku', v); }}
-                placeholder="np. D-1234"
-                placeholderTextColor={colors.muted}
-              />
-              {!!skuConflict && <Text style={{ color: colors.warn || '#eab308', marginTop: 4 }}>{skuConflict}</Text>}
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <TextInput
+                    style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]}
+                    value={fields.sku}
+                    onChangeText={(v) => { setSkuDirty(true); setField('sku', v); }}
+                    placeholder="np. D-1234"
+                    placeholderTextColor={colors.muted}
+                  />
+                </View>
                 <ThemedButton
-                  title="Generuj SKU"
                   onPress={generateSkuWithPrefix}
                   variant="secondary"
-                  style={{ height: 36, paddingVertical: 0, marginVertical: 0 }}
+                  style={{ width: 42, height: 40, paddingHorizontal: 0, justifyContent: 'center', alignItems: 'center', marginVertical: 0 }}
+                  icon={<Ionicons name="cog-outline" size={22} color={colors.text} />}
                 />
               </View>
+              {!!skuConflict && <Text style={{ color: colors.warn || '#eab308', marginTop: 4 }}>{skuConflict}</Text>}
             </View>
 
             <View style={styles.row}>
@@ -539,68 +541,72 @@ export default function AddToolModal({ visible, onClose, onCreated }) {
 
             <View style={styles.row}>
               <Text style={[styles.label, { color: colors.muted }]}>Nr seryjny</Text>
-              <TextInput
-                style={[styles.input, { borderColor: colors.border, backgroundColor: fields.serial_unreadable ? colors.muted + '20' : colors.card, color: colors.text }]}
-                value={fields.serial_number}
-                editable={!fields.serial_unreadable}
-                onChangeText={(v) => setField('serial_number', v)}
-                placeholder="np. SN-987654"
-                placeholderTextColor={colors.muted}
-              />
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                <Pressable onPress={() => setField('serial_unreadable', !fields.serial_unreadable)} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.85 : 1 }]}> 
-                  <Ionicons name={fields.serial_unreadable ? 'checkbox' : 'square-outline'} size={18} color={colors.text} />
-                  <Text style={{ color: colors.text }}>Numer nieczytelny</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <TextInput
+                    style={[styles.input, { borderColor: colors.border, backgroundColor: fields.serial_unreadable ? colors.muted + '20' : colors.card, color: colors.text }]}
+                    value={fields.serial_number}
+                    editable={!fields.serial_unreadable}
+                    onChangeText={(v) => setField('serial_number', v)}
+                    placeholder="np. SN-987654"
+                    placeholderTextColor={colors.muted}
+                  />
+                </View>
+                <Pressable onPress={() => setField('serial_unreadable', !fields.serial_unreadable)} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 8, height: 40, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, opacity: pressed ? 0.85 : 1 }]}> 
+                  <Ionicons name={fields.serial_unreadable ? 'checkbox' : 'square-outline'} size={20} color={colors.text} />
+                  <Text style={{ color: colors.text, fontSize: 13 }}>Numer nieczytelny</Text>
                 </Pressable>
               </View>
             </View>
 
-            <View style={styles.row}>
+            <View style={[styles.row, { zIndex: categoryOpen ? 1000 : 1 }]}>
               <Text style={[styles.label, { color: colors.muted }]}>Kategoria</Text>
-              <Pressable
-                onPress={() => setCategoryOpen((v) => !v)}
-                style={({ pressed }) => [
-                  styles.input,
-                  { borderColor: colors.border, backgroundColor: colors.card, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-                  pressed && { opacity: 0.9 }
-                ]}
-              >
-                <Text style={{ color: fields.category ? colors.text : colors.muted }}>
-                  {fields.category || (categoriesLoading ? 'Ładowanie kategorii…' : (categoryOptions.length ? 'Wybierz kategorię' : 'Brak kategorii'))}
-                </Text>
-                <Ionicons name={categoryOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} />
-              </Pressable>
-              {categoryOpen && (
-                <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, marginTop: 6, backgroundColor: colors.card, maxHeight: 200 }}>
-                  {categoriesLoading ? (
-                    <View style={{ padding: 10 }}><Text style={{ color: colors.muted }}>Ładowanie kategorii…</Text></View>
-                  ) : (categoryOptions && categoryOptions.length > 0) ? (
-                    <ScrollView style={{ maxHeight: 200 }}>
-                      {categoryOptions.map((opt) => (
-                        <ThemedButton
-                          key={String(opt)}
-                          title={opt}
-                          onPress={() => { setField('category', opt); setCategoryOpen(false); }}
-                          variant="secondary"
-                          style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 12, height: 40, borderWidth: 0, marginVertical: 0 }}
-                          textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
-                        />
-                      ))}
-                    </ScrollView>
-                  ) : (
-                    <View style={{ padding: 10 }}><Text style={{ color: colors.muted }}>Brak kategorii</Text></View>
-                  )}
-                </View>
-              )}
+              <View>
+                <Pressable
+                  onPress={() => setCategoryOpen((v) => !v)}
+                  style={({ pressed }) => [
+                    styles.input,
+                    { borderColor: colors.border, backgroundColor: colors.card, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+                    pressed && { opacity: 0.9 }
+                  ]}
+                >
+                  <Text style={{ color: fields.category ? colors.text : colors.muted }}>
+                    {fields.category || (categoriesLoading ? 'Ładowanie kategorii…' : (categoryOptions.length ? 'Wybierz kategorię' : 'Brak kategorii'))}
+                  </Text>
+                  <Ionicons name={categoryOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} />
+                </Pressable>
+                {categoryOpen && (
+                  <View style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, borderWidth: 1, borderColor: colors.border, borderRadius: 8, backgroundColor: colors.card, maxHeight: 200, zIndex: 2000, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }}>
+                    {categoriesLoading ? (
+                      <View style={{ padding: 10 }}><Text style={{ color: colors.muted }}>Ładowanie kategorii…</Text></View>
+                    ) : (categoryOptions && categoryOptions.length > 0) ? (
+                      <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled={true}>
+                        {categoryOptions.map((opt) => (
+                          <Pressable
+                            key={String(opt)}
+                            onPress={() => { setField('category', opt); setCategoryOpen(false); }}
+                            style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: pressed ? (colors.overlay || 'rgba(0,0,0,0.05)') : 'transparent' }]}
+                          >
+                            <Text style={{ color: colors.text, flex: 1 }}>{opt}</Text>
+                            {fields.category === opt && <Ionicons name="checkmark-outline" size={18} color={colors.primary || '#007aff'} />}
+                          </Pressable>
+                        ))}
+                      </ScrollView>
+                    ) : (
+                      <View style={{ padding: 10 }}><Text style={{ color: colors.muted }}>Brak kategorii</Text></View>
+                    )}
+                  </View>
+                )}
+              </View>
             </View>
 
             {/* Dane techniczne dla Elektronarzędzi */}
             {String(fields.category || '').trim().toLowerCase() === 'elektronarzędzia' ? (
-              <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card, padding: 10, borderRadius: 8 }]}>
+              <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card || '#fff', padding: 10, borderRadius: 8 }]}>
                 <Text style={{ color: colors.text, fontWeight: '600', marginBottom: 8 }}>Dane techniczne</Text>
                 <View style={{ gap: 10 }}>
                   {/* Producent */}
-                  <View>
+                  <View style={{ zIndex: manufacturerOpen ? 100 : 1 }}>
                     <Text style={[styles.label, { color: colors.muted }]}>Producent</Text>
                     <View>
                       <TextInput
@@ -615,10 +621,10 @@ export default function AddToolModal({ visible, onClose, onCreated }) {
                       {manufacturerOpen && (elSuggestionsLoading ? (
                         <View style={{ padding: 8 }}><Text style={{ color: colors.muted }}>Ładowanie podpowiedzi…</Text></View>
                       ) : (elSuggestions.manufacturer || []).length > 0 ? (
-                        <View style={{ position: 'absolute', top: 44, left: 0, right: 0, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, borderRadius: 8, maxHeight: 160 }}>
-                          <ScrollView style={{ maxHeight: 160 }}>
+                        <View style={{ position: 'absolute', top: 44, left: 0, right: 0, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card || '#fff', borderRadius: 8, maxHeight: 160, zIndex: 200, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }}>
+                          <ScrollView style={{ maxHeight: 160 }} nestedScrollEnabled={true}>
                             {(elSuggestions.manufacturer || []).map(opt => (
-                              <Pressable key={`mf-${String(opt)}`} onPress={() => { setField('manufacturer', String(opt)); setManufacturerOpen(false); }} style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: pressed ? (colors.overlay || '#00000010') : colors.card }]}> 
+                              <Pressable key={`mf-${String(opt)}`} onPress={() => { setField('manufacturer', String(opt)); setManufacturerOpen(false); }} style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: pressed ? (colors.overlay || 'rgba(0,0,0,0.05)') : (colors.card || '#fff') }]}> 
                                 <Text style={{ color: colors.text }}>{String(opt)}</Text>
                               </Pressable>
                             ))}
@@ -629,7 +635,7 @@ export default function AddToolModal({ visible, onClose, onCreated }) {
                   </View>
 
                   {/* Model */}
-                  <View>
+                  <View style={{ zIndex: modelOpen ? 100 : 1 }}>
                     <Text style={[styles.label, { color: colors.muted }]}>Model</Text>
                     <View>
                       <TextInput
@@ -644,10 +650,10 @@ export default function AddToolModal({ visible, onClose, onCreated }) {
                       {modelOpen && (elSuggestionsLoading ? (
                         <View style={{ padding: 8 }}><Text style={{ color: colors.muted }}>Ładowanie podpowiedzi…</Text></View>
                       ) : (elSuggestions.model || []).length > 0 ? (
-                        <View style={{ position: 'absolute', top: 44, left: 0, right: 0, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, borderRadius: 8, maxHeight: 160 }}>
-                          <ScrollView style={{ maxHeight: 160 }}>
+                        <View style={{ position: 'absolute', top: 44, left: 0, right: 0, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card || '#fff', borderRadius: 8, maxHeight: 160, zIndex: 200, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }}>
+                          <ScrollView style={{ maxHeight: 160 }} nestedScrollEnabled={true}>
                             {(elSuggestions.model || []).map(opt => (
-                              <Pressable key={`md-${String(opt)}`} onPress={() => { setField('model', String(opt)); setModelOpen(false); }} style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: pressed ? (colors.overlay || '#00000010') : colors.card }]}> 
+                              <Pressable key={`md-${String(opt)}`} onPress={() => { setField('model', String(opt)); setModelOpen(false); }} style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: pressed ? (colors.overlay || 'rgba(0,0,0,0.05)') : (colors.card || '#fff') }]}> 
                                 <Text style={{ color: colors.text }}>{String(opt)}</Text>
                               </Pressable>
                             ))}
@@ -658,7 +664,7 @@ export default function AddToolModal({ visible, onClose, onCreated }) {
                   </View>
 
                   {/* Rok Produkcji */}
-                  <View>
+                  <View style={{ zIndex: yearOpen ? 100 : 1 }}>
                     <Text style={[styles.label, { color: colors.muted }]}>Rok Produkcji</Text>
                     <View>
                       <TextInput
@@ -677,17 +683,12 @@ export default function AddToolModal({ visible, onClose, onCreated }) {
                       {yearOpen && (elSuggestionsLoading ? (
                         <View style={{ padding: 8 }}><Text style={{ color: colors.muted }}>Ładowanie podpowiedzi…</Text></View>
                       ) : (elSuggestions.production_year || []).length > 0 ? (
-                        <View style={{ position: 'absolute', top: 44, left: 0, right: 0, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, borderRadius: 8, maxHeight: 160 }}>
-                          <ScrollView style={{ maxHeight: 160 }}>
+                        <View style={{ position: 'absolute', top: 44, left: 0, right: 0, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card || '#fff', borderRadius: 8, maxHeight: 160, zIndex: 200, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }}>
+                          <ScrollView style={{ maxHeight: 160 }} nestedScrollEnabled={true}>
                             {(elSuggestions.production_year || []).map(opt => (
-                              <ThemedButton
-                                key={`yr-${String(opt)}`}
-                                title={String(opt)}
-                                onPress={() => { setField('production_year', String(opt)); setYearOpen(false); }}
-                                variant="secondary"
-                                style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 12, height: 40, borderWidth: 0, marginVertical: 0 }}
-                                textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
-                              />
+                              <Pressable key={`yr-${String(opt)}`} onPress={() => { setField('production_year', String(opt)); setYearOpen(false); }} style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: pressed ? (colors.overlay || 'rgba(0,0,0,0.05)') : (colors.card || '#fff') }]}> 
+                                <Text style={{ color: colors.text }}>{String(opt)}</Text>
+                              </Pressable>
                             ))}
                           </ScrollView>
                         </View>

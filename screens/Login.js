@@ -6,10 +6,11 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../lib/theme';
 import ThemedButton from '../components/ThemedButton';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { isAdmin } from '../lib/utils';
+import { KEYS, getStorageItem, setStorageItem, removeStorageItem, setJson } from '../lib/storage';
+import { usePermissions } from '../lib/PermissionsContext';
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('');
@@ -25,6 +26,7 @@ export default function LoginScreen() {
   const [explicitLoggedOut, setExplicitLoggedOut] = useState(false);
   const navigation = useNavigation();
   const { colors, isDark, toggleDark } = useTheme();
+  const { refreshPermissions } = usePermissions();
   const autoPromptedRef = useRef(false);
 
   const styles = StyleSheet.create({
@@ -65,9 +67,9 @@ export default function LoginScreen() {
           setBioAvailable(false);
           setBioEnrolled(false);
         }
-        const enabled = await AsyncStorage.getItem('@bio_enabled_v1');
+        const enabled = await getStorageItem(KEYS.BIO_ENABLED);
         setBioEnabled(enabled === '1');
-        const explicit = await AsyncStorage.getItem('@explicit_logout_v1');
+        const explicit = await getStorageItem(KEYS.EXPLICIT_LOGOUT);
         setExplicitLoggedOut(explicit === '1');
         const savedUser = await SecureStore.getItemAsync('auth_username');
         const savedPass = await SecureStore.getItemAsync('auth_password');
@@ -95,7 +97,7 @@ export default function LoginScreen() {
         // Ustaw token tymczasowo, aby sprawdzić status pracownika
         await api.setToken(res.token || res.accessToken);
         // Usuń znacznik explicite wylogowania, aby zezwolić na auto-odświeżanie sesji
-        try { await AsyncStorage.removeItem('@explicit_logout_v1'); } catch {}
+        try { await removeStorageItem(KEYS.EXPLICIT_LOGOUT); } catch {}
         try {
           const list = await api.get('/api/employees');
           const items = Array.isArray(list) ? list : (Array.isArray(list?.data) ? list.data : (Array.isArray(list?.items) ? list.items : []));
@@ -114,16 +116,19 @@ export default function LoginScreen() {
           const normalizedUser = (String(res?.id || '') === '1' || /admin|administrator/i.test(String(res?.role || res?.role_name || '')))
             ? { ...res, employee_id: 0, employeeId: 0 }
             : res;
-          await AsyncStorage.setItem('@current_user', JSON.stringify(normalizedUser));
+          await setJson(KEYS.CURRENT_USER, normalizedUser);
         } catch {}
         // Pobierz role-permissions z backendu i zapisz/ustaw override
         try {
           const map = await api.get('/api/role-permissions');
           if (map && typeof map === 'object') {
-            try { await AsyncStorage.setItem('@role_permissions_map_v1', JSON.stringify(map)); } catch {}
-            try { const { setRolePermissionsOverride } = await import('../lib/constants'); setRolePermissionsOverride(map); } catch {}
+            try { await setJson(KEYS.ROLE_PERMISSIONS, map); } catch {}
+            try { const { setDynamicRolePermissions } = await import('../lib/constants'); setDynamicRolePermissions(map); } catch {}
           }
         } catch {}
+        // Odśwież uprawnienia w kontekście
+        try { await refreshPermissions(); } catch {}
+        
         // Po pierwszym zalogowaniu zapisz dane dla logowania biometrycznego (jeśli dostępne)
         try {
           if (Platform.OS !== 'web') {
@@ -132,7 +137,7 @@ export default function LoginScreen() {
             if (hasHw && enrolled) {
               await SecureStore.setItemAsync('auth_username', String(username || ''));
               await SecureStore.setItemAsync('auth_password', String(password || ''));
-              await AsyncStorage.setItem('@bio_enabled_v1', '1');
+              await setStorageItem(KEYS.BIO_ENABLED, '1');
               setBioEnabled(true);
               setBioReady(true);
             }
@@ -182,7 +187,7 @@ export default function LoginScreen() {
         // Zapisz token z odpowiedzi biometrycznej
         await api.setToken(res.token || res.accessToken);
         // Usuń znacznik explicite wylogowania, aby zezwolić na auto-odświeżanie sesji
-        try { await AsyncStorage.removeItem('@explicit_logout_v1'); } catch {}
+        try { await removeStorageItem(KEYS.EXPLICIT_LOGOUT); } catch {}
         // Sprawdź status pracownika
         try {
           const list = await api.get('/api/employees');
@@ -200,16 +205,18 @@ export default function LoginScreen() {
           const normalizedUser = (String(res?.id || '') === '1' || /admin|administrator/i.test(String(res?.role || res?.role_name || '')))
             ? { ...res, employee_id: 0, employeeId: 0 }
             : res;
-          await AsyncStorage.setItem('@current_user', JSON.stringify(normalizedUser));
+          await setJson(KEYS.CURRENT_USER, normalizedUser);
         } catch {}
-        // Pobierz role-permissions z backendu i zapisz/ustaw override
+          // Pobierz role-permissions z backendu i zapisz/ustaw override
         try {
           const map = await api.get('/api/role-permissions');
           if (map && typeof map === 'object') {
-            try { await AsyncStorage.setItem('@role_permissions_map_v1', JSON.stringify(map)); } catch {}
-            try { const { setRolePermissionsOverride } = await import('../lib/constants'); setRolePermissionsOverride(map); } catch {}
+            try { await setJson(KEYS.ROLE_PERMISSIONS, map); } catch {}
+            try { const { setDynamicRolePermissions } = await import('../lib/constants'); setDynamicRolePermissions(map); } catch {}
           }
         } catch {}
+        // Odśwież uprawnienia w kontekście
+        try { await refreshPermissions(); } catch {}
       }
     } catch (e) {
       setError(e.message || 'Błąd logowania biometrycznego');

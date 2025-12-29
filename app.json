@@ -3,7 +3,7 @@
     "name": "Narzędziownia",
     "slug": "mobilna",
     "scheme": "narzedziownia",
-    "version": "1.5.7",
+    "version": "1.6.0",
     "extra": {
       "apiBaseUrl": "http://192.168.10.97:3000",
       "EXPO_PUBLIC_DISABLE_HISTORY_FETCH": "false",
@@ -35,16 +35,21 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.POST_NOTIFICATIONS",
-        "android.permission.FOREGROUND_SERVICE"
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.dbrzezinsky.narzedziownia",
-      "usesCleartextTraffic": true
+      "package": "com.dbrzezinsky.narzedziownia"
     },
     "web": {
       "bundler": "metro",
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "expo-dev-client",
       "expo-system-ui",
       "expo-secure-store",
       [
@@ -52,8 +57,22 @@
         {
           "cameraPermission": "Aplikacja potrzebuje dostępu do kamery, aby skanować kody QR i kreskowe."
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
       ]
     ],
-    "owner": "dbrzezinsky"
+    "owner": "dbrzezinsky",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/2b0d8aaa-dada-4b64-a737-03f7c55b9012"
+    }
   }
 }

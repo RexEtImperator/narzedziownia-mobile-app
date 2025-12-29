@@ -6,7 +6,7 @@ import api from '../lib/api';
 import { useTheme } from '../lib/theme';
 import { showSnackbar } from '../lib/snackbar';
 import { formatDateTime } from '../lib/utils';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { usePermissions } from '../lib/PermissionsContext';
 
 export default function ChatScreen() {
   const { colors } = useTheme();
@@ -20,30 +20,10 @@ export default function ChatScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState([]);
   const [creating, setCreating] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
+  const { currentUser } = usePermissions();
 
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
-
-  useEffect(() => {
-    const fetchUser = async () => {
-        try {
-            const saved = await AsyncStorage.getItem('@current_user');
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                if (parsed && parsed.id) setCurrentUser(parsed);
-            }
-            const user = await api.get('/api/auth/me');
-            if (user && user.id) {
-                setCurrentUser(user);
-                await AsyncStorage.setItem('@current_user', JSON.stringify(user));
-            }
-        } catch (e) {
-            console.log('Error fetching user', e);
-        }
-    };
-    fetchUser();
-  }, []);
 
   const fetchConversations = async () => {
     try {

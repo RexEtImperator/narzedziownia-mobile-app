@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable, ScrollView, Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable, ScrollView, Platform, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../lib/api';
@@ -10,8 +9,8 @@ import AddEmployeeModal from './AddEmployeeModal';
 import AddToolModal from './AddToolModal';
 import AddBHPModal from './AddBHPModal';
 import Constants from 'expo-constants';
-import { hasPermission } from '../lib/utils';
-import { PERMISSIONS, setDynamicRolePermissions } from '../lib/constants';
+import { PERMISSIONS } from '../lib/constants';
+import { usePermissions } from '../lib/PermissionsContext';
 
 export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
@@ -34,10 +33,10 @@ export default function DashboardScreen() {
   const [bhpHistoryLoadingMore, setBhpHistoryLoadingMore] = useState(false);
   const [toolHistoryHasMore, setToolHistoryHasMore] = useState(false);
   const [bhpHistoryHasMore, setBhpHistoryHasMore] = useState(false);
-  // Uprawnienia do widoczności sekcji „Szybkie akcje”
-  const [permsReady, setPermsReady] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [canViewQuickActions, setCanViewQuickActions] = useState(false);
+  
+  // Uprawnienia z kontekstu
+  const { currentUser, hasPermission, ready: permsReady } = usePermissions();
+  const canViewQuickActions = hasPermission(PERMISSIONS.VIEW_QUICK_ACTIONS);
 
   // Funkcja ładowania danych dashboardu (wywoływana na starcie i przy powrocie na ekran)
   const loadDashboard = async () => {
@@ -233,31 +232,6 @@ export default function DashboardScreen() {
     }
   };
 
-  // Inicjalizacja uprawnień – widoczność sekcji „Szybkie akcje”
-  useEffect(() => {
-    (async () => {
-      try {
-        const saved = await AsyncStorage.getItem('@current_user');
-        const me = saved ? JSON.parse(saved) : null;
-        setCurrentUser(me);
-        setCanViewQuickActions(hasPermission(me, PERMISSIONS.VIEW_QUICK_ACTIONS));
-        // Opcjonalnie: wczytaj mapę uprawnień ról, jeśli endpoint dostępny
-        try {
-          await api.init();
-          const rolePerms = await api.get('/api/role-permissions');
-          setDynamicRolePermissions(rolePerms || null);
-          // Aktualizacja po dynamicznych uprawnieniach
-          setCanViewQuickActions(hasPermission(me, PERMISSIONS.VIEW_QUICK_ACTIONS));
-        } catch {}
-      } catch {
-        setCurrentUser(null);
-        setCanViewQuickActions(false);
-      } finally {
-        setPermsReady(true);
-      }
-    })();
-  }, []);
-
   useEffect(() => {
     loadDashboard();
     // Odśwież przy ponownym wejściu na ekran
@@ -349,17 +323,14 @@ export default function DashboardScreen() {
             <Text style={[styles.sectionTitle, { color: colors.text }]} className="text-xl font-semibold">Szybkie akcje</Text>
           </View>
           <View style={styles.quickRow} className="flex-row flex-wrap gap-3">
-            <Pressable style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => setAddEmpVisible(true)}>
-              <Text style={[styles.quickTitle, { color: colors.text }]}>Dodaj pracownika</Text>
-              <Text style={[styles.quickDesc, { color: colors.muted }]}>Utwórz nowy profil pracownika</Text>
+            <Pressable style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border, padding: 0, flex: 1, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' }]} onPress={() => setAddEmpVisible(true)}>
+              <Image source={require('../assets/dashboard/employee.png')} style={{ width: '80%', height: '80%', resizeMode: 'contain' }} />
             </Pressable>
-            <Pressable style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => setAddToolVisible(true)}>
-              <Text style={[styles.quickTitle, { color: colors.text }]}>Dodaj narzędzie</Text>
-              <Text style={[styles.quickDesc, { color: colors.muted }]}>Do bazy danych</Text>
+            <Pressable style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border, padding: 0, flex: 1, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' }]} onPress={() => setAddToolVisible(true)}>
+              <Image source={require('../assets/dashboard/tools.png')} style={{ width: '80%', height: '80%', resizeMode: 'contain' }} />
             </Pressable>
-            <Pressable style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => setAddBHPVisible(true)}>
-              <Text style={[styles.quickTitle, { color: colors.text }]}>Dodaj sprzęt BHP</Text>
-              <Text style={[styles.quickDesc, { color: colors.muted }]}>Do bazy danych</Text>
+            <Pressable style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border, padding: 0, flex: 1, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' }]} onPress={() => setAddBHPVisible(true)}>
+              <Image source={require('../assets/dashboard/bhp.png')} style={{ width: '80%', height: '80%', resizeMode: 'contain' }} />
             </Pressable>
           </View>
         </View>

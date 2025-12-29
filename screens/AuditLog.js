@@ -2,8 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { View, Text, TextInput, StyleSheet, Pressable, ActivityIndicator, FlatList, Alert } from 'react-native';
 import api from '../lib/api';
 import { useTheme } from '../lib/theme';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { hasPermission } from '../lib/utils';
+import { usePermissions } from '../lib/PermissionsContext';
 import { PERMISSIONS } from '../lib/constants';
 import { showSnackbar } from '../lib/snackbar';
 
@@ -18,8 +17,9 @@ const ACTION_LABELS = {
 
 export default function AuditLogScreen() {
   const { colors } = useTheme();
-  const [currentUser, setCurrentUser] = useState(null);
-  const [canViewAudit, setCanViewAudit] = useState(false);
+  const { currentUser, hasPermission } = usePermissions();
+  const canViewAudit = hasPermission(PERMISSIONS.VIEW_AUDIT_LOG);
+  
   const [auditLogs, setAuditLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -30,15 +30,6 @@ export default function AuditLogScreen() {
   useEffect(() => {
     (async () => {
       try { await api.init(); } catch {}
-      try {
-        const raw = await AsyncStorage.getItem('@current_user');
-        const me = raw ? JSON.parse(raw) : null;
-        setCurrentUser(me);
-        setCanViewAudit(hasPermission(me, PERMISSIONS.VIEW_AUDIT_LOG));
-      } catch {
-        setCurrentUser(null);
-        setCanViewAudit(false);
-      }
     })();
   }, []);
 
@@ -85,7 +76,7 @@ export default function AuditLogScreen() {
   };
 
   const confirmDeleteLogs = () => {
-    if (!hasPermission(currentUser, PERMISSIONS.ADMIN)) {
+    if (!hasPermission(PERMISSIONS.ADMIN)) {
       showSnackbar('Brak uprawnień do usuwania dziennika');
       return;
     }

@@ -3,6 +3,22 @@
 Wszystkie istotne zmiany w tym projekcie są dokumentowane w tym pliku.
 Projekt stosuje konwencję „Keep a Changelog” i SemVer.
 
+## [1.6.0] — 2025-12-23
+
+### Added
+- Dark Mode: pełne wsparcie dla trybu ciemnego w `ScanScreen` (nagłówek, skaner, karty, listy).
+- ScanScreen: przycisk "X" na karcie narzędzia do szybkiego resetowania skanera.
+- Dashboard: graficzne kafelki (obrazki) dla szybkich akcji (Dodaj pracownika, narzędzie, BHP).
+
+### Changed
+- UI: przeprojektowane zakładki w `NotificationsScreen` (styl "segmented control", pełna szerokość).
+- App: menu administratora używa teraz komponentu `ThemedButton` dla lepszej spójności wizualnej.
+- NativeWind: poprawka inicjalizacji trybu ciemnego (rozwiązanie race condition).
+
+### Fixed
+- ScanScreen: poprawiona widoczność pola wyszukiwania (z-index/elevation) przy otwartym BottomSheet.
+- ScanScreen: usunięte "hardcoded" kolory, zastąpione motywem systemowym.
+
 ## [1.5.0] — 2025-12-03
 
 ### Added

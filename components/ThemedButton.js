@@ -61,7 +61,7 @@ export default function ThemedButton({ title, onPress, loading = false, disabled
       ) : (
         <>
           {icon}
-          <Text style={[styles.text, { color: getTextColor() }, textStyle]}>
+          <Text style={[styles.text, { color: getTextColor(), marginLeft: icon ? 8 : 0 }, textStyle]}>
             {title}
           </Text>
         </>
@@ -79,6 +79,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 16,
     marginVertical: 6,
+    minWidth: 48, // Zapewnia minimalną szerokość dla ikon
   },
   text: {
     fontWeight: '600',

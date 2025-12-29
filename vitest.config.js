@@ -13,7 +13,9 @@ export default defineConfig({
       'lib/**/*.spec.{js,jsx,ts,tsx}',
       'lib/**/*.test.{js,jsx,ts,tsx}',
       'screens/**/*.spec.{js,jsx,ts,tsx}',
-      'screens/**/*.test.{js,jsx,ts,tsx}'
+      'screens/**/*.test.{js,jsx,ts,tsx}',
+      'screens/*.{js,jsx,ts,tsx}',
+      'screens/**/*.{js,jsx,ts,tsx}'
     ],
     exclude: ['**/node_modules/**', 'dist', 'build', 'source-system-zarzadzania-narzedziownia/**']
   },

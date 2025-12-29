@@ -3,8 +3,7 @@ import { View, Text, StyleSheet, Switch, Pressable, Alert, TextInput } from 'rea
 import api from '../lib/api';
 import { useTheme } from '../lib/theme';
 import { showSnackbar } from '../lib/snackbar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { hasPermission } from '../lib/utils';
+import { usePermissions } from '../lib/PermissionsContext';
 
 export default function FeaturesSettings() {
   const { colors } = useTheme();
@@ -25,25 +24,11 @@ export default function FeaturesSettings() {
     { label: 'Tygodniowo', value: 'weekly' },
     { label: 'Miesięcznie', value: 'monthly' }
   ];
-  const [currentUser, setCurrentUser] = useState(null);
-  const [canViewSettings, setCanViewSettings] = useState(false);
-  const [canManageSettings, setCanManageSettings] = useState(false);
-  const [permsReady, setPermsReady] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const raw = await AsyncStorage.getItem('@current_user');
-        const user = raw ? JSON.parse(raw) : null;
-        setCurrentUser(user);
-        // Wykorzystujemy istniejące uprawnienie systemowe
-        const allowed = hasPermission(user, 'system_settings');
-        setCanViewSettings(allowed);
-        setCanManageSettings(allowed);
-      } catch {}
-      setPermsReady(true);
-    })();
-  }, []);
+  
+  // Uprawnienia z kontekstu
+  const { currentUser, hasPermission, ready: permsReady } = usePermissions();
+  const canViewSettings = hasPermission('system_settings');
+  const canManageSettings = canViewSettings;
 
   useEffect(() => {
     const load = async () => {

@@ -5,7 +5,7 @@ import api from '../lib/api';
 import { useTheme } from '../lib/theme';
 import { showSnackbar } from '../lib/snackbar';
 import { isAdmin } from '../lib/utils';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { usePermissions } from '../lib/PermissionsContext';
 
 const ROLE_OPTIONS = [
   { label: 'Użytkownik', value: 'user' },
@@ -20,12 +20,14 @@ const ROLE_OPTIONS = [
 
 export default function UsersSettings() {
   const { colors } = useTheme();
+  const { currentUser } = usePermissions();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [currentUser, setCurrentUser] = useState(null);
-  const [userIsAdmin, setUserIsAdmin] = useState(false);
+  
+  const userIsAdmin = isAdmin(currentUser);
+
   const roleLabel = (r) => {
     const v = String(r || '').toLowerCase();
     if (v === 'admin' || v === 'administrator') return 'Administrator';
@@ -44,17 +46,6 @@ export default function UsersSettings() {
     setError('');
     try {
       await api.init();
-      
-      // Sprawdź uprawnienia użytkownika na podstawie zapisanego @current_user
-      try {
-        const saved = await AsyncStorage.getItem('@current_user');
-        const me = saved ? JSON.parse(saved) : null;
-        setCurrentUser(me);
-        setUserIsAdmin(isAdmin(me));
-      } catch {
-        setUserIsAdmin(false);
-      }
-      
       const list = await api.get('/api/users');
       setUsers(Array.isArray(list) ? list : []);
     } catch (e) {

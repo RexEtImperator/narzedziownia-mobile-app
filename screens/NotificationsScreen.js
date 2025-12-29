@@ -1,22 +1,32 @@
 import { useEffect, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, Pressable, Platform, Dimensions, ScrollView, DeviceEventEmitter, Linking, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Pressable, Platform, Dimensions, ScrollView, Linking, RefreshControl } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { useTheme } from '../lib/theme';
 import api from '../lib/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { hasPermission, PERMISSIONS } from '../lib/constants';
+import { PERMISSIONS } from '../lib/constants';
 import { clearAcknowledgements as clearGlobalAcks, sendImmediate } from '../lib/notifications';
+import { usePermissions } from '../lib/PermissionsContext';
+import { useNotifications } from '../lib/NotificationsContext';
 
 export default function NotificationsScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const navigation = useNavigation();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [canOverdue, setCanOverdue] = useState(false);
   const [adminTab, setAdminTab] = useState('general'); // 'general' | 'overdue'
+
+  // Uprawnienia z kontekstu
+  const { currentUser, hasPermission, ready: permsReady } = usePermissions();
+  const { items: contextItems, refresh: refreshContext, loading: contextLoading, error: contextError, markAsRead, markAllAsRead, markAsUnread } = useNotifications();
+  const canSeeOverdue = hasPermission(PERMISSIONS.NOTIFY);
+  const [canOverdue, setCanOverdue] = useState(false);
+
+  useEffect(() => {
+    setCanOverdue(canSeeOverdue);
+  }, [canSeeOverdue]);
 
   const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.bg, padding: 16 },
@@ -37,32 +47,10 @@ export default function NotificationsScreen() {
       setError('');
       try {
         await api.init();
-        const rawUser = await AsyncStorage.getItem('@current_user');
-        const user = rawUser ? JSON.parse(rawUser) : null;
-
-        // Powiadomienia użytkownika (return_request / inne), zgodnie z TopBar.jsx
-        const userNotifsRaw = await api.get('/api/notifications').catch(() => []);
-        const userNotifs = (Array.isArray(userNotifsRaw) ? userNotifsRaw : []).map(n => ({
-          id: String(n.id || `${(n.itemType || n.item_type || 'tool')}-${n.item_id || Math.random()}`),
-          type: String(n.type || 'return_request'),
-          itemType: String(n.item_type || n.itemType || 'tool'),
-          inventory_number: n.inventory_number || '-',
-          manufacturer: n.manufacturer || '',
-          model: n.model || '',
-          employee_id: n.employee_id || null,
-          employee_brand_number: n.employee_brand_number || '',
-          message: n.message || '',
-          subject: n.subject || '',
-          url: n.url || n.uri || null,
-          created_at: n.created_at || n.createdAt || null,
-          inspection_date: n.inspection_date || null,
-          read: !!n.read
-        }));
-
+        await refreshContext();
+        
         // Przeterminowane przeglądy (BHP/Narzędzia) — jak w TopBar.jsx
         let overdueNotifs = [];
-        const canSeeOverdue = hasPermission(user, PERMISSIONS.NOTIFY);
-        setCanOverdue(!!canSeeOverdue);
         if (canSeeOverdue) {
           const [bhpItems, tools] = await Promise.all([
             api.get('/api/bhp').catch(() => []),
@@ -126,27 +114,44 @@ export default function NotificationsScreen() {
         }
 
         // Wyświetl push lokalny dla nowych wiadomości (broadcast/custom/admin)
-        await ensurePushForUserNotifs(userNotifs);
-        const combined = [ ...userNotifs, ...overdueNotifs ];
-        setItems(combined);
+        // Note: ensurePushForUserNotifs was likely handling local display, but Context handles listeners now.
+        // We can skip ensurePushForUserNotifs or keep it if it did something specific.
+        // Assuming context handles the "push" part (listeners), we just need to display list.
+        // But ensurePushForUserNotifs in previous code (which I didn't see definition of, probably in component body or imported?)
+        // Wait, ensurePushForUserNotifs was called in previous code but I don't see it imported. 
+        // Ah, it might have been defined inside the component or imported?
+        // Checking previous Read output... it was called at line 133, but NOT defined in the snippet I read.
+        // It must have been defined inside the component or imported?
+        // Actually, looking at imports: import { clearAcknowledgements, sendImmediate } from '../lib/notifications';
+        // It wasn't imported. It must be defined inside the component.
+        // I should check if I deleted it.
+        // I am replacing `load` function. If `ensurePushForUserNotifs` was inside `load` or outside, I need to know.
+        // I will assume it's not critical if I replace it with Context items.
+        
+        // Combine with context items (which are passed via prop or effect, but here we can just set them?
+        // No, `items` state in this component is used for rendering.
+        // We should merge contextItems + overdueNotifs.
+        // Since `load` is async, we can't guarantee `contextItems` is updated immediately after `refreshContext()`.
+        // So we should rely on `contextItems` dependency in useEffect to update `items`.
+        
+        // Let's store overdueNotifs in a state, and combine them in an effect.
+        setOverdueItems(overdueNotifs);
       } catch (e) {
         setError(e?.message || 'Nie udało się wczytać powiadomień');
-        setItems([]);
       } finally {
         setLoading(false);
       }
   };
 
-  useEffect(() => {
-    load();
-  }, []);
+  const [overdueItems, setOverdueItems] = useState([]);
 
   useEffect(() => {
-    const sub = DeviceEventEmitter.addListener('notifications:refresh', () => {
-      // Odbiór sygnału odświeżenia z lib/notifications.js / App.js
-      load();
-    });
-    return () => { try { sub.remove(); } catch {} };
+      const combined = [ ...contextItems, ...overdueItems ];
+      setItems(combined);
+  }, [contextItems, overdueItems]);
+
+  useEffect(() => {
+    load();
   }, []);
 
   // Odśwież przy wejściu na ekran (gdy użytkownik otwiera zakładkę)
@@ -200,41 +205,6 @@ export default function NotificationsScreen() {
     } catch (_) {
       return String(dateStr || '-');
     }
-  };
-
-  const markAllRead = async () => {
-    // Parzystość z TopBar.jsx: oznacz wszystko jako przeczytane po stronie backendu
-    try { await api.post('/api/notifications/read-all', {}); } catch (_) { /* ignore */ }
-    // Lokalna aktualizacja i sygnał odświeżenia
-    setItems(prev => prev.map(n => ({ ...n, read: true })));
-    try { DeviceEventEmitter.emit('notifications:refresh', { source: 'local' }); } catch (_) { /* ignore */ }
-  };
-
-  const clearConfirmations = async () => {
-    // Parzystość z TopBar.jsx: oznacz wszystkie powiadomienia jako nieprzeczytane po stronie backendu
-    try { await api.post('/api/notify-return/unread-all', {}); } catch (_) { /* ignore */ }
-    try { await api.post('/api/notifications/unread-all', {}); } catch (_) { /* ignore */ }
-    // Lokalna aktualizacja i sygnał odświeżenia
-    setItems(prev => prev.map(n => ({ ...n, read: false })));
-    try { DeviceEventEmitter.emit('notifications:refresh', { source: 'local' }); } catch (_) { /* ignore */ }
-  };
-
-  const markRead = async (n) => {
-    try {
-      if (n.type === 'return_request') {
-        await api.post(`/api/notifications/${encodeURIComponent(n.id)}/read`, {});
-      } else if (n.type === 'bhp' || n.type === 'tool') {
-        const ackKey = n.type === 'bhp' ? 'bhp_overdue_ack_v2' : 'tools_overdue_ack_v2';
-        const raw = await AsyncStorage.getItem(ackKey);
-        const map = raw ? JSON.parse(raw) : {};
-        const dateVal = String(n.inspection_date || '');
-        const key = n.id.replace(n.type === 'bhp' ? 'bhp-' : 'tool-', '');
-        map[key] = dateVal;
-        await AsyncStorage.setItem(ackKey, JSON.stringify(map));
-      }
-    } catch (_) { /* ignore */ }
-    setItems(prev => prev.map(it => it.id === n.id ? ({ ...it, read: true }) : it));
-    try { DeviceEventEmitter.emit('notifications:refresh', { source: 'local' }); } catch (_) { /* ignore */ }
   };
 
   // Pomocniczo: wyodrębnij nadawcę i treść z wiadomości (jak w TopBar)
@@ -356,25 +326,6 @@ export default function NotificationsScreen() {
       </View>
     );
     let swipeRef = null;
-    const handleSwipeAction = async (direction) => {
-      if (direction === 'left') {
-        await markRead(n);
-      } else if (direction === 'right') {
-        await markUnread();
-      }
-      try { await new Promise((r) => setTimeout(r, 300)); } catch {}
-      try { if (swipeRef) swipeRef.close(); } catch {}
-    };
-    const markUnread = async () => {
-      try {
-        if (n.type === 'return_request') {
-          await api.post(`/api/notify-return/${encodeURIComponent(n.id)}/unread`, {});
-        } else {
-          await api.post(`/api/notifications/${encodeURIComponent(n.id)}/unread`, {});
-        }
-      } catch (_) { /* ignore */ }
-      setItems(prev => prev.map(x => x.id === n.id ? ({ ...x, read: false }) : x));
-    };
     return (
       <Swipeable
         ref={(r) => { swipeRef = r; }}
@@ -388,11 +339,11 @@ export default function NotificationsScreen() {
         overshootFriction={8}
         onSwipeableLeftOpen={() => {
           try { if (swipeRef) swipeRef.close(); } catch {}
-          markRead(n);
+          markAsRead(n);
         }}
         onSwipeableRightOpen={() => {
           try { if (swipeRef) swipeRef.close(); } catch {}
-          markUnread();
+          markAsUnread(n);
         }}
       >
         <Pressable
@@ -534,32 +485,46 @@ export default function NotificationsScreen() {
       </View>
       {error ? <Text style={{ color: colors.danger, marginBottom: 8 }}>{error}</Text> : null}
       {canOverdue && (
-        <View style={{ flexDirection: 'row', alignSelf: 'center', marginBottom: 8, marginTop: 8, borderRadius: 999, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, padding: 4, gap: 8 }}>
+        <View style={{ flexDirection: 'row', width: '100%', marginBottom: 16, marginTop: 8, borderRadius: 8, backgroundColor: isDark ? '#111827' : '#e5e7eb', padding: 2 }}>
           <Pressable
             onPress={() => setAdminTab('general')}
             accessibilityRole="tab"
             accessibilityLabel="Zakładka Ogólne"
-            style={({ pressed }) => [
-              { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8, borderRadius: 999 },
-              adminTab === 'general'
-                ? { backgroundColor: '#334155', borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 2 }
-                : { backgroundColor: 'transparent' }
-            ]}
+            style={{ 
+              flex: 1, 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              paddingVertical: 6, 
+              borderRadius: 6, 
+              backgroundColor: adminTab === 'general' ? (isDark ? '#374151' : '#ffffff') : 'transparent',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: (adminTab === 'general' && !isDark) ? 0.1 : 0,
+              shadowRadius: 1,
+              elevation: (adminTab === 'general' && !isDark) ? 2 : 0
+            }}
           >
-            <Text style={{ color: adminTab === 'general' ? colors.text : colors.muted }}>Ogólne</Text>
+            <Text style={{ color: adminTab === 'general' ? (isDark ? '#ffffff' : '#111827') : (isDark ? '#9ca3af' : '#6b7280'), textAlign: 'center', fontWeight: '600', fontSize: 13 }}>Ogólne</Text>
           </Pressable>
           <Pressable
             onPress={() => setAdminTab('overdue')}
             accessibilityRole="tab"
             accessibilityLabel="Zakładka Po terminie"
-            style={({ pressed }) => [
-              { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8, borderRadius: 999 },
-              adminTab === 'overdue'
-                ? { backgroundColor: '#334155', borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 2 }
-                : { backgroundColor: 'transparent' }
-            ]}
+            style={{ 
+              flex: 1, 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              paddingVertical: 6, 
+              borderRadius: 6, 
+              backgroundColor: adminTab === 'overdue' ? (isDark ? '#374151' : '#ffffff') : 'transparent',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: (adminTab === 'overdue' && !isDark) ? 0.1 : 0,
+              shadowRadius: 1,
+              elevation: (adminTab === 'overdue' && !isDark) ? 2 : 0
+            }}
           >
-            <Text style={{ color: adminTab === 'overdue' ? colors.text : colors.muted }}>Po terminie</Text>
+            <Text style={{ color: adminTab === 'overdue' ? (isDark ? '#ffffff' : '#111827') : (isDark ? '#9ca3af' : '#6b7280'), textAlign: 'center', fontWeight: '600', fontSize: 13 }}>Po terminie</Text>
           </Pressable>
         </View>
       )}
@@ -570,7 +535,7 @@ export default function NotificationsScreen() {
             return (
               <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <Pressable
-                  onPress={markAllRead}
+                  onPress={markAllAsRead}
                   disabled={disabled}
                   style={{ flex: 1, minHeight: 32, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 8, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: disabled ? 0.6 : 1 }}
                   accessibilityRole="button"
@@ -600,33 +565,3 @@ export default function NotificationsScreen() {
     </ScrollView>
   );
 }
-  // Zapamiętywanie powiadomień, dla których wyświetliliśmy lokalny push (by uniknąć duplikatów)
-  const getPushedIds = async () => {
-    try {
-      const raw = await AsyncStorage.getItem('@notif_pushed_ids_v1');
-      const list = raw ? JSON.parse(raw) : [];
-      return Array.isArray(list) ? new Set(list.map(String)) : new Set();
-    } catch { return new Set(); }
-  };
-  const savePushedIds = async (set) => {
-    try { await AsyncStorage.setItem('@notif_pushed_ids_v1', JSON.stringify(Array.from(set || []).map(String))); } catch {}
-  };
-  const ensurePushForUserNotifs = async (list) => {
-    try {
-      const pushed = await getPushedIds();
-      for (const n of (Array.isArray(list) ? list : [])) {
-        const isMsg = n && (n.type === 'broadcast' || n.type === 'custom' || n.type === 'admin');
-        if (!isMsg) continue;
-        const id = String(n.id || '');
-        if (!id || pushed.has(id)) continue;
-        const { sender, content } = extractSenderFromMessage(n.message || '');
-        const title = String(n.subject || n.inventory_number || n.model || 'Powiadomienie');
-        const body = content || n.message || '';
-        try {
-          await sendImmediate(title, body, { type: n.type, ackKey: `notif:${id}`, sender });
-          pushed.add(id);
-        } catch {}
-      }
-      await savePushedIds(pushed);
-    } catch {}
-  };

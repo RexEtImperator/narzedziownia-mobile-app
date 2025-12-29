@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, FlatList, ScrollView, Alert, Modal, DeviceEventEmitter, RefreshControl, Platform } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, FlatList, ScrollView, Alert, Modal, RefreshControl, Platform } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { useTheme } from '../lib/theme';
 import ThemedButton from '../components/ThemedButton';
@@ -7,8 +7,7 @@ import api from '../lib/api.js';
 import { Ionicons } from '@expo/vector-icons';
 import AddToolModal from './AddToolModal';
 import { showSnackbar } from '../lib/snackbar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { hasPermission, isAdmin } from '../lib/utils';
+import { usePermissions } from '../lib/PermissionsContext';
 import { PERMISSIONS } from '../lib/constants';
 
 export default function ToolsScreen() {
@@ -22,7 +21,6 @@ export default function ToolsScreen() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
-  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   // Zakładki kategorii z licznikami
   const [categoryCounts, setCategoryCounts] = useState({});
@@ -36,7 +34,6 @@ export default function ToolsScreen() {
   const [editCategoryOpen, setEditCategoryOpen] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
   const [focusedFilterInput, setFocusedFilterInput] = useState(false);
-  const [focusedCodeInput, setFocusedCodeInput] = useState(false);
   const [detailTool, setDetailTool] = useState(null);
   const [detailData, setDetailData] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -53,13 +50,33 @@ export default function ToolsScreen() {
   const [serviceQuantity, setServiceQuantity] = useState(1);
   const [serviceOrderNumber, setServiceOrderNumber] = useState('');
 
-  // Permission-related state
-  const [currentUser, setCurrentUser] = useState(null);
-  const [canViewTools, setCanViewTools] = useState(false);
-  const [canViewAllTools, setCanViewAllTools] = useState(false);
-  const [canManageTools, setCanManageTools] = useState(false);
-  const [permsReady, setPermsReady] = useState(false);
-  const [currentEmployeeId, setCurrentEmployeeId] = useState(null);
+  const { currentUser, hasPermission, ready: permsReady } = usePermissions();
+  const canViewTools = hasPermission(PERMISSIONS.VIEW_TOOLS);
+  const canViewAllTools = hasPermission(PERMISSIONS.VIEW_ALL_TOOLS);
+  const canManageTools = hasPermission(PERMISSIONS.MANAGE_TOOLS);
+
+  // Rozpoznaj employee_id użytkownika
+  const currentEmployeeId = (() => {
+    try {
+      const u = currentUser || {};
+      // Administrator NIE powinien mieć przypisanego employee_id (widzi wszystko, ale nie jest pracownikiem w sensie posiadania)
+      // Chyba że ma rolę admina ORAZ przypisanego pracownika? Wg starej logiki admin -> null.
+      const isAdminUser = (u?.role === 'administrator' || u?.role === 'admin' || (u?.roles && u.roles.includes('administrator')));
+      if (isAdminUser || String(u?.id || '') === '1') {
+        return null;
+      }
+      const candidates = [
+        u?.employee_id, u?.employeeId,
+        u?.user?.employee_id, u?.user?.employeeId,
+        u?.data?.employee_id, u?.data?.employeeId,
+        u?.payload?.employee_id, u?.payload?.employeeId,
+        u?.profile?.employee_id, u?.profile?.employeeId,
+        u?.currentUser?.employee_id, u?.currentUser?.employeeId,
+      ];
+      const found = candidates.find(v => typeof v === 'number' || typeof v === 'string');
+      return found ? String(found) : null;
+    } catch { return null; }
+  })();
 
   // Pomocnicze: wykryj i ukryj wartości typu data:image (zakodowane obrazy QR/kreskowe)
   const isDataUri = (val) => {
@@ -98,39 +115,6 @@ export default function ToolsScreen() {
     }
   }, [route?.params?.filter]);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const raw = await AsyncStorage.getItem('@current_user');
-        const user = raw ? JSON.parse(raw) : null;
-        setCurrentUser(user);
-        setCanViewTools(hasPermission(user, PERMISSIONS.VIEW_TOOLS));
-        setCanViewAllTools(hasPermission(user, PERMISSIONS.VIEW_ALL_TOOLS));
-        setCanManageTools(hasPermission(user, PERMISSIONS.MANAGE_TOOLS));
-        // Rozpoznaj employee_id użytkownika z różnych kształtów obiektu
-        try {
-          const u = user || {};
-          // Administrator NIE powinien mieć przypisanego employee_id
-          if (isAdmin(u) || String(u?.id || '') === '1') {
-            setCurrentEmployeeId(null);
-          } else {
-            const candidates = [
-              u?.employee_id, u?.employeeId,
-              u?.user?.employee_id, u?.user?.employeeId,
-              u?.data?.employee_id, u?.data?.employeeId,
-              u?.payload?.employee_id, u?.payload?.employeeId,
-              u?.profile?.employee_id, u?.profile?.employeeId,
-              u?.currentUser?.employee_id, u?.currentUser?.employeeId,
-            ];
-            const found = candidates.find(v => typeof v === 'number' || typeof v === 'string');
-            setCurrentEmployeeId(found ? String(found) : null);
-          }
-        } catch {}
-      } catch {}
-      setPermsReady(true);
-    })();
-  }, []);
-
   useEffect(() => { if (!permsReady) return; load(); }, [permsReady, canViewTools]);
 
   useEffect(() => {
@@ -149,22 +133,6 @@ export default function ToolsScreen() {
     })();
   }, [permsReady]);
 
-  const searchByCode = async () => {
-    if (!canViewTools) {
-      showSnackbar('Brak uprawnień do przeglądania narzędzi', { type: 'warn' });
-      return;
-    }
-    setError('');
-    setFoundTool(null);
-    try {
-      await api.init();
-      const result = await api.get(`/api/tools/search?code=${encodeURIComponent(code)}`);
-      setFoundTool(result);
-    } catch (e) {
-      setError(e.message || 'Nie znaleziono narzędzia');
-    }
-  };
-
   // Zestawy unikalnych kategorii i statusów do filtrów
   const categoriesFromTools = (tools || []).map(t => t?.category || t?.category_name).filter(Boolean);
   const categories = [...new Set([...(filterCategoryOptions || []), ...categoriesFromTools])].sort((a, b) => {
@@ -175,13 +143,15 @@ export default function ToolsScreen() {
     return computed;
   }).filter(Boolean))];
 
-  // Filtrowanie jak w web: nazwa/SKU/kategoria/nr ew. + kategoria + status (z uwzględnieniem serwisu)
+  // Filtrowanie jak w web: nazwa/SKU/kategoria/nr ew./nr seryjny/lokalizacja + kategoria + status
   const filteredTools = (tools || []).filter(t => {
     const name = t?.name || t?.tool_name || '';
     const sku = t?.sku || '';
     const cat = t?.category || t?.category_name || '';
     const inv = t?.inventory_number || t?.code || t?.barcode || t?.qr_code || '';
-    const matchesSearch = !searchTerm || [name, sku, cat, inv].some(val => String(val).toLowerCase().includes(searchTerm.toLowerCase()));
+    const serial = t?.serial_number || '';
+    const loc = t?.location || '';
+    const matchesSearch = !searchTerm || [name, sku, cat, inv, serial, loc].some(val => String(val).toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesCategory = !selectedCategory || cat === selectedCategory;
     const computedStatus = (t?.quantity === 1 && (t?.service_quantity || 0) > 0) ? 'serwis' : (t?.status || 'dostępne');
     const matchesStatus = !selectedStatus || computedStatus === selectedStatus;
@@ -491,7 +461,7 @@ export default function ToolsScreen() {
         target_brand_number: targetBrandNumber || undefined,
       });
       showSnackbar('Wysłano prośbę o zwrot', { type: 'success' });
-      try { DeviceEventEmitter.emit('notifications:refresh', { source: 'tools' }); } catch {}
+      try { refreshNotifications(); } catch {}
     } catch (e) {
       showSnackbar(e?.message || 'Nie udało się wysłać prośby o zwrot', { type: 'error' });
     } finally {
@@ -538,7 +508,7 @@ export default function ToolsScreen() {
           <ThemedButton
             onPress={() => setAddToolVisible(true)}
             variant="secondary"
-            style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+            style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0, borderWidth: 1, borderColor: colors.border }}
             icon={<Ionicons name="add" size={22} color={colors.primary || colors.text} />}
           />
         ) : null}
@@ -620,49 +590,68 @@ export default function ToolsScreen() {
           />
         ) : null}
       </View>
-      <View style={styles.filterRow} className="flex-row items-center gap-2 mb-2">
-        <ThemedButton
-          title={selectedStatus || 'Wszystkie statusy'}
-          onPress={() => setShowStatusDropdown(v => !v)}
-          variant="secondary"
-          style={{ height: 36, justifyContent: 'flex-start', paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border }}
-          textStyle={{ fontWeight: 'normal', fontSize: 14, flex: 1, textAlign: 'left' }}
-          icon={<Ionicons name={showStatusDropdown ? "chevron-up" : "chevron-down"} size={16} color={colors.text} style={{ marginRight: 8 }} />}
-        />
-      </View>
-      {showStatusDropdown && (
-        <View style={[styles.dropdown, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md mb-2">
+      <View style={[styles.filterRow, { zIndex: 100 }]} className="flex-row items-center gap-2 mb-2">
+        <View style={{ flex: 1, position: 'relative', zIndex: 101 }}>
           <ThemedButton
-            title="Wszystkie statusy"
-            onPress={() => { setSelectedStatus(''); setShowStatusDropdown(false); }}
+            onPress={() => setShowStatusDropdown(v => !v)}
             variant="secondary"
-            style={{ height: 40, borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, borderWidth: 0 }}
-            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
-          />
-          {statuses.map(st => (
-            <ThemedButton
-              key={String(st)}
-              title={st}
-              onPress={() => { setSelectedStatus(st); setShowStatusDropdown(false); }}
-              variant="secondary"
-              style={{ height: 40, borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, borderWidth: 0 }}
-              textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
-            />
-          ))}
+            style={{ height: 40, justifyContent: 'space-between', paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border, width: '100%' }}
+          >
+            <Text style={{ color: colors.text, fontSize: 14, flex: 1, textAlign: 'left' }}>
+              {selectedStatus || 'Wszystkie statusy'}
+            </Text>
+            <Ionicons name={showStatusDropdown ? "chevron-up" : "chevron-down"} size={16} color={colors.text} />
+          </ThemedButton>
+
+          {showStatusDropdown && (
+            <View 
+              style={{ 
+                position: 'absolute',
+                top: 45,
+                left: 0,
+                right: 0,
+                backgroundColor: colors.card,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 8,
+                zIndex: 9999,
+                elevation: 5,
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25,
+                shadowRadius: 3.84,
+              }}
+            >
+              <ThemedButton
+                title="Wszystkie statusy"
+                onPress={() => { setSelectedStatus(''); setShowStatusDropdown(false); }}
+                variant="secondary"
+                style={{ height: 40, borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 12, borderWidth: 0, width: '100%' }}
+                textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+              />
+              {statuses.map((st, index) => (
+                <ThemedButton
+                  key={String(st)}
+                  title={st}
+                  onPress={() => { setSelectedStatus(st); setShowStatusDropdown(false); }}
+                  variant="secondary"
+                  style={{ 
+                    height: 40, 
+                    borderRadius: 0, 
+                    borderBottomWidth: index === statuses.length - 1 ? 0 : 1, 
+                    borderBottomColor: colors.border, 
+                    justifyContent: 'flex-start', 
+                    paddingHorizontal: 12, 
+                    borderWidth: 0, 
+                    width: '100%' 
+                  }}
+                  textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+                />
+              ))}
+            </View>
+          )}
         </View>
-      )}
-      <View style={styles.row} className="flex-row items-center gap-2 mb-3">
-        <TextInput style={[styles.input, { borderColor: focusedCodeInput ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} className="flex-1 border rounded-md px-2 h-10" placeholder="Kod/QR/SKU" value={code} onChangeText={setCode} placeholderTextColor={colors.muted} onFocus={() => setFocusedCodeInput(true)} onBlur={() => setFocusedCodeInput(false)} />
-        <ThemedButton title="Szukaj" onPress={searchByCode} variant="primary" style={{ marginVertical: 0, height: 40 }} />
       </View>
-      {foundTool && (
-        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]} className="p-3 rounded-lg mb-3">
-          <Text style={[styles.toolName, { color: colors.text }]} className="text-lg font-semibold">{foundTool.name || foundTool.tool_name || '—'}</Text>
-          <Text style={[styles.toolMeta, { color: colors.muted }]}>SKU: {isDataUri(foundTool?.sku) ? '—' : (foundTool?.sku || '—')} | Nr. ew.: {foundTool?.inventory_number || (isDataUri(foundTool?.code) ? '' : foundTool?.code) || (isDataUri(foundTool?.barcode) ? '' : foundTool?.barcode) || (isDataUri(foundTool?.qr_code) ? '' : foundTool?.qr_code) || '—'}</Text>
-          <Text style={[styles.toolMeta, { color: colors.muted }]}>Numer fabryczny: {foundTool.serial_number || '—'} | Kategoria: {foundTool.category || '—'}</Text>
-          <Text style={[styles.toolMeta, { color: colors.muted }]}>Status: {foundTool.status || '—'} | Lokalizacja: {foundTool.location || '—'}</Text>
-        </View>
-      )}
 
       {error ? <Text style={[styles.error, { color: colors.danger }]} className="mb-2">{error}</Text> : null}
       {loading ? <Text style={[styles.muted, { color: colors.muted }]}>Ładowanie…</Text> : (
@@ -670,7 +659,7 @@ export default function ToolsScreen() {
           refreshControl={<RefreshControl refreshing={loading} onRefresh={load} colors={[colors.primary]} tintColor={colors.primary} />}
           data={sortedTools}
           keyExtractor={(item) => String(item.id || item.tool_id || Math.random())}
-          contentContainerStyle={{ paddingVertical: 8, paddingBottom: 24 }}
+          contentContainerStyle={{ paddingVertical: 1, paddingBottom: 0 }}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => {
             const computedStatus = (item?.quantity === 1 && (item?.service_quantity || 0) > 0) ? 'serwis' : (item?.status || '—');
@@ -773,13 +762,10 @@ export default function ToolsScreen() {
             <ScrollView style={{ maxHeight: 480 }} contentContainerStyle={{ gap: 8 }} showsVerticalScrollIndicator={false}>
               <Text style={{ color: colors.muted }}>Nazwa</Text>
               <TextInput style={[styles.input, { borderColor: focusedField === 'name' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nazwa" value={editFields.name} onChangeText={(v) => setEditFields(s => ({ ...s, name: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('name')} onBlur={() => setFocusedField(null)} />
-
               <Text style={{ color: colors.muted }}>SKU</Text>
               <TextInput style={[styles.input, { borderColor: focusedField === 'sku' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="SKU" value={editFields.sku} onChangeText={(v) => setEditFields(s => ({ ...s, sku: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('sku')} onBlur={() => setFocusedField(null)} />
-
               <Text style={{ color: colors.muted }}>Nr ewidencyjny</Text>
               <TextInput style={[styles.input, { borderColor: focusedField === 'inventory_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nr ewidencyjny" value={editFields.inventory_number} onChangeText={(v) => setEditFields(s => ({ ...s, inventory_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('inventory_number')} onBlur={() => setFocusedField(null)} />
-
               <Text style={{ color: colors.muted }}>Numer fabryczny</Text>
               <TextInput
                 style={[
@@ -840,9 +826,6 @@ export default function ToolsScreen() {
                   )}
                 </View>
               )}
-
-              {/* Pole Status ukryte zgodnie z wymaganiem – wartość pozostaje w danych edycji */}
-
               <Text style={{ color: colors.muted }}>Lokalizacja</Text>
               <TextInput style={[styles.input, { borderColor: focusedField === 'location' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Lokalizacja" value={editFields.location} onChangeText={(v) => setEditFields(s => ({ ...s, location: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('location')} onBlur={() => setFocusedField(null)} />
             </ScrollView>
@@ -1031,7 +1014,7 @@ export default function ToolsScreen() {
       </Modal>
 
       {/* Modal serwisu */}
-  <Modal visible={showServiceModal && !!serviceTool} animationType="fade" transparent onRequestClose={closeServiceModal}>
+      <Modal visible={showServiceModal && !!serviceTool} animationType="fade" transparent onRequestClose={closeServiceModal}>
         <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay || 'rgba(0,0,0,0.5)' }]}> 
           <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1087,31 +1070,31 @@ export default function ToolsScreen() {
             </View>
           </View>
         </View>
-  </Modal>
+      </Modal>
 
-  {/* Potwierdzenie wysyłki prośby o zwrot */}
-  <Modal visible={confirmReturnVisible} animationType="fade" transparent onRequestClose={closeConfirmReturn}>
-    <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{ width: '88%', maxWidth: 420, borderRadius: 12, padding: 16, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
-        <Text style={{ fontSize: 16, color: colors.text, marginBottom: 12 }}>Czy na pewno wysłać prośbę o zwrot?</Text>
-        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
-          <ThemedButton
-            title="Anuluj"
-            onPress={closeConfirmReturn}
-            variant="secondary"
-            style={{ width: 100 }}
-          />
-          <ThemedButton
-            title="Wyślij"
-            onPress={confirmSendReturn}
-            disabled={notifySending}
-            variant="primary"
-            style={{ width: 100 }}
-          />
+      {/* Potwierdzenie wysyłki prośby o zwrot */}
+      <Modal visible={confirmReturnVisible} animationType="fade" transparent onRequestClose={closeConfirmReturn}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ width: '88%', maxWidth: 420, borderRadius: 12, padding: 16, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
+            <Text style={{ fontSize: 16, color: colors.text, marginBottom: 12 }}>Czy na pewno wysłać prośbę o zwrot?</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
+              <ThemedButton
+                title="Anuluj"
+                onPress={closeConfirmReturn}
+                variant="secondary"
+                style={{ width: 100 }}
+              />
+              <ThemedButton
+                title="Wyślij"
+                onPress={confirmSendReturn}
+                disabled={notifySending}
+                variant="primary"
+                style={{ width: 100 }}
+              />
+            </View>
+          </View>
         </View>
-      </View>
-    </View>
-  </Modal>
+      </Modal>
 
       <AddToolModal
         visible={addToolVisible}
@@ -1138,7 +1121,7 @@ const styles = StyleSheet.create({
   dropdownItem: { paddingVertical: 8, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   row: { flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 12 },
   input: { flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 6, paddingHorizontal: 8, height: 40 },
-  card: { padding: 12, borderWidth: 1, borderColor: '#eee', borderRadius: 8, marginBottom: 12, backgroundColor: '#fafafa' },
+  card: { padding: 12, borderWidth: 1, borderColor: '#eee', borderRadius: 8, marginBottom: 10, backgroundColor: '#fafafa' },
   toolName: { fontSize: 18, fontWeight: '600', marginBottom: 6 },
   toolMeta: { color: '#666', marginTop: 4 },
   separator: { height: 1, backgroundColor: '#eee' },

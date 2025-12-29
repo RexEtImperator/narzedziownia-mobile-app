@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, Pressable, Modal, TextInput, ActivityIndicator } from 'react-native';
 import api from '../lib/api';
 import { useTheme } from '../lib/theme';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { hasPermission } from '../lib/utils';
+import { usePermissions } from '../lib/PermissionsContext';
 
 export default function DepartmentsScreen() {
   const { colors } = useTheme();
@@ -12,10 +11,12 @@ export default function DepartmentsScreen() {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [currentUser, setCurrentUser] = useState(null);
-  const [canViewDepartments, setCanViewDepartments] = useState(false);
-  const [canManageDepartments, setCanManageDepartments] = useState(false);
-  const [permsReady, setPermsReady] = useState(false);
+  
+  // Uprawnienia z kontekstu
+  const { currentUser, hasPermission, ready: permsReady } = usePermissions();
+  const canManageDepartments = hasPermission('manage_departments');
+  const canViewDepartments = canManageDepartments || hasPermission('view_admin') || hasPermission('system_settings');
+
   const [showModal, setShowModal] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState(null);
   const [formData, setFormData] = useState({ name: '', description: '', managerId: '', status: 'active' });
@@ -24,22 +25,7 @@ export default function DepartmentsScreen() {
 
   useEffect(() => {
     (async () => {
-      try { await api.init(); } catch {}
-      try {
-        const raw = await AsyncStorage.getItem('@current_user');
-        const me = raw ? JSON.parse(raw) : null;
-        setCurrentUser(me);
-        const canManage = hasPermission(me, 'manage_departments');
-        const canView = canManage || hasPermission(me, 'view_admin') || hasPermission(me, 'system_settings');
-        setCanManageDepartments(canManage);
-        setCanViewDepartments(!!canView);
-      } catch {
-        setCurrentUser(null);
-        setCanManageDepartments(false);
-        setCanViewDepartments(false);
-      } finally {
-        setPermsReady(true);
-      }
+       try { await api.init(); } catch {}
     })();
   }, []);
 

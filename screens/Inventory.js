@@ -1,13 +1,15 @@
 import { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable, FlatList, ScrollView, Alert, Platform, Switch, Share, Modal } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../lib/api';
 import { useTheme } from '../lib/theme';
 import { showSnackbar } from '../lib/snackbar';
+import ThemedButton from '../components/ThemedButton';
 import * as Haptics from 'expo-haptics'
-import { hasPermission, getUserRole, isAdmin } from '../lib/utils';
-import { PERMISSIONS, setDynamicRolePermissions } from '../lib/constants';
+import { isAdmin, getUserRole } from '../lib/utils';
+import { PERMISSIONS } from '../lib/constants';
+import { usePermissions } from '../lib/PermissionsContext';
+import { KEYS, getStorageItem, setStorageItem, removeStorageItem } from '../lib/storage';
 
 export default function InventoryScreen() {
   const { colors } = useTheme();
@@ -57,16 +59,17 @@ export default function InventoryScreen() {
   const [invSearch, setInvSearch] = useState('');
   const [onlyConsumables, setOnlyConsumables] = useState(true);
   const [onlyBelowMin, setOnlyBelowMin] = useState(false);
-  const [isAdminUser, setIsAdminUser] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
-  // Uprawnienia
-  const [canViewInventory, setCanViewInventory] = useState(false);
-  const [canManageSessions, setCanManageSessions] = useState(false);
-  const [canScan, setCanScan] = useState(false);
-  const [canAcceptCorrection, setCanAcceptCorrection] = useState(false);
-  const [canDeleteCorrection, setCanDeleteCorrection] = useState(false);
-  const [canExportCsv, setCanExportCsv] = useState(false);
-  const [permsReady, setPermsReady] = useState(false);
+
+  // Uprawnienia z kontekstu
+  const { currentUser, hasPermission, ready: permsReady } = usePermissions();
+  const isAdminUser = isAdmin(currentUser);
+  const canViewInventory = hasPermission(PERMISSIONS.VIEW_INVENTORY) || hasPermission(PERMISSIONS.INVENTORY_MANAGE_SESSIONS);
+  const canManageSessions = hasPermission(PERMISSIONS.INVENTORY_MANAGE_SESSIONS);
+  const canScan = hasPermission(PERMISSIONS.INVENTORY_SCAN);
+  const canAcceptCorrection = hasPermission(PERMISSIONS.INVENTORY_ACCEPT_CORRECTION);
+  const canDeleteCorrection = hasPermission(PERMISSIONS.INVENTORY_DELETE_CORRECTION);
+  const canExportCsv = hasPermission(PERMISSIONS.INVENTORY_EXPORT_CSV);
+
   // Skaner: stany
   const [showScanner, setShowScanner] = useState(false);
   const [hasCamPermission, setHasCamPermission] = useState(null);
@@ -78,41 +81,6 @@ export default function InventoryScreen() {
   const [scannedFlag, setScannedFlag] = useState(false);
   const [webScanInput, setWebScanInput] = useState('');
   
-  useEffect(() => {
-    (async () => {
-      try {
-        const saved = await AsyncStorage.getItem('@current_user');
-        const me = saved ? JSON.parse(saved) : null;
-        setCurrentUser(me);
-        setIsAdminUser(isAdmin(me));
-        const canView = hasPermission(me, PERMISSIONS.VIEW_INVENTORY) || hasPermission(me, PERMISSIONS.INVENTORY_MANAGE_SESSIONS);
-        setCanViewInventory(!!canView);
-        setCanManageSessions(hasPermission(me, PERMISSIONS.INVENTORY_MANAGE_SESSIONS));
-        setCanScan(hasPermission(me, PERMISSIONS.INVENTORY_SCAN));
-        setCanAcceptCorrection(hasPermission(me, PERMISSIONS.INVENTORY_ACCEPT_CORRECTION));
-        setCanDeleteCorrection(hasPermission(me, PERMISSIONS.INVENTORY_DELETE_CORRECTION));
-        setCanExportCsv(hasPermission(me, PERMISSIONS.INVENTORY_EXPORT_CSV));
-        // Załaduj dynamiczne uprawnienia ról (zgodnie z aplikacją source)
-        try {
-          await api.init();
-          const rolePerms = await api.get('/api/role-permissions');
-          setDynamicRolePermissions(rolePerms || null);
-        } catch {}
-      } catch {
-        setCurrentUser(null);
-        setIsAdminUser(false);
-        setCanViewInventory(false);
-        setCanManageSessions(false);
-        setCanScan(false);
-        setCanAcceptCorrection(false);
-        setCanDeleteCorrection(false);
-        setCanExportCsv(false);
-      } finally {
-        setPermsReady(true);
-      }
-    })();
-  }, []);
-
   // Ładowanie danych tylko jeśli użytkownik ma prawo do widoku
   useEffect(() => {
     if (permsReady && canViewInventory) {
@@ -172,8 +140,8 @@ export default function InventoryScreen() {
           setAutoAcceptCorrections(!isDisabled);
           return;
         }
-        // Fallback: poprzedni klucz AsyncStorage
-        const v = await AsyncStorage.getItem('@inventory_auto_accept_v1');
+        // Fallback: użyj storage.js
+        const v = await getStorageItem(KEYS.INVENTORY_AUTO_ACCEPT);
         if (v != null) setAutoAcceptCorrections(String(v) === '1' || String(v).toLowerCase() === 'true');
       } catch {}
     })();
@@ -185,7 +153,7 @@ export default function InventoryScreen() {
       try {
         let sid = null;
         try { if (Platform.OS === 'web' && typeof localStorage !== 'undefined') { sid = localStorage.getItem('inventorySelectedSessionId'); } } catch {}
-        if (!sid) { try { sid = await AsyncStorage.getItem('@inventory_selected_session_id'); } catch {} }
+        if (!sid) { sid = await getStorageItem(KEYS.INVENTORY_SELECTED_SESSION); }
         if (sid && Array.isArray(sessions) && sessions.length) {
           const found = sessions.find(s => String(s.id) === String(sid));
           if (found) { setSelectedSession(found); return; }
@@ -202,44 +170,44 @@ export default function InventoryScreen() {
   const createSession = async () => {
     const name = String(newName || '').trim();
     const notes = String(newNotes || '').trim();
-    if (!name) { showSnackbar({ type: 'warn', text: 'Podaj nazwę sesji' }); return; }
-    if (!canManageSessions) { showSnackbar({ type: 'error', text: 'Brak uprawnień do zarządzania sesjami' }); return; }
+    if (!name) { showSnackbar('Podaj nazwę sesji', { type: 'warn' }); return; }
+    if (!canManageSessions) { showSnackbar('Brak uprawnień do zarządzania sesjami', { type: 'error' }); return; }
     setCreating(true);
     try {
       await api.init();
       const res = await api.post(`/api/inventory/sessions`, { name, notes: notes || null });
-      showSnackbar({ type: 'success', text: 'Utworzono sesję' });
+      showSnackbar('Utworzono sesję', { type: 'success' });
       setNewName('');
       setNewNotes('');
       setSelectedSession(res || null);
       await loadSessions();
     } catch (e) {
-      showSnackbar({ type: 'error', text: e?.message || 'Nie udało się utworzyć sesji' });
+      showSnackbar(e?.message || 'Nie udało się utworzyć sesji', { type: 'error' });
     } finally {
       setCreating(false);
     }
   };
   
   const updateStatus = async (s, action) => {
-    if (!canManageSessions) { showSnackbar({ type: 'error', text: 'Brak uprawnień do zarządzania sesjami' }); return; }
+    if (!canManageSessions) { showSnackbar('Brak uprawnień do zarządzania sesjami', { type: 'error' }); return; }
     try {
       await api.init();
       const res = await api.put(`/api/inventory/sessions/${encodeURIComponent(s?.id)}/status`, { action });
       const text = action === 'pause' ? 'Wstrzymano' : (action === 'resume' ? 'Wznowiono' : 'Zakończono');
-      showSnackbar({ type: 'success', text: `${text} sesję` });
+      showSnackbar(`${text} sesję`, { type: 'success' });
       setSelectedSession(res || s);
       await loadSessions();
       await loadDetails(res?.id || s?.id);
     } catch (e) {
-      showSnackbar({ type: 'error', text: e?.message || 'Nie udało się zmienić statusu' });
+      showSnackbar(e?.message || 'Nie udało się zmienić statusu', { type: 'error' });
     }
   };
   
   const deleteSession = async (s) => {
-    if (!canManageSessions) { showSnackbar({ type: 'error', text: 'Brak uprawnień do zarządzania sesjami' }); return; }
+    if (!canManageSessions) { showSnackbar('Brak uprawnień do zarządzania sesjami', { type: 'error' }); return; }
     // Blokada usuwania sesji nie-zakończonej
     if (String(s?.status) !== 'ended') {
-      showSnackbar({ type: 'warn', text: 'Można usunąć tylko zakończoną sesję' });
+      showSnackbar('Można usunąć tylko zakończoną sesję', { type: 'warn' });
       return;
     }
     Alert.alert('Usunąć sesję?', `${s?.name || ''}`, [
@@ -248,11 +216,11 @@ export default function InventoryScreen() {
         try {
           await api.init();
           await api.delete(`/api/inventory/sessions/${encodeURIComponent(s?.id)}`);
-          showSnackbar({ type: 'success', text: 'Usunięto sesję' });
+          showSnackbar('Usunięto sesję', { type: 'success' });
           if (selectedSession?.id === s?.id) setSelectedSession(null);
           await loadSessions();
         } catch (e) {
-          showSnackbar({ type: 'error', text: e?.message || 'Nie udało się usunąć sesji' });
+          showSnackbar(e?.message || 'Nie udało się usunąć sesji', { type: 'error' });
         }
       } }
     ]);
@@ -288,10 +256,10 @@ export default function InventoryScreen() {
     (async () => {
       try {
         if (selectedSession?.id) {
-          await AsyncStorage.setItem('@inventory_selected_session_id', String(selectedSession.id));
+          await setStorageItem(KEYS.INVENTORY_SELECTED_SESSION, String(selectedSession.id));
           try { if (Platform.OS === 'web' && typeof localStorage !== 'undefined') { localStorage.setItem('inventorySelectedSessionId', String(selectedSession.id)); } } catch {}
         } else {
-          await AsyncStorage.removeItem('@inventory_selected_session_id');
+          await removeStorageItem(KEYS.INVENTORY_SELECTED_SESSION);
           try { if (Platform.OS === 'web' && typeof localStorage !== 'undefined') { localStorage.removeItem('inventorySelectedSessionId'); } } catch {}
         }
       } catch {}
@@ -299,17 +267,17 @@ export default function InventoryScreen() {
   }, [selectedSession?.id]);
   
   const scan = async () => {
-    if (!canScan) { showSnackbar({ type: 'error', text: 'Brak uprawnień do skanowania' }); return; }
+    if (!canScan) { showSnackbar('Brak uprawnień do skanowania', { type: 'error' }); return; }
     const code = normalizeCode(scanCode);
     const qty = Math.max(1, parseInt(String(scanQty || '1'), 10));
-    if (!selectedSession?.id) { showSnackbar({ type: 'warn', text: 'Wybierz sesję' }); return; }
-    if (!code) { showSnackbar({ type: 'warn', text: 'Podaj kod narzędzia' }); return; }
+    if (!selectedSession?.id) { showSnackbar('Wybierz sesję', { type: 'warn' }); return; }
+    if (!code) { showSnackbar('Podaj kod narzędzia', { type: 'warn' }); return; }
     setScanning(true);
     setScanStatus(''); setScanError('');
     try {
       await api.init();
       const res = await api.post(`/api/inventory/sessions/${encodeURIComponent(selectedSession.id)}/scan`, { code, quantity: qty });
-      showSnackbar({ type: 'success', text: 'Dodano zliczenie' });
+      showSnackbar('Dodano zliczenie', { type: 'success' });
       setScanStatus('Dodano zliczenie');
       try { setLastScanTool(res?.tool || { name: res?.tool_name, code, qty }); } catch {}
       setScanCode('');
@@ -318,7 +286,7 @@ export default function InventoryScreen() {
       setTimeout(() => { setScanStatus(''); }, 4000);
     } catch (e) {
       setScanError(e?.message || 'Nie udało się dodać zliczenia');
-      showSnackbar({ type: 'error', text: e?.message || 'Nie udało się dodać zliczenia' });
+      showSnackbar(e?.message || 'Nie udało się dodać zliczenia', { type: 'error' });
     } finally {
       setScanning(false);
     }
@@ -328,15 +296,15 @@ export default function InventoryScreen() {
     try {
       await api.init();
       const res = await api.put(`/api/inventory/sessions/${encodeURIComponent(selectedSession.id)}/counts/${encodeURIComponent(toolId)}`, { counted_qty: Math.max(0, parseInt(String(qty || '0'), 10)) });
-      showSnackbar({ type: 'success', text: 'Zaktualizowano ilość' });
+      showSnackbar('Zaktualizowano ilość', { type: 'success' });
       await loadDetails(selectedSession.id);
     } catch (e) {
-      showSnackbar({ type: 'error', text: e?.message || 'Nie udało się ustawić ilości' });
+      showSnackbar(e?.message || 'Nie udało się ustawić ilości', { type: 'error' });
     }
   };
   
   const openScanner = async (target) => {
-    if (!canScan) { showSnackbar({ type: 'error', text: 'Brak uprawnień do skanowania' }); return; }
+    if (!canScan) { showSnackbar('Brak uprawnień do skanowania', { type: 'error' }); return; }
     setScanTarget(target);
     setScanFrameColor('#9ca3af');
     setScanHintText('Zeskanuj kod');
@@ -410,7 +378,7 @@ export default function InventoryScreen() {
     try {
       await api.init();
       const res = await api.post(`/api/inventory/sessions/${encodeURIComponent(selectedSession.id)}/corrections`, { tool_id: toolId, difference_qty: differenceQty, reason });
-      showSnackbar({ type: 'success', text: 'Dodano korektę' });
+      showSnackbar('Dodano korektę', { type: 'success' });
       await loadDetails(selectedSession.id);
       if (autoAcceptCorrections && canAcceptCorrection && res?.id) {
         try { await acceptCorrection(res.id); } catch {}
@@ -418,24 +386,24 @@ export default function InventoryScreen() {
       }
       return res;
     } catch (e) {
-      showSnackbar({ type: 'error', text: e?.message || 'Nie udało się dodać korekty' });
+      showSnackbar(e?.message || 'Nie udało się dodać korekty', { type: 'error' });
     }
   };
   
   const acceptCorrection = async (corrId) => {
-    if (!canAcceptCorrection) { showSnackbar({ type: 'error', text: 'Brak uprawnień do akceptacji korekt' }); return; }
+    if (!canAcceptCorrection) { showSnackbar('Brak uprawnień do akceptacji korekt', { type: 'error' }); return; }
     try {
       await api.init();
       await api.post(`/api/inventory/corrections/${encodeURIComponent(corrId)}/accept`, {});
-      showSnackbar({ type: 'success', text: 'Zaakceptowano korektę' });
+      showSnackbar('Zaakceptowano korektę', { type: 'success' });
       await loadDetails(selectedSession.id);
     } catch (e) {
-      showSnackbar({ type: 'error', text: e?.message || 'Brak uprawnień lub błąd' });
+      showSnackbar(e?.message || 'Brak uprawnień lub błąd', { type: 'error' });
     }
   };
   
   const deleteCorrection = async (corrId) => {
-    if (!canDeleteCorrection) { showSnackbar({ type: 'error', text: 'Brak uprawnień do usuwania korekt' }); return; }
+    if (!canDeleteCorrection) { showSnackbar('Brak uprawnień do usuwania korekt', { type: 'error' }); return; }
     // Zastąpione przez modal potwierdzenia
     setDeleteTarget({ id: corrId });
     setDeleteModalVisible(true);
@@ -492,8 +460,8 @@ export default function InventoryScreen() {
     const system = Number(corrTool?.system_qty ?? 0);
     const diff = counted - system;
     const qtyAbs = Math.abs(diff);
-    if (!corrTool?.tool_id) { showSnackbar({ type: 'warn', text: 'Brak narzędzia' }); return; }
-    if (qtyAbs === 0) { showSnackbar({ type: 'warn', text: 'Różnica wynosi 0 — brak korekty' }); return; }
+    if (!corrTool?.tool_id) { showSnackbar('Brak narzędzia', { type: 'warn' }); return; }
+    if (qtyAbs === 0) { showSnackbar('Różnica wynosi 0 — brak korekty', { type: 'warn' }); return; }
     setCorrSubmitting(true);
     try {
       // 1) Zapisz counted_qty (PUT)
@@ -518,17 +486,17 @@ export default function InventoryScreen() {
   };
 
   const confirmDeleteCorrection = async () => {
-    if (!canDeleteCorrection) { showSnackbar({ type: 'error', text: 'Brak uprawnień do usuwania korekt' }); closeDeleteModal(); return; }
+    if (!canDeleteCorrection) { showSnackbar('Brak uprawnień do usuwania korekt', { type: 'error' }); closeDeleteModal(); return; }
     if (!deleteTarget?.id) { closeDeleteModal(); return; }
     setDeleteSubmitting(true);
     try {
       await api.init();
       await api.delete(`/api/inventory/corrections/${encodeURIComponent(deleteTarget.id)}`);
-      showSnackbar({ type: 'success', text: 'Usunięto korektę' });
+      showSnackbar('Usunięto korektę', { type: 'success' });
       await loadDetails(selectedSession.id);
       closeDeleteModal();
     } catch (e) {
-      showSnackbar({ type: 'error', text: e?.message || 'Brak uprawnień lub błąd' });
+      showSnackbar(e?.message || 'Brak uprawnień lub błąd', { type: 'error' });
     } finally {
       setDeleteSubmitting(false);
     }
@@ -599,7 +567,7 @@ export default function InventoryScreen() {
 
   const exportDiffsToCSV = async () => {
     try {
-      if (!canExportCsv) { showSnackbar({ type: 'error', text: 'Brak uprawnień do eksportu CSV' }); return; }
+      if (!canExportCsv) { showSnackbar('Brak uprawnień do eksportu CSV', { type: 'error' }); return; }
       setCsvExporting(true);
       const sessionName = selectedSession?.name || '';
       const exportDate = new Date();
@@ -623,8 +591,8 @@ export default function InventoryScreen() {
       const sep = ';';
       const csv = rows.map(r => r.map(x => String(x).replace(/\"/g, '\"\"')).map(x => new RegExp(`[\"${sep}\n]`).test(x) ? `\"${x}\"` : x).join(sep)).join('\n');
        if (Platform.OS === 'web') {
-         try { await navigator.clipboard.writeText(csv); showSnackbar({ type: 'success', text: 'Skopiowano CSV do schowka' }); }
-         catch { showSnackbar({ type: 'warn', text: 'Nie udało się skopiować CSV' }); }
+         try { await navigator.clipboard.writeText(csv); showSnackbar('Skopiowano CSV do schowka', { type: 'success' }); }
+         catch { showSnackbar('Nie udało się skopiować CSV', { type: 'warn' }); }
        } else {
          await Share.share({ message: csv });
        }
@@ -633,29 +601,67 @@ export default function InventoryScreen() {
     }
   };
 
-  const renderSessionItem = ({ item }) => {
-    const statusColor = item.status === 'active' ? (colors.success || '#10b981') : (item.status === 'paused' ? (colors.warning || '#f59e0b') : (colors.muted));
+  const renderSessionItem = ({ item, index }) => {
+    let statusColor = colors.muted || '#9ca3af';
+    if (item.status === 'active') statusColor = colors.success || '#10b981';
+    else if (item.status === 'paused') statusColor = colors.warning || '#f59e0b';
+    else if (item.status === 'ended') statusColor = colors.danger || '#dc2626';
+
+    const isSelected = String(selectedSession?.id || '') === String(item.id || '');
+    const isEven = index % 2 === 0;
+    
+    // Tło: wybrane -> primary (jasny), parzyste -> card, nieparzyste -> bg
+    let bgColor = isEven ? colors.card : colors.bg;
+    if (isSelected) {
+      bgColor = (colors.primary + '33'); // ~20% opacity for better visibility
+    }
+
     return (
-      <Pressable onPress={async () => { setSelectedSession(item); try { await AsyncStorage.setItem('@inventory_selected_session_id', String(item?.id || '')); } catch {} }} style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg, opacity: pressed ? 0.9 : 1 }]}> 
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+      <Pressable 
+        onPress={async () => { setSelectedSession(item); try { await setStorageItem(KEYS.INVENTORY_SELECTED_SESSION, String(item?.id || '')); } catch {} }} 
+        style={({ pressed }) => [{ 
+          position: 'relative',
+          borderRadius: 8, 
+          borderWidth: isSelected ? 2 : 1, 
+          borderColor: isSelected ? colors.primary : colors.border, 
+          backgroundColor: bgColor,
+          opacity: pressed ? 0.95 : 1, 
+          elevation: isSelected ? 3 : 1,
+          shadowColor: '#000', 
+          shadowOffset: { width: 0, height: 1 }, 
+          shadowOpacity: 0.1, 
+          shadowRadius: 2,
+          overflow: 'hidden',
+          marginBottom: 4,
+          minHeight: 70
+        }]}
+      > 
+        {/* Pasek statusu po lewej stronie - Absolute Positioning dla pewności */}
+        <View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 6, backgroundColor: statusColor, zIndex: 10 }} />
+
+        {/* Główna zawartość */}
+        <View style={{ flex: 1, paddingVertical: 12, paddingRight: 12, paddingLeft: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: bgColor }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.text, fontWeight: '600' }}>{item.name || 'Sesja'}</Text>
+            <Text style={{ color: colors.text, fontWeight: isSelected ? '700' : '600', fontSize: 16 }}>
+              {item.name}
+            </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-              <View style={[styles.chip, { borderColor: statusColor }]}><Text style={{ color: statusColor }}>{item.status}</Text></View>
               <Text style={{ color: colors.muted }}>Zliczone: {item.counted_items ?? 0}</Text>
             </View>
+            <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>Data rozpoczęcia: {item.started_at ? new Date(item.started_at).toLocaleString('pl-PL') : '-'}</Text>
+            <Text style={{ color: colors.muted, fontSize: 12 }}>Data zakończenia: {item.finished_at ? new Date(item.finished_at).toLocaleString('pl-PL') : '-'}</Text>
           </View>
-          <View style={{ flexDirection: 'row', gap: 6 }}>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
             {item.status === 'active' ? (
-              <Pressable disabled={!canManageSessions} onPress={() => updateStatus(item, 'pause')} style={[styles.button, { backgroundColor: colors.primary }]}><Text style={styles.buttonText}>Wstrzymaj</Text></Pressable>
+              <Pressable disabled={!canManageSessions} onPress={() => updateStatus(item, 'pause')} style={[styles.button, { backgroundColor: colors.primary, paddingHorizontal: 8, paddingVertical: 8 }]}><Ionicons name="pause" size={20} color="#fff" /></Pressable>
             ) : null}
             {item.status === 'paused' ? (
-              <Pressable disabled={!canManageSessions} onPress={() => updateStatus(item, 'resume')} style={[styles.button, { backgroundColor: colors.primary }]}><Text style={styles.buttonText}>Wznów</Text></Pressable>
+              <Pressable disabled={!canManageSessions} onPress={() => updateStatus(item, 'resume')} style={[styles.button, { backgroundColor: colors.primary, paddingHorizontal: 8, paddingVertical: 8 }]}><Ionicons name="play" size={20} color="#fff" /></Pressable>
             ) : null}
             {item.status !== 'ended' ? (
-              <Pressable disabled={!canManageSessions} onPress={() => updateStatus(item, 'end')} style={[styles.button, { backgroundColor: colors.primary }]}><Text style={styles.buttonText}>Zakończ</Text></Pressable>
+              <Pressable disabled={!canManageSessions} onPress={() => updateStatus(item, 'end')} style={[styles.button, { backgroundColor: colors.primary, paddingHorizontal: 8, paddingVertical: 8 }]}><Ionicons name="checkmark-circle" size={20} color="#fff" /></Pressable>
             ) : (
-              <Pressable disabled={!canManageSessions} onPress={() => deleteSession(item)} style={[styles.button, { backgroundColor: colors.danger }]}><Text style={styles.buttonText}>Usuń</Text></Pressable>
+              <Pressable disabled={!canManageSessions} onPress={() => deleteSession(item)} style={[styles.button, { backgroundColor: colors.danger, paddingHorizontal: 8, paddingVertical: 8 }]}><Ionicons name="trash" size={20} color="#fff" /></Pressable>
             )}
           </View>
         </View>
@@ -667,6 +673,7 @@ export default function InventoryScreen() {
   if (permsReady && !canViewInventory) { return (<View style={styles.container}><View style={styles.header}><Text style={styles.title}>Inwentaryzacja</Text><Text style={styles.subtitle}>Brak uprawnień do widoku</Text></View></View>); }
 
   return (
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 24 }}>
       <View style={styles.header}>
         <Text style={styles.title}>Inwentaryzacja</Text>
@@ -691,6 +698,7 @@ export default function InventoryScreen() {
         {!loading && sessions?.length ? (
           <FlatList
             data={sessions}
+            extraData={{ selectedSession, sessions }}
             keyExtractor={(item) => String(item.id || Math.random())}
             renderItem={renderSessionItem}
             ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
@@ -704,12 +712,12 @@ export default function InventoryScreen() {
           <Text style={styles.sectionTitle}>Sesja: {selectedSession?.name}</Text>
           <View style={[styles.row, { marginBottom: 8 }]}> 
             <TextInput style={[styles.input, { flex: 1 }]} placeholder="Kod narzędzia" placeholderTextColor={colors.muted} value={scanCode} onChangeText={setScanCode} />
-            <TextInput style={[styles.input, { width: 100, textAlign: 'center' }]} placeholder="Ilość" placeholderTextColor={colors.muted} keyboardType="numeric" value={scanQty} onChangeText={setScanQty} />
+            <TextInput style={[styles.input, { width: 70, textAlign: 'center' }]} placeholder="Ilość" placeholderTextColor={colors.muted} keyboardType="numeric" value={scanQty} onChangeText={setScanQty} />
             <Pressable disabled={scanning} onPress={scan} style={[styles.button, { backgroundColor: colors.primary }]}>
-              <Text style={styles.buttonText}>{scanning ? 'Dodawanie…' : 'Skanuj/Zlicz'}</Text>
+              <Text style={styles.buttonText}>{scanning ? 'Dodawanie…' : 'Zlicz'}</Text>
             </Pressable>
             <Pressable disabled={!canScan} onPress={() => openScanner('count')} style={[styles.button, { backgroundColor: canScan ? colors.primary : colors.muted }]} >
-              <Text style={styles.buttonText}>Skanuj kamerą</Text>
+              <Text style={styles.buttonText}><Ionicons name="barcode-outline" size={20} color="#fff" /></Text>
             </Pressable>
           </View>
           {detailsLoading ? <Text style={styles.muted}>Ładowanie szczegółów…</Text> : null}
@@ -789,7 +797,7 @@ export default function InventoryScreen() {
             <Text style={{ color: colors.text }}>Auto-akceptuj korekty</Text>
             <Switch disabled={!canAcceptCorrection} value={autoAcceptCorrections} onValueChange={async (v) => {
               setAutoAcceptCorrections(v);
-              try { await AsyncStorage.setItem('@inventory_auto_accept_v1', v ? '1' : '0'); } catch {}
+              try { await setStorageItem(KEYS.INVENTORY_AUTO_ACCEPT, v ? '1' : '0'); } catch {}
               // Równoległy zapis do localStorage (web) zgodnie z dokumentacją: inventoryAutoAcceptDisabled
               try { if (Platform.OS === 'web' && typeof localStorage !== 'undefined') { localStorage.setItem('inventoryAutoAcceptDisabled', v ? 'false' : 'true'); } } catch {}
             }} thumbColor={autoAcceptCorrections ? colors.primary : colors.border} trackColor={{ true: colors.primary, false: colors.border }} />
@@ -860,7 +868,6 @@ export default function InventoryScreen() {
         ) : (!toolsLoading ? <Text style={styles.muted}>Brak danych magazynu</Text> : null)}
       </View>
     </ScrollView>
-  );
     {showScanner ? (
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#000' }}>
         {CameraViewComp ? (
@@ -895,7 +902,6 @@ export default function InventoryScreen() {
           )
         )}
         <View style={[styles.reticleBox, { borderColor: scanFrameColor }]} />
-        <View style={styles.reticle}><Ionicons name="qr-code" size={72} color="#fff" /></View>
         <View style={styles.scanHint}><Text style={styles.scanHintText}>{scanHintText}</Text></View>
         <Pressable onPress={() => setShowScanner(false)} style={{ position: 'absolute', top: 16, right: 16, backgroundColor: '#fff', padding: 8, borderRadius: 8 }}>
           <Text style={{ color: '#111827', fontWeight: '600' }}>Zamknij</Text>
@@ -953,4 +959,6 @@ export default function InventoryScreen() {
         </View>
       </View>
     </Modal>
+    </View>
+  );
 }

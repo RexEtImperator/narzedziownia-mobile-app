@@ -1,4 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
+import './global.css';
 import { StyleSheet } from 'react-native';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -8,6 +9,8 @@ import { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { View, Text, Pressable, Modal, Animated, Easing, Platform, Linking } from 'react-native';  
 import GestureHandlerRootView from './components/GestureRoot';
+import ThemedButton from './components/ThemedButton';
+
 import SettingsScreen from './screens/SettingsScreen';
 import SecuritySettings from './screens/SecuritySettings';
 import UsersSettings from './screens/UsersSettings';
@@ -30,16 +33,18 @@ import NotificationsScreen from './screens/NotificationsScreen';
 import ChatScreen from './screens/ChatScreen';
 import ChatDetailsScreen from './screens/ChatDetailsScreen';
 import { ThemeProvider, useTheme } from './lib/theme';
-import { setDynamicRolePermissions, PERMISSIONS } from './lib/constants';
+import { PERMISSIONS } from './lib/constants';
 import { isOnline, onConnectivityChange } from './lib/net';
-import { initializeAndRestore, registerDevicePushToken } from './lib/notifications';
 import Constants from 'expo-constants';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { DeviceEventEmitter } from 'react-native';
 import { subscribe as subscribeSnackbar } from './lib/snackbar';
-import { isAdmin, hasPermission, hasRole } from './lib/utils';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { isAdmin, hasRole } from './lib/utils';
 import { ROLES } from './lib/constants';
+import OnboardingScreen from './screens/OnboardingScreen';
+import { PermissionsProvider, usePermissions } from './lib/PermissionsContext';
+import { NotificationsProvider, useNotifications } from './lib/NotificationsContext';
+import { KEYS, getStorageItem } from './lib/storage';
+import { initializeAndRestore, registerDevicePushToken } from './lib/notifications';
 
 const Tab = createBottomTabNavigator();
 const SettingsStackNav = createNativeStackNavigator();
@@ -72,7 +77,7 @@ function CustomTabBar({ state, descriptors, navigation, onPressScan, isAdmin, un
   const [menuVisible, setMenuVisible] = useState(false);
 
   // Helper to render a tab button
-  const renderTabButton = (routeName, iconName, label) => {
+  const renderTabButton = (routeName, iconName) => {
     const routeIndex = state.routes.findIndex(r => r.name === routeName);
     if (routeIndex === -1) return null;
 
@@ -107,14 +112,14 @@ function CustomTabBar({ state, descriptors, navigation, onPressScan, isAdmin, un
   };
 
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card }}>
       {renderTabButton('Dashboard', 'home')}
       {renderTabButton('Narzędzia', 'construct')}
       {renderTabButton('BHP', 'medkit')}
 
       {/* Środkowy przycisk skanowania */}
       <Pressable onPress={onPressScan} style={({ pressed }) => ({ width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1, alignItems: 'center', justifyContent: 'center', ...(Platform.select({ web: { boxShadow: '0px 6px 18px rgba(0,0,0,0.18)' }, ios: { shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8 }, android: { elevation: 6 } })) })}>
-        <Ionicons name="scan" size={30} color="#fff" />
+        <Ionicons name="scan" size={35} color="#fff" />
       </Pressable>
 
       {renderTabButton('Pracownicy', 'people')}
@@ -139,7 +144,7 @@ function CustomTabBar({ state, descriptors, navigation, onPressScan, isAdmin, un
             >
               <View style={{ 
                 position: 'absolute', 
-                bottom: 80, 
+                bottom: 70, 
                 right: 20, 
                 backgroundColor: colors.card, 
                 borderRadius: 12, 
@@ -159,31 +164,33 @@ function CustomTabBar({ state, descriptors, navigation, onPressScan, isAdmin, un
                   { name: 'Czat', icon: 'chatbubbles', badge: chatUnreadCount },
                   { name: 'Ustawienia', icon: 'settings' }
                 ].map((item) => (
-                  <Pressable
+                  <ThemedButton
                     key={item.name}
                     onPress={() => {
                       setMenuVisible(false);
                       navigation.navigate(item.name);
                     }}
-                    style={({ pressed }) => ({
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      paddingVertical: 12,
+                    variant="outline"
+                    style={{
+                      borderWidth: 0,
+                      justifyContent: 'flex-start',
                       paddingHorizontal: 12,
-                      backgroundColor: pressed ? colors.background : 'transparent',
-                      borderRadius: 20,
-                    })}
-                  >
-                    <View style={{ position: 'relative' }}>
-                      <Ionicons name={item.icon} size={22} color={colors.text} style={{ marginRight: 12 }} />
-                      {item.badge > 0 && (
-                        <View style={{ position: 'absolute', right: 4, top: -4, minWidth: 16, height: 16, paddingHorizontal: 3, borderRadius: 8, backgroundColor: '#ef4444', alignItems: 'center', justifyContent: 'center' }}>
-                          <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{item.badge > 99 ? '99+' : String(item.badge)}</Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={{ color: colors.text, fontSize: 15 }}>{item.name}</Text>
-                  </Pressable>
+                      height: 40,
+                      marginVertical: 2
+                    }}
+                    textStyle={{ color: colors.text, fontSize: 15, fontWeight: '400', marginLeft: 12 }}
+                    title={item.name}
+                    icon={
+                      <View style={{ position: 'relative' }}>
+                        <Ionicons name={item.icon} size={22} color={colors.text} />
+                        {item.badge > 0 && (
+                          <View style={{ position: 'absolute', right: -6, top: -6, minWidth: 16, height: 16, paddingHorizontal: 3, borderRadius: 8, backgroundColor: '#ef4444', alignItems: 'center', justifyContent: 'center' }}>
+                            <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{item.badge > 99 ? '99+' : String(item.badge)}</Text>
+                          </View>
+                        )}
+                      </View>
+                    }
+                  />
                 ))}
               </View>
             </Pressable>
@@ -201,7 +208,7 @@ function CustomNavOthers({ state, navigation, unreadCount = 0, toolsIssuedCount 
   const bubbleBg = colors.primary;
   const inactiveColor = colors.muted;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 8, paddingBottom: 8, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card }}>
       <View style={{ flexDirection: 'row', gap: 28, flex: 1, justifyContent: 'space-between' }}>
         {state.routes.map((route, index) => {
           const isFocused = state.index === index;
@@ -297,38 +304,38 @@ function OtherTabs({ unreadCount = 0, toolsIssuedCount = 0, bhpIssuedCount = 0, 
 
 function AppContent() {
   const { navTheme, isDark, colors } = useTheme();
+  const { currentUser, hasPermission } = usePermissions();
+  const { unreadCount: notifUnreadCount, pendingNavigation, setPendingNavigation } = useNotifications();
   const [hasToken, setHasToken] = useState(false);
-  const [isAdminUser, setIsAdminUser] = useState(false);
-  const [me, setMe] = useState(null);
-  const [notifUnreadCount, setNotifUnreadCount] = useState(0);
+  const isAdminUser = isAdmin(currentUser);
+
+  // const [notifUnreadCount, setNotifUnreadCount] = useState(0); // Removed in favor of context
   const [chatUnreadCount, setChatUnreadCount] = useState(0);
   const [toolsIssuedCount, setToolsIssuedCount] = useState(0);
   const [bhpIssuedCount, setBhpIssuedCount] = useState(0);
-  const [isChatEnabled, setIsChatEnabled] = useState(false);
+  const [isOnboardingChecked, setIsOnboardingChecked] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
-  // Stubs to keep Modal code inert; action sheet removed
-  const actionSheetVisible = false;
-  const sheetAnim = new Animated.Value(0);
+  useEffect(() => {
+    console.log('--- Aplikacja uruchomiona, logi z urządzenia są widoczne ---');
+    const checkOnboarding = async () => {
+      try {
+        const value = await getStorageItem(KEYS.HAS_SEEN_ONBOARDING);
+        if (value !== 'true') {
+          setShowOnboarding(true);
+        }
+      } catch (e) {
+        // ignore
+      } finally {
+        setIsOnboardingChecked(true);
+      }
+    };
+    checkOnboarding();
+  }, []);
+  const [isChatEnabled, setIsChatEnabled] = useState(false);
   const openActionSheet = () => {
     try { navigationRef?.navigate?.('Scanner'); } catch {}
   };
-  const closeActionSheet = () => {};
-
-  useEffect(() => {
-    const loadMe = async () => {
-      try { await api.init(); } catch {}
-      try {
-        const saved = await AsyncStorage.getItem('@current_user');
-        const me = saved ? JSON.parse(saved) : null;
-        setIsAdminUser(isAdmin(me));
-        setMe(me);
-      } catch {
-        setIsAdminUser(false);
-        setMe(null);
-      }
-    };
-    loadMe();
-  }, []);
 
   // Pobierz konfigurację aplikacji (czy czat jest włączony)
   useEffect(() => {
@@ -346,9 +353,6 @@ function AppContent() {
                 enabled = !!res.enableRealtimeChat;
             } else if (res.features && res.features.enableRealtimeChat !== undefined) {
                 enabled = !!res.features.enableRealtimeChat;
-            } else if (res.enable_realtime_chat !== undefined) {
-                // Fallback dla snake_case
-                enabled = Number(res.enable_realtime_chat) === 1 || res.enable_realtime_chat === true;
             }
             setIsChatEnabled(enabled);
         }
@@ -360,39 +364,9 @@ function AppContent() {
     fetchConfig();
   }, []);
 
-  // Inicjalizacja mapy uprawnień z AsyncStorage (override z backendu)
-  useEffect(() => {
-    const initRolePerms = async () => {
-      try {
-        const raw = await AsyncStorage.getItem('@role_permissions_map_v1');
-        const map = raw ? JSON.parse(raw) : null;
-        if (map && typeof map === 'object') {
-          try { setDynamicRolePermissions(map); } catch {}
-        }
-      } catch {}
-    };
-    initRolePerms();
-  }, []);
-
-  // Pobierz dynamiczne uprawnienia ról z backendu na starcie aplikacji
-  useEffect(() => {
-    const fetchRolePerms = async () => {
-      try {
-        await api.init();
-        const perms = await api.get('/api/role-permissions');
-        if (perms && typeof perms === 'object') {
-          try { setDynamicRolePermissions(perms); } catch {}
-          try { await AsyncStorage.setItem('@role_permissions_map_v1', JSON.stringify(perms)); } catch {}
-        }
-      } catch {}
-    };
-    fetchRolePerms();
-  }, []);
-
   // Bootstrap token init + notifications with cleanup in effect
   useEffect(() => {
     let unsubscribe = () => {};
-    let refreshListener = null;
     const bootstrap = async () => {
       await api.init();
       setHasToken(!!api.token);
@@ -403,30 +377,19 @@ function AppContent() {
       try {
         await initializeAndRestore();
       } catch {}
-      // Zarejestruj token push (Expo) i nasłuchuj sygnałów odświeżenia
+      // Zarejestruj token push (Expo)
       try {
         await registerDevicePushToken();
       } catch {}
-      try {
-        refreshListener = DeviceEventEmitter.addListener('notifications:refresh', async () => {
-          // Po otrzymaniu pusha odśwież licznik nieprzeczytanych
-          try {
-            await api.init();
-            const list = await api.get('/api/notifications');
-            const cnt = Array.isArray(list) ? list.filter((n) => !n?.read).length : 0;
-            setNotifUnreadCount(cnt);
-          } catch {
-            // ignoruj błędy
-          }
-        });
-      } catch {}
     };
     bootstrap();
-    return () => { try { unsubscribe(); } catch {}; try { refreshListener && refreshListener.remove && refreshListener.remove(); } catch {} };
+    return () => { try { unsubscribe(); } catch {}; };
   }, []);
 
   // Globalny listener: nawigacja po kliknięciu powiadomienia push (data.url)
   useEffect(() => {
+    if (!pendingNavigation) return;
+
     const norm = (s) => {
       try { return String(s || '').trim(); } catch { return ''; }
     };
@@ -445,8 +408,9 @@ function AppContent() {
       } catch {}
       return out;
     };
-    const onNav = async ({ url, data }) => {
+    const handleNav = async () => {
       try {
+        const { url, data } = pendingNavigation;
         const u = norm(url);
         const lower = u.toLowerCase();
         const isExternal = lower.startsWith('http://') || lower.startsWith('https://') || lower.startsWith('mailto:');
@@ -493,37 +457,27 @@ function AppContent() {
         }
       } catch {}
     };
-    const sub = DeviceEventEmitter.addListener('push:navigate', onNav);
-    return () => { try { sub.remove(); } catch {} };
-  }, []);
 
-  // Liczba nieprzeczytanych powiadomień i wiadomości czatu – odświeżanie w tle
+    handleNav();
+    setPendingNavigation(null);
+  }, [pendingNavigation, setPendingNavigation]);
+
+  // Liczba nieprzeczytanych wiadomości czatu – odświeżanie w tle
   useEffect(() => {
     let cancelled = false;
     let timer = null;
     const loadUnread = async () => {
       try {
         await api.init();
-        
-        // Powiadomienia
-        try {
-          const list = await api.get('/api/notifications');
-          const cnt = Array.isArray(list) ? list.filter((n) => !n?.read).length : 0;
-          if (!cancelled) setNotifUnreadCount(cnt);
-        } catch {}
-
-        // Czat (jeśli włączony)
         if (isChatEnabled) {
           try {
-            const chats = await api.get('/api/chat/conversations');
-            const chatList = Array.isArray(chats) ? chats : [];
-            const chatCnt = chatList.reduce((sum, c) => sum + (Number(c.unread_count) || 0), 0);
-            if (!cancelled) setChatUnreadCount(chatCnt);
+            const conversations = await api.get('/api/chat/conversations');
+            const unread = Array.isArray(conversations) ? conversations.reduce((acc, c) => acc + (c.unread_count || 0), 0) : 0;
+            if (!cancelled) setChatUnreadCount(unread);
           } catch {}
         }
       } catch {
         if (!cancelled) {
-          setNotifUnreadCount(0);
           setChatUnreadCount(0);
         }
       }
@@ -539,7 +493,7 @@ function AppContent() {
     let timer = null;
     const loadCounts = async () => {
       try { await api.init(); } catch {}
-      const isEmp = hasRole(me, ROLES.EMPLOYEE) || String(me?.role_name || '').toLowerCase() === 'pracownik' || String(me?.role || '').toLowerCase() === 'employee';
+      const isEmp = hasRole(currentUser, ROLES.EMPLOYEE) || String(currentUser?.role_name || '').toLowerCase() === 'pracownik' || String(currentUser?.role || '').toLowerCase() === 'employee';
       if (!isEmp) { if (!cancelled) { setToolsIssuedCount(0); setBhpIssuedCount(0); } return; }
       try {
         const [toolIssuesResp, bhpIssuesResp] = await Promise.all([
@@ -571,7 +525,7 @@ function AppContent() {
     loadCounts();
     timer = setInterval(loadCounts, 30000);
     return () => { cancelled = true; try { clearInterval(timer); } catch {} };
-  }, [me]);
+  }, [currentUser]);
 
   // Android: ukryj pasek systemowy i pozwól przywracać gestem (sticky immersive)
   useEffect(() => {
@@ -668,19 +622,27 @@ function AppContent() {
     return () => { cancelled = true; };
   }, []);
 
+  if (!isOnboardingChecked) {
+    return null; // Lub ekran ładowania/splash
+  }
+
   return (
     <NavigationContainer theme={navTheme} ref={navigationRef}>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        {hasToken ? (
+        {showOnboarding ? (
+          <RootStack.Screen name="Onboarding">
+            {(props) => <OnboardingScreen {...props} onFinish={() => setShowOnboarding(false)} />}
+          </RootStack.Screen>
+        ) : hasToken ? (
           <>
             <RootStack.Screen name="MainTabs">{() => (
-              (isAdmin(me) || hasRole(me, ROLES.TOOLSMASTER)) ? (
+              (isAdminUser || hasRole(currentUser, ROLES.TOOLSMASTER)) ? (
                 <MainTabs
                   openActionSheet={openActionSheet}
-                  canSeeInventory={hasPermission(me, PERMISSIONS.VIEW_INVENTORY)}
-                  canSeeEmployees={hasPermission(me, PERMISSIONS.VIEW_EMPLOYEES)}
+                  canSeeInventory={hasPermission(PERMISSIONS.VIEW_INVENTORY)}
+                  canSeeEmployees={hasPermission(PERMISSIONS.VIEW_EMPLOYEES)}
                   isChatEnabled={isChatEnabled}
-                  isAdmin={isAdminUser}
+                  isAdmin={isAdminUser || hasRole(currentUser, ROLES.TOOLSMASTER)}
                   unreadCount={notifUnreadCount}
                   chatUnreadCount={chatUnreadCount}
                 />
@@ -689,7 +651,7 @@ function AppContent() {
                   unreadCount={notifUnreadCount} 
                   toolsIssuedCount={toolsIssuedCount} 
                   bhpIssuedCount={bhpIssuedCount} 
-                  isEmployee={hasRole(me, ROLES.EMPLOYEE) || String(me?.role_name || '').toLowerCase() === 'pracownik' || String(me?.role || '').toLowerCase() === 'employee'}
+                  isEmployee={hasRole(currentUser, ROLES.EMPLOYEE) || String(currentUser?.role_name || '').toLowerCase() === 'pracownik' || String(currentUser?.role || '').toLowerCase() === 'employee'}
                   isChatEnabled={isChatEnabled}
                 />
               )
@@ -703,26 +665,6 @@ function AppContent() {
         )}
       </RootStack.Navigator>
       <StatusBar style={isDark ? 'light' : 'dark'} />
-      {/* Dolny panel akcji */}
-      <Modal visible={actionSheetVisible} transparent animationType="none" onRequestClose={closeActionSheet}>
-        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.25)' }} onPress={closeActionSheet}>
-          <Animated.View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: useTheme().colors.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, transform: [{ translateY: sheetAnim.interpolate({ inputRange: [0,1], outputRange: [320,0] }) }] }}>
-            <View style={{ alignItems: 'center', marginBottom: 8 }}>
-              <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: useTheme().colors.border }} />
-            </View>
-            <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 4, color: useTheme().colors.text }}>Wybierz akcję</Text>
-            <Text style={{ color: useTheme().colors.muted, marginBottom: 12 }}>Co chcesz zrobić po zeskanowaniu narzędzia?</Text>
-            <View style={{ gap: 12 }}>
-              <Pressable onPress={() => { closeActionSheet(); try { navigationRef?.navigate?.('Scanner', { action: 'issue' }); } catch {} }} style={({ pressed }) => ({ backgroundColor: useTheme().colors.primary, opacity: pressed ? 0.9 : 1, paddingVertical: 14, borderRadius: 10, alignItems: 'center' })}>
-                <Text style={{ color: '#fff', fontWeight: '600' }}>Wydaj →</Text>
-              </Pressable>
-              <Pressable onPress={() => { closeActionSheet(); try { navigationRef?.navigate?.('Scanner', { action: 'return' }); } catch {} }} style={({ pressed }) => ({ backgroundColor: useTheme().colors.primary, opacity: pressed ? 0.9 : 1, paddingVertical: 14, borderRadius: 10, alignItems: 'center' })}>
-                <Text style={{ color: '#fff', fontWeight: '600' }}>Przyjmij →</Text>
-              </Pressable>
-            </View>
-          </Animated.View>
-        </Pressable>
-      </Modal>
       <SnackbarHost />
       <OfflineBanner />
       <ApiStatusBanner status={apiStatus} isAdmin={isAdminUser} />
@@ -733,20 +675,22 @@ function AppContent() {
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <ThemeProvider>
-          <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-            <AppContent />
-          </SafeAreaView>
-        </ThemeProvider>
-      </SafeAreaProvider>
+      <PermissionsProvider>
+        <NotificationsProvider>
+          <SafeAreaProvider>
+            <ThemeProvider>
+              <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+                <AppContent />
+              </SafeAreaView>
+            </ThemeProvider>
+          </SafeAreaProvider>
+        </NotificationsProvider>
+      </PermissionsProvider>
     </GestureHandlerRootView>
   );
 }
 
-const styles = StyleSheet.create({
-  
-});
+const styles = StyleSheet.create({});
 
 // Ref do nawigacji, aby wywołać przejścia z panelu
 export const navigationRef = createNavigationContainerRef();

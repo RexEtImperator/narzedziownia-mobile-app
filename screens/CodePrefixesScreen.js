@@ -3,33 +3,19 @@ import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, ActivityIndic
 import { useTheme } from '../lib/theme';
 import api from '../lib/api';
 import { showSnackbar } from '../lib/snackbar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { hasPermission } from '../lib/utils';
 import { PERMISSIONS } from '../lib/constants';
+import { usePermissions } from '../lib/PermissionsContext';
 
 export default function CodePrefixesScreen() {
   const { colors } = useTheme();
+  const { currentUser, hasPermission, ready: permsReady } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [general, setGeneral] = useState({ toolsCodePrefix: '', bhpCodePrefix: '', toolCategoryPrefixes: {} });
 
-  const [currentUser, setCurrentUser] = useState(null);
-  const [canViewSettings, setCanViewSettings] = useState(false);
-  const [permsReady, setPermsReady] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const raw = await AsyncStorage.getItem('@current_user');
-        const user = raw ? JSON.parse(raw) : null;
-        setCurrentUser(user);
-        setCanViewSettings(hasPermission(user, PERMISSIONS.SYSTEM_SETTINGS));
-      } catch {}
-      setPermsReady(true);
-    })();
-  }, []);
+  const canViewSettings = hasPermission(PERMISSIONS.SYSTEM_SETTINGS);
 
   const load = async () => {
     setLoading(true);

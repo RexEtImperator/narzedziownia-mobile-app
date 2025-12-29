@@ -6,8 +6,7 @@ import api from '../lib/api';
 import { Ionicons } from '@expo/vector-icons';
 import AddEmployeeModal from './AddEmployeeModal';
 import { showSnackbar } from '../lib/snackbar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { hasPermission } from '../lib/utils';
+import { usePermissions } from '../lib/PermissionsContext';
 
 export default function EmployeesScreen() {
   const { colors } = useTheme();
@@ -32,25 +31,11 @@ export default function EmployeesScreen() {
   const [focusedSearchInput, setFocusedSearchInput] = useState(false);
   const [addEmpVisible, setAddEmpVisible] = useState(false);
 
-  // Permission-related state
-  const [currentUser, setCurrentUser] = useState(null);
-  const [canViewEmployees, setCanViewEmployees] = useState(false);
-  const [canManageEmployees, setCanManageEmployees] = useState(false);
-  const [permsReady, setPermsReady] = useState(false);
+  // Permission-related state from Context
+  const { currentUser, hasPermission, ready: permsReady } = usePermissions();
+  const canViewEmployees = hasPermission('view_employees');
+  const canManageEmployees = hasPermission('manage_employees');
   const [viewLogged, setViewLogged] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const raw = await AsyncStorage.getItem('@current_user');
-        const user = raw ? JSON.parse(raw) : null;
-        setCurrentUser(user);
-        setCanViewEmployees(hasPermission(user, 'view_employees'));
-        setCanManageEmployees(hasPermission(user, 'manage_employees'));
-      } catch {}
-      setPermsReady(true);
-    })();
-  }, []);
 
   // Szybkie odświeżenie listy po dodaniu/zmianie pracownika
   const refreshEmployees = async () => {
@@ -346,7 +331,7 @@ export default function EmployeesScreen() {
           <ThemedButton
             onPress={() => setAddEmpVisible(true)}
             variant="secondary"
-            style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+            style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0, borderWidth: 1, borderColor: colors.border }}
             icon={<Ionicons name="add" size={22} color={colors.primary || colors.text} />}
           />
         ) : null}
@@ -372,66 +357,163 @@ export default function EmployeesScreen() {
           />
         ) : null}
       </View>
-      <View style={styles.filterRow} className="flex-row items-center gap-2 mb-2">
-        <ThemedButton
-          title={filterDepartment === 'all' ? 'Wszystkie działy' : filterDepartment}
-          onPress={() => setShowDeptDropdown(v => !v)}
-          variant="secondary"
-          style={{ height: 36, justifyContent: 'flex-start', paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border }}
-          textStyle={{ fontWeight: 'normal', fontSize: 14, flex: 1, textAlign: 'left' }}
-          icon={<Ionicons name={showDeptDropdown ? "chevron-up" : "chevron-down"} size={16} color={colors.text} style={{ marginRight: 8 }} />}
-        />
-        <ThemedButton
-          title={filterPosition === 'all' ? 'Wszystkie stanowiska' : filterPosition}
-          onPress={() => setShowPosDropdown(v => !v)}
-          variant="secondary"
-          style={{ height: 36, justifyContent: 'flex-start', paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border }}
-          textStyle={{ fontWeight: 'normal', fontSize: 14, flex: 1, textAlign: 'left' }}
-          icon={<Ionicons name={showPosDropdown ? "chevron-up" : "chevron-down"} size={16} color={colors.text} style={{ marginRight: 8 }} />}
-        />
+      <View style={[styles.filterRow, { zIndex: 100 }]} className="flex-row items-center gap-2 mb-2">
+        <View style={{ flex: 1, position: 'relative', zIndex: showDeptDropdown ? 101 : 1 }}>
+          <ThemedButton
+            title={filterDepartment === 'all' ? 'Wszystkie działy' : filterDepartment}
+            onPress={() => { setShowDeptDropdown(v => !v); setShowPosDropdown(false); }}
+            variant="secondary"
+            style={{ 
+              height: 36, 
+              paddingHorizontal: 8, 
+              borderWidth: 1, 
+              borderColor: colors.border,
+              flexDirection: 'row-reverse',
+              justifyContent: 'space-between'
+            }}
+            textStyle={{ fontWeight: 'normal', fontSize: 14, textAlign: 'left' }}
+            icon={<Ionicons name={showDeptDropdown ? "chevron-up" : "chevron-down"} size={16} color={colors.text} />}
+          />
+          {showDeptDropdown && (
+            <>
+              <Pressable 
+                style={{ position: 'absolute', top: -3000, bottom: -3000, left: -3000, right: -3000, zIndex: 999 }} 
+                onPress={() => setShowDeptDropdown(false)} 
+              />
+              <View style={[styles.dropdown, { 
+                position: 'absolute',
+                top: 38,
+                left: 0,
+                right: 0,
+                borderColor: colors.border, 
+                backgroundColor: colors.card,
+                zIndex: 1000,
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25,
+                shadowRadius: 3.84,
+                elevation: 5
+              }]} className="border rounded-md">
+                <ThemedButton
+                  title="Wszystkie działy"
+                  onPress={() => { setFilterDepartment('all'); setShowDeptDropdown(false); }}
+                  variant="secondary"
+                  style={{ 
+                    height: 40, 
+                    borderRadius: 0, 
+                    borderBottomWidth: 1, 
+                    borderBottomColor: colors.border, 
+                    paddingHorizontal: 10, 
+                    borderWidth: 0,
+                    flexDirection: 'row-reverse',
+                    justifyContent: 'space-between'
+                  }}
+                  textStyle={{ fontWeight: 'normal', textAlign: 'left' }}
+                  icon={filterDepartment === 'all' ? <Ionicons name="checkmark-outline" size={18} color={colors.primary} /> : <View style={{ width: 18 }} />}
+                />
+                {departmentNames.map(dep => (
+                  <ThemedButton
+                    key={String(dep)}
+                    title={dep}
+                    onPress={() => { setFilterDepartment(dep); setShowDeptDropdown(false); }}
+                    variant="secondary"
+                    style={{ 
+                      height: 40, 
+                      borderRadius: 0, 
+                      borderBottomWidth: 1, 
+                      borderBottomColor: colors.border, 
+                      paddingHorizontal: 10, 
+                      borderWidth: 0,
+                      flexDirection: 'row-reverse',
+                      justifyContent: 'space-between'
+                    }}
+                    textStyle={{ fontWeight: 'normal', textAlign: 'left' }}
+                    icon={filterDepartment === dep ? <Ionicons name="checkmark-outline" size={18} color={colors.primary} /> : <View style={{ width: 18 }} />}
+                  />
+                ))}
+              </View>
+            </>
+          )}
+        </View>
+
+        <View style={{ flex: 1, position: 'relative', zIndex: showPosDropdown ? 101 : 1 }}>
+          <ThemedButton
+            title={filterPosition === 'all' ? 'Wszystkie stanowiska' : filterPosition}
+            onPress={() => { setShowPosDropdown(v => !v); setShowDeptDropdown(false); }}
+            variant="secondary"
+            style={{ 
+              height: 36, 
+              paddingHorizontal: 8, 
+              borderWidth: 1, 
+              borderColor: colors.border,
+              flexDirection: 'row-reverse',
+              justifyContent: 'space-between'
+            }}
+            textStyle={{ fontWeight: 'normal', fontSize: 14, textAlign: 'left' }}
+            icon={<Ionicons name={showPosDropdown ? "chevron-up" : "chevron-down"} size={16} color={colors.text} />}
+          />
+          {showPosDropdown && (
+            <>
+              <Pressable 
+                style={{ position: 'absolute', top: -3000, bottom: -3000, left: -3000, right: -3000, zIndex: 999 }} 
+                onPress={() => setShowPosDropdown(false)} 
+              />
+              <View style={[styles.dropdown, { 
+                position: 'absolute',
+                top: 38,
+                left: 0,
+                right: 0,
+                borderColor: colors.border, 
+                backgroundColor: colors.card,
+                zIndex: 1000,
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25,
+                shadowRadius: 3.84,
+                elevation: 5
+              }]} className="border rounded-md">
+                <ThemedButton
+                  title="Wszystkie stanowiska"
+                  onPress={() => { setFilterPosition('all'); setShowPosDropdown(false); }}
+                  variant="secondary"
+                  style={{ 
+                    height: 40, 
+                    borderRadius: 0, 
+                    borderBottomWidth: 1, 
+                    borderBottomColor: colors.border, 
+                    paddingHorizontal: 10, 
+                    borderWidth: 0,
+                    flexDirection: 'row-reverse',
+                    justifyContent: 'space-between'
+                  }}
+                  textStyle={{ fontWeight: 'normal', textAlign: 'left' }}
+                  icon={filterPosition === 'all' ? <Ionicons name="checkmark-outline" size={18} color={colors.primary} /> : <View style={{ width: 18 }} />}
+                />
+                {positionNames.map(pos => (
+                  <ThemedButton
+                    key={String(pos)}
+                    title={pos}
+                    onPress={() => { setFilterPosition(pos); setShowPosDropdown(false); }}
+                    variant="secondary"
+                    style={{ 
+                      height: 40, 
+                      borderRadius: 0, 
+                      borderBottomWidth: 1, 
+                      borderBottomColor: colors.border, 
+                      paddingHorizontal: 10, 
+                      borderWidth: 0,
+                      flexDirection: 'row-reverse',
+                      justifyContent: 'space-between'
+                    }}
+                    textStyle={{ fontWeight: 'normal', textAlign: 'left' }}
+                    icon={filterPosition === pos ? <Ionicons name="checkmark-outline" size={18} color={colors.primary} /> : <View style={{ width: 18 }} />}
+                  />
+                ))}
+              </View>
+            </>
+          )}
+        </View>
       </View>
-      {showDeptDropdown && (
-        <View style={[styles.dropdown, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md mb-2">
-          <ThemedButton
-            title="Wszystkie działy"
-            onPress={() => { setFilterDepartment('all'); setShowDeptDropdown(false); }}
-            variant="secondary"
-            style={{ height: 40, borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, borderWidth: 0 }}
-            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
-          />
-          {departmentNames.map(dep => (
-            <ThemedButton
-              key={String(dep)}
-              title={dep}
-              onPress={() => { setFilterDepartment(dep); setShowDeptDropdown(false); }}
-              variant="secondary"
-              style={{ height: 40, borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, borderWidth: 0 }}
-              textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
-            />
-          ))}
-        </View>
-      )}
-      {showPosDropdown && (
-        <View style={[styles.dropdown, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md mb-2">
-          <ThemedButton
-            title="Wszystkie stanowiska"
-            onPress={() => { setFilterPosition('all'); setShowPosDropdown(false); }}
-            variant="secondary"
-            style={{ height: 40, borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, borderWidth: 0 }}
-            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
-          />
-          {positionNames.map(pos => (
-            <ThemedButton
-              key={String(pos)}
-              title={pos}
-              onPress={() => { setFilterPosition(pos); setShowPosDropdown(false); }}
-              variant="secondary"
-              style={{ height: 40, borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, borderWidth: 0 }}
-              textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
-            />
-          ))}
-        </View>
-      )}
       {error ? <Text style={[styles.error, { color: colors.danger }]} className="mb-2">{error}</Text> : null}
       {loading ? <Text style={[styles.muted, { color: colors.muted }]}>Ładowanie…</Text> : (
         <FlatList

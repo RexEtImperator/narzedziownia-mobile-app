@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, FlatList, Alert, Modal, ScrollView, Switch, RefreshControl, Platform } from 'react-native';
+import { View, Text, TextInput, StyleSheet, FlatList, Alert, Modal, ScrollView, Switch, RefreshControl, Platform, Pressable } from 'react-native';
 import ThemedButton from '../components/ThemedButton';
 import DateField from '../components/DateField';
 import { useTheme } from '../lib/theme';
@@ -7,8 +7,7 @@ import api from '../lib/api.js';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute } from '@react-navigation/native';
 import { showSnackbar } from '../lib/snackbar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { hasPermission } from '../lib/utils';
+import { usePermissions } from '../lib/PermissionsContext';
 import { PERMISSIONS } from '../lib/constants';
 
 export default function BhpScreen() {
@@ -18,11 +17,10 @@ export default function BhpScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Uprawnienia
-  const [currentUser, setCurrentUser] = useState(null);
-  const [canViewBhp, setCanViewBhp] = useState(false);
-  const [canManageBhp, setCanManageBhp] = useState(false);
-  const [permsReady, setPermsReady] = useState(false);
+  // Uprawnienia z kontekstu
+  const { currentUser, hasPermission, ready: permsReady } = usePermissions();
+  const canViewBhp = hasPermission(PERMISSIONS.VIEW_BHP) || hasPermission(PERMISSIONS.MANAGE_BHP);
+  const canManageBhp = hasPermission(PERMISSIONS.MANAGE_BHP);
 
   // Wyszukiwanie i status
   const [searchTerm, setSearchTerm] = useState('');
@@ -122,27 +120,6 @@ export default function BhpScreen() {
     }
   };
 
-  // Uprawnienia: wczytanie użytkownika i obliczenie flag
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const raw = await AsyncStorage.getItem('@current_user');
-        const user = raw ? JSON.parse(raw) : null;
-        setCurrentUser(user);
-        const canView = hasPermission(user, PERMISSIONS.VIEW_BHP) || hasPermission(user, PERMISSIONS.MANAGE_BHP);
-        const canManage = hasPermission(user, PERMISSIONS.MANAGE_BHP);
-        setCanViewBhp(!!canView);
-        setCanManageBhp(!!canManage);
-      } catch (e) {
-        // ignore
-      } finally {
-        if (mounted) setPermsReady(true);
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
-
   // Ładowanie danych tylko jeśli użytkownik ma prawo do widoku
   useEffect(() => {
     if (permsReady && canViewBhp) {
@@ -172,7 +149,7 @@ export default function BhpScreen() {
     } catch { return null; }
   };
 
-  // NOWE: Pobieranie listy pracowników na potrzeby wydania
+  // Pobieranie listy pracowników na potrzeby wydania
   const loadEmployees = async () => {
     setEmployeesLoading(true);
     try {
@@ -508,9 +485,12 @@ export default function BhpScreen() {
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
         <Text style={[styles.title, { color: colors.text, flex: 1 }]} className="text-2xl font-bold">BHP</Text>
         {canManageBhp && (
-          <Pressable accessibilityLabel="Dodaj BHP" onPress={openAdd} style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}> 
-            <Ionicons name="add-outline" size={22} color={colors.primary || colors.text} />
-          </Pressable>
+          <ThemedButton
+            onPress={openAdd}
+            variant="secondary"
+            style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0, borderWidth: 1, borderColor: colors.border }}
+            icon={<Ionicons name="add" size={22} color={colors.primary || colors.text} />}
+          />
         )}
       </View>
 

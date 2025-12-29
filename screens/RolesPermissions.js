@@ -5,7 +5,7 @@ import twColors from 'tailwindcss/colors';
 import { useTheme } from '../lib/theme';
 import api from '../lib/api';
 import { showSnackbar } from '../lib/snackbar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { KEYS, getJson, setJson } from '../lib/storage';
 
 export default function RolesPermissionsScreen() {
   const { colors, isDark } = useTheme();
@@ -267,10 +267,9 @@ export default function RolesPermissionsScreen() {
     const entry = { name: nameRaw, description: '', color: colors.muted, priority: 0 };
     setRolesMap(prev => ({ ...prev, [key]: entry }));
     try {
-      const raw = await AsyncStorage.getItem('appConfig.customRoles');
-      const list = raw ? JSON.parse(raw) : [];
+      const list = await getJson(KEYS.CUSTOM_ROLES) || [];
       const next = Array.isArray(list) ? [...list, { key, name: nameRaw }] : [{ key, name: nameRaw }];
-      await AsyncStorage.setItem('appConfig.customRoles', JSON.stringify(next));
+      await setJson(KEYS.CUSTOM_ROLES, next);
     } catch {}
     setNewRoleName('');
     setActiveSubTab('roles');
@@ -290,10 +289,9 @@ export default function RolesPermissionsScreen() {
         priority: role?.priority
       });
       try {
-        const raw = await AsyncStorage.getItem('appConfig.roleMeta');
-        const meta = raw ? JSON.parse(raw) : {};
+        const meta = await getJson(KEYS.ROLE_META) || {};
         const nextMeta = { ...meta, [roleKey]: { name: role?.name, color: role?.color, priority: role?.priority, description: role?.description } };
-        await AsyncStorage.setItem('appConfig.roleMeta', JSON.stringify(nextMeta));
+        await setJson(KEYS.ROLE_META, nextMeta);
       } catch {}
       showSnackbar('Zapisano metadane roli', { type: 'success' });
     } catch (e) {

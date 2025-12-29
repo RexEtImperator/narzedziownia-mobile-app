@@ -26,12 +26,13 @@ export default function ScanScreen() {
   const [CameraViewComp, setCameraViewComp] = useState(null);
   const [cameraModuleError, setCameraModuleError] = useState('');
   // NEW: Reticle color + details/employees UI state
-  const [scanFrameColor, setScanFrameColor] = useState('#9ca3af'); // default gray
+  const [scanFrameColor, setScanFrameColor] = useState(colors.muted); // default gray
   const [toolDetails, setToolDetails] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [employeeSearch, setEmployeeSearch] = useState('');
   const [message, setMessage] = useState('');
   const [dupInfo, setDupInfo] = useState('');
   // Multi-skan: stan i pamięć ostatniego skanu
@@ -379,7 +380,7 @@ export default function ScanScreen() {
         const raw = await api.get(`/api/tools/search?code=${encodeURIComponent(val)}`);
         const res = Array.isArray(raw) ? raw[0] : (raw?.data?.[0] || raw?.items?.[0] || raw);
         if (res && res.id) {
-          setScanFrameColor('#22c55e');
+          setScanFrameColor(colors.success);
           // Jeśli kod już jest na liście — pokaż toast i kontynuuj skanowanie
           const isDup = scannedItems.some((it) => String(it.code) === val);
           if (isDup) {
@@ -401,11 +402,11 @@ export default function ScanScreen() {
             setEmployees(Array.isArray(items) ? items : []);
           } catch {} finally { setEmployeesLoading(false); }
         } else {
-          setScanFrameColor('#ef4444');
+          setScanFrameColor(colors.danger);
           setError(`Nie ma takiego narzędzia w systemie o numerze: ${val}`);
         }
       } catch (e) {
-        setScanFrameColor('#ef4444');
+        setScanFrameColor(colors.danger);
         setError(`Nie ma takiego narzędzia w systemie o numerze: ${val}`);
       }
       setScanned(false);
@@ -425,7 +426,7 @@ export default function ScanScreen() {
         const res = Array.isArray(raw) ? raw[0] : (raw?.data?.[0] || raw?.items?.[0] || raw);
         setTool(res || null);
         if (res && res.id) {
-          setScanFrameColor('#22c55e');
+          setScanFrameColor(colors.success);
           try {
             const det = await api.get(`/api/tools/${res.id}/details`);
             setToolDetails(det || null);
@@ -437,12 +438,12 @@ export default function ScanScreen() {
             setEmployees(Array.isArray(items) ? items : []);
           } catch {} finally { setEmployeesLoading(false); }
         } else {
-          setScanFrameColor('#ef4444');
+          setScanFrameColor(colors.danger);
           setError(`Nie ma takiego narzędzia w systemie o numerze: ${val}`);
         }
       } catch (e) {
         setTool(null);
-        setScanFrameColor('#ef4444');
+        setScanFrameColor(colors.danger);
         setError(`Nie ma takiego narzędzia w systemie o numerze: ${val}`);
       }
     }
@@ -452,7 +453,7 @@ export default function ScanScreen() {
   const resetScanner = () => {
     handlerRef.current = false;
     setScanned(false);
-    setScanFrameColor('#9ca3af');
+    setScanFrameColor(colors.muted);
     setTool(null);
     setToolDetails(null);
     setSelectedEmployee(null);
@@ -694,27 +695,27 @@ export default function ScanScreen() {
   }, [addVisible, addTab, addToolFields.inventory_number, invDirty]);
 
   return (
-    <View style={styles.wrapper}>
-      <View style={styles.header}>
+    <View style={[styles.wrapper, { backgroundColor: colors.bg }]}>
+      <View style={[styles.header, { backgroundColor: colors.bg }]}>
         <Pressable onPress={() => { resetScanner(); try { showSnackbar('Odświeżono skanowanie', { type: 'success' }); } catch {} }} style={styles.reloadBtn}>
-          <Ionicons name="reload" size={25} color="#374151" />
+          <Ionicons name="reload" size={25} color={colors.text} />
         </Pressable>
         <Pressable onPress={() => navigation.goBack()} style={styles.closeBtn}>
-          <Ionicons name="close" size={25} color="#374151" />
+          <Ionicons name="close" size={25} color={colors.text} />
         </Pressable>
-        <ThemedButton onPress={() => setMultiScan((v)=>!v)} title={multiScan ? 'Wielo-skan ON' : 'Wielo-skan OFF'} variant={multiScan ? 'success' : 'secondary'} style={{ position: 'absolute', left: 16, top: 10, height: 32, paddingVertical: 0, minWidth: 120 }} textStyle={{ fontSize: 13 }} />
+        <ThemedButton onPress={() => setMultiScan((v)=>!v)} title={multiScan ? 'Wielo-skan ON' : 'Wielo-skan OFF'} variant={multiScan ? 'success' : 'secondary'} style={{ position: 'absolute', left: 16, height: 32, minWidth: 120 }} textStyle={{ fontSize: 13 }} />
       </View>
 
       {/* Podgląd kamery / skanera */}
       {Platform.OS === 'web' ? (
         <View style={styles.scannerBox}>
-          <View style={[StyleSheet.absoluteFillObject, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#111827' }]}>
-            <Text style={{ color: '#fff' }}>Skanowanie dostępne na urządzeniach mobilnych</Text>
+          <View style={[StyleSheet.absoluteFillObject, { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card }]}>
+            <Text style={{ color: colors.text }}>Skanowanie dostępne na urządzeniach mobilnych</Text>
           </View>
         </View>
       ) : hasPermission === false ? (
         <View style={styles.centerBox}>
-          <Text>Brak uprawnień do kamery</Text>
+          <Text style={{ color: colors.text }}>Brak uprawnień do kamery</Text>
           <View style={{ height: 8 }} />
           <ThemedButton onPress={requestCamPermission} title="Nadaj dostęp" variant="primary" style={{ minWidth: 150 }} />
           {!canAskAgain && (
@@ -726,7 +727,7 @@ export default function ScanScreen() {
           {cameraModuleError ? (
             <>
               <View style={{ height: 8 }} />
-              <Text style={{ color: '#b91c1c' }}>{cameraModuleError}</Text>
+              <Text style={{ color: colors.danger }}>{cameraModuleError}</Text>
             </>
           ) : null}
         </View>
@@ -746,30 +747,30 @@ export default function ScanScreen() {
           <View style={styles.scanHint}><Text style={styles.scanHintText}>{scanned ? 'Przetwarzam…' : 'Zeskanuj kod'}</Text></View>
         </View>
       ) : (
-        <View style={styles.centerBox}><Text>{cameraModuleError || 'Ładowanie skanera…'}</Text></View>
+        <View style={styles.centerBox}><Text style={{ color: colors.text }}>{cameraModuleError || 'Ładowanie skanera…'}</Text></View>
       )}
 
       {/* Wynik / akcje */}
-      <View style={styles.resultBox}>
+      <View style={[styles.resultBox, { backgroundColor: colors.bg }]}>
         {multiScan && scannedItems.length > 0 ? (
           <View style={{ marginBottom: 36 }}>
-            {dupInfo ? (<Text style={{ color: '#6b7280' }}>{dupInfo}</Text>) : null}
-            <Text style={{ color: '#111827', fontWeight: '700' }}>Zeskanowane: {scannedItems.length}</Text>
+            {dupInfo ? (<Text style={{ color: colors.muted }}>{dupInfo}</Text>) : null}
+            <Text style={{ color: colors.text, fontWeight: '700' }}>Zeskanowane: {scannedItems.length}</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
               {scannedItems.map((it) => (
-                <View key={it.code} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, paddingHorizontal: 8, backgroundColor: '#eef2ff', borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb' }}>
-                  <Text style={{ color: '#374151', fontWeight: '600' }}>{it.code}</Text>
+                <View key={it.code} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, paddingHorizontal: 8, backgroundColor: colors.card, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}>
+                  <Text style={{ color: colors.text, fontWeight: '600' }}>{it.code}</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Pressable onPress={() => decrementQty(it.code)} style={{ paddingHorizontal: 8, paddingVertical: 2, backgroundColor: '#e5e7eb', borderRadius: 6 }}>
-                      <Text style={{ color: '#111827' }}>-</Text>
+                    <Pressable onPress={() => decrementQty(it.code)} style={{ paddingHorizontal: 8, paddingVertical: 2, backgroundColor: colors.border, borderRadius: 6 }}>
+                      <Text style={{ color: colors.text }}>-</Text>
                     </Pressable>
-                    <Text style={{ color: '#374151', fontWeight: '600' }}>{it.qty || 1}</Text>
-                    <Pressable onPress={() => incrementQty(it.code)} style={{ paddingHorizontal: 8, paddingVertical: 2, backgroundColor: '#e5e7eb', borderRadius: 6 }}>
-                      <Text style={{ color: '#111827' }}>+</Text>
+                    <Text style={{ color: colors.text, fontWeight: '600' }}>{it.qty || 1}</Text>
+                    <Pressable onPress={() => incrementQty(it.code)} style={{ paddingHorizontal: 8, paddingVertical: 2, backgroundColor: colors.border, borderRadius: 6 }}>
+                      <Text style={{ color: colors.text }}>+</Text>
                     </Pressable>
                   </View>
-                  <Pressable onPress={() => removeCode(it.code)} style={{ paddingHorizontal: 6, paddingVertical: 2, backgroundColor: '#fca5a5', borderRadius: 6 }}>
-                    <Text style={{ color: '#111827' }}>x</Text>
+                  <Pressable onPress={() => removeCode(it.code)} style={{ paddingHorizontal: 6, paddingVertical: 2, backgroundColor: colors.danger, borderRadius: 6 }}>
+                    <Text style={{ color: '#fff' }}>x</Text>
                   </Pressable>
                 </View>
               ))}
@@ -788,34 +789,88 @@ export default function ScanScreen() {
           </View>
         ) : null}
         {tool ? (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{tool.name || tool.tool_name || '—'}</Text>
-            <Text style={styles.cardMeta}>Nr ew.: {tool.inventory_number || tool.code || tool.barcode || tool.qr_code || '—'}</Text>
-            <Text style={styles.cardMeta}>SKU: {tool.sku || '—'} • Kategoria: {tool.category || '—'}</Text>
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>{tool.name || tool.tool_name || '—'}</Text>
+              </View>
+              <Pressable onPress={resetScanner} hitSlop={10} style={{ padding: 4, marginLeft: 8 }}>
+                <Ionicons name="close-outline" size={24} color={colors.muted} />
+              </Pressable>
+            </View>
+            <Text style={[styles.cardMeta, { color: colors.muted }]}>Nr ew.: {tool.inventory_number || tool.code || tool.barcode || tool.qr_code || '—'}</Text>
+            <Text style={[styles.cardMeta, { color: colors.muted }]}>SKU: {tool.sku || '—'}</Text>
+            <Text style={[styles.cardMeta, { color: colors.muted }]}>Kategoria: {tool.category || '—'}</Text>
             {toolDetails && toolDetails.issues && (
               <>
                 <View style={{ height: 8 }} />
-                <Text style={[styles.cardMeta, { color: '#111827' }]}>Aktywne wydania: {toolDetails.issues.length}</Text>
+                <Text style={[styles.cardMeta, { color: colors.text }]}>Aktywne wydania: {toolDetails.issues.length}</Text>
               </>
             )}
             <View style={{ height: 8 }} />
-            <ThemedButton onPress={() => setDropdownOpen((v)=>!v)} title={selectedEmployee ? `${selectedEmployee.first_name} ${selectedEmployee.last_name}` : 'Wybierz pracownika'} variant="primary" />
-            {dropdownOpen && (
-              <View style={{ marginTop: 8 }}>
-                {employeesLoading ? <Text style={{ color: '#6b7280' }}>Ładowanie pracowników…</Text> : null}
-                {employees && employees.length > 0 ? (
-                  <ScrollView style={{ maxHeight: 280 }} contentContainerStyle={{ gap: 6 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
-                    {employees.map((emp) => (
-                      <Pressable key={emp.id} onPress={() => { setSelectedEmployee(emp); setDropdownOpen(false); }} style={[styles.card, { padding: 8 }]}> 
-                        <Text style={{ color: '#111827' }}>{emp.first_name} {emp.last_name} {emp.brand_number ? `(${emp.brand_number})` : ''}</Text>
-                      </Pressable>
-                    ))}
-                  </ScrollView>
-                ) : (
-                  <Text style={{ color: '#6b7280' }}>Brak pracowników</Text>
+            <View style={{ position: 'relative' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: 8, backgroundColor: colors.card }}>
+                <Ionicons name="search" size={20} color={colors.muted} style={{ marginLeft: 10 }} />
+                <TextInput
+                  style={{ flex: 1, padding: 10, color: colors.text }}
+                  placeholder="Szukaj pracownika (imię, nazwisko, nr marki)"
+                  placeholderTextColor={colors.muted}
+                  value={employeeSearch}
+                  onFocus={() => setDropdownOpen(true)}
+                  onChangeText={(text) => {
+                    setEmployeeSearch(text);
+                    setDropdownOpen(true);
+                    if (selectedEmployee) setSelectedEmployee(null);
+                  }}
+                />
+                {employeeSearch.length > 0 && (
+                  <Pressable onPress={() => { setEmployeeSearch(''); setSelectedEmployee(null); }} style={{ padding: 10 }}>
+                    <Ionicons name="close-circle" size={20} color={colors.muted} />
+                  </Pressable>
                 )}
               </View>
-            )}
+              
+              {dropdownOpen && (
+                <View style={{ marginTop: 4, borderWidth: 1, borderColor: colors.border, borderRadius: 8, backgroundColor: colors.card, maxHeight: 250 }}>
+                   {employeesLoading ? (
+                     <View style={{ padding: 10 }}><Text style={{ color: colors.muted }}>Ładowanie pracowników…</Text></View>
+                   ) : (
+                     <ScrollView style={{ maxHeight: 250 }} contentContainerStyle={{ padding: 4 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                       {(() => {
+                         const filtered = employees.filter(e => {
+                           const term = employeeSearch.toLowerCase();
+                           const full = `${e.first_name} ${e.last_name} ${e.brand_number || ''}`.toLowerCase();
+                           return full.includes(term);
+                         });
+                         
+                         if (filtered.length === 0) {
+                           return <View style={{ padding: 10 }}><Text style={{ color: colors.muted }}>Brak wyników</Text></View>;
+                         }
+
+                         return filtered.map((emp) => (
+                           <Pressable 
+                             key={emp.id} 
+                             onPress={() => { 
+                               setSelectedEmployee(emp); 
+                               setEmployeeSearch(`${emp.first_name} ${emp.last_name} ${emp.brand_number ? `(${emp.brand_number})` : ''}`);
+                               setDropdownOpen(false); 
+                               Keyboard.dismiss();
+                             }} 
+                             style={({pressed}) => ({ 
+                               padding: 10, 
+                               backgroundColor: pressed ? colors.border : 'transparent',
+                               borderRadius: 4
+                             })}
+                           > 
+                             <Text style={{ color: colors.text }}>{emp.first_name} {emp.last_name} {emp.brand_number ? `(${emp.brand_number})` : ''}</Text>
+                           </Pressable>
+                         ));
+                       })()}
+                     </ScrollView>
+                   )}
+                </View>
+              )}
+            </View>
             <View style={{ height: 8 }} />
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <View style={{ flex: 1 }}>
@@ -825,12 +880,12 @@ export default function ScanScreen() {
                 <ThemedButton onPress={returnTool} disabled={!selectedEmployee} title="Zwróć" variant="primary" />
               </View>
             </View>
-            {message ? (<Text style={{ color: '#16a34a', marginTop: 8 }}>{message}</Text>) : null}
-            {error ? (<Text style={{ color: '#b91c1c', marginTop: 8 }}>{error}</Text>) : null}
+            {message ? (<Text style={{ color: colors.success, marginTop: 8 }}>{message}</Text>) : null}
+            {error ? (<Text style={{ color: colors.danger, marginTop: 8 }}>{error}</Text>) : null}
           </View>
         ) : error ? (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{error}</Text>
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>{error}</Text>
             <ThemedButton onPress={goAdd} title="Dodaj" variant="primary" />
           </View>
         ) : null}
@@ -1079,45 +1134,49 @@ export default function ScanScreen() {
       </Modal>
 
       {Platform.OS !== 'web' && showReturnSheet ? (
-        <BottomSheet
-          index={returnSheetIndex}
-          snapPoints={Platform.OS === 'android' ? [36, '30%', '70%', '100%'] : ['30%', '70%', '100%']}
-          enablePanDownToClose={false}
-          enableHandlePanningGesture={true}
-          enableContentPanningGesture={true}
-          handleStyle={{ paddingVertical: 8 }}
-          handleIndicatorStyle={{ backgroundColor: '#9ca3af', width: 48, height: 6, borderRadius: 999, alignSelf: 'center' }}
-          onClose={closeReturnSheet}
-          onChange={(i) => setReturnSheetIndex(i)}
-        >
-          <BottomSheetScrollView contentContainerStyle={{ padding: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', marginBottom: 12 }}>
-              <Text style={{ fontSize: 18, fontWeight: '700' }}>Do zwrotu</Text>
-            </View>
+        <View style={[StyleSheet.absoluteFill, { zIndex: 9999, elevation: 9999 }]} pointerEvents="box-none">
+          <BottomSheet
+            style={{ zIndex: 100, elevation: 100 }}
+            index={returnSheetIndex}
+            snapPoints={Platform.OS === 'android' ? [36, '30%', '70%', '100%'] : ['30%', '70%', '100%']}
+            enablePanDownToClose={false}
+            enableHandlePanningGesture={true}
+            enableContentPanningGesture={true}
+            handleStyle={{ paddingVertical: 8 }}
+            handleIndicatorStyle={{ backgroundColor: colors.muted, width: 48, height: 6, borderRadius: 999, alignSelf: 'center' }}
+            backgroundStyle={{ backgroundColor: colors.card }}
+            onClose={closeReturnSheet}
+            onChange={(i) => setReturnSheetIndex(i)}
+          >
+            <BottomSheetScrollView contentContainerStyle={{ padding: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', marginBottom: 12 }}>
+                <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text }}>Do zwrotu</Text>
+              </View>
 
-            {returnListLoading ? (
-              <Text style={{ color: '#6b7280' }}>Ładowanie…</Text>
-            ) : returnListError ? (
-              <Text style={{ color: '#b91c1c' }}>Błąd: {String(returnListError)}</Text>
-            ) : (returnItems && returnItems.length > 0 ? (
-              returnItems.map((itm) => (
-                <View key={`ret-native-${itm.id || itm.issue_id || itm.tool_id}`} style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#e6e6e6', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <View style={{ flex: 1, paddingRight: 10 }}>
-                    <Text style={{ fontSize: 16, fontWeight: '600' }}>{itm.tool_name || itm.name || 'Narzędzie'}</Text>
-                    {itm.employee_name ? (<Text style={{ color: '#555' }}>{itm.employee_name}</Text>) : null}
-                    {itm.tool_code ? (<Text style={{ color: '#555' }}>Kod: {itm.tool_code}</Text>) : null}
-                    <Text style={{ color: '#555' }}>Ilość: {itm.quantity || 1}</Text>
+              {returnListLoading ? (
+                <Text style={{ color: colors.muted }}>Ładowanie…</Text>
+              ) : returnListError ? (
+                <Text style={{ color: colors.danger }}>Błąd: {String(returnListError)}</Text>
+              ) : (returnItems && returnItems.length > 0 ? (
+                returnItems.map((itm) => (
+                  <View key={`ret-native-${itm.id || itm.issue_id || itm.tool_id}`} style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <View style={{ flex: 1, paddingRight: 10 }}>
+                      <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text }}>{itm.tool_name || itm.name || 'Narzędzie'}</Text>
+                      {itm.employee_name ? (<Text style={{ color: colors.muted }}>{itm.employee_name}</Text>) : null}
+                      {itm.tool_code ? (<Text style={{ color: colors.muted }}>Kod: {itm.tool_code}</Text>) : null}
+                      <Text style={{ color: colors.muted }}>Ilość: {itm.quantity || 1}</Text>
+                    </View>
+                    {itm.tool_code ? (
+                      <ThemedButton onPress={() => preAddByCode(itm.tool_code, itm.employee_id, itm.employee_name)} title="Szybki zwrot" variant="primary" style={{ height: 36, paddingVertical: 0, paddingHorizontal: 12, minWidth: 100 }} textStyle={{ fontSize: 13 }} />
+                    ) : null}
                   </View>
-                  {itm.tool_code ? (
-                    <ThemedButton onPress={() => preAddByCode(itm.tool_code, itm.employee_id, itm.employee_name)} title="Szybki zwrot" variant="primary" style={{ height: 36, paddingVertical: 0, paddingHorizontal: 12, minWidth: 100 }} textStyle={{ fontSize: 13 }} />
-                  ) : null}
-                </View>
-              ))
-            ) : (
-              <Text style={{ color: '#6b7280' }}>Brak aktywnych wydań do zwrotu.</Text>
-            ))}
-          </BottomSheetScrollView>
-        </BottomSheet>
+                ))
+              ) : (
+                <Text style={{ color: colors.muted }}>Brak aktywnych wydań do zwrotu.</Text>
+              ))}
+            </BottomSheetScrollView>
+          </BottomSheet>
+        </View>
       ) : null}
     </View>
   );
