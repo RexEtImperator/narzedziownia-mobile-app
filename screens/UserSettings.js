@@ -630,7 +630,7 @@ export default function UserSettingsScreen() {
           <Image source={require('../assets/favicon.png')} style={{ width: 24, height: 24, resizeMode: 'contain', marginRight: 8 }} />
           <Text style={{ fontSize: 12, fontWeight: '600', color: colors.muted }}>System Zarządzania Narzędziownią</Text>
         </View>
-        <Text style={{ fontSize: 10, color: colors.muted }}>ver. 1.5.0 © 2025 SZN - Wszelkie prawa zastrzeżone</Text>
+        <Text style={{ fontSize: 10, color: colors.muted }}>ver. 1.6.0 © 2025 SZN - Wszelkie prawa zastrzeżone</Text>
       </View>
     </ScrollView>
   );
