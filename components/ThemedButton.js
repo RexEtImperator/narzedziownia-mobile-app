@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 16,
     marginVertical: 6,
-    minWidth: 48, // Zapewnia minimalną szerokość dla ikon
+    minWidth: 40, // Zapewnia minimalną szerokość dla ikon
   },
   text: {
     fontWeight: '600',
