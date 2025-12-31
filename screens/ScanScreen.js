@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, Platform, Linking, Vibration, Modal, ScrollView, TextInput, ActivityIndicator, Switch, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { useRoute, useNavigation, useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../lib/api';
 import * as Haptics from 'expo-haptics'
@@ -14,6 +14,7 @@ export default function ScanScreen() {
   const { colors } = useTheme();
   const route = useRoute();
   const navigation = useNavigation();
+  const isFocused = useIsFocused();
   const [hasPermission, setHasPermission] = useState(null);
   const [canAskAgain, setCanAskAgain] = useState(true);
   const [scanned, setScanned] = useState(false);
@@ -731,14 +732,16 @@ export default function ScanScreen() {
             </>
           ) : null}
         </View>
-      ) : scanning && CameraViewComp ? (
+      ) : scanning && isFocused && CameraViewComp ? (
         <View style={styles.scannerBox}>
           {CameraViewComp ? (
             <CameraViewComp
               style={StyleSheet.absoluteFillObject}
               facing="back"
               barcodeScannerSettings={{ barcodeTypes: ['qr', 'code128', 'ean13', 'ean8', 'upc_a', 'upc_e'] }}
-              onBarcodeScanned={({ data, type }) => handleBarCodeScanned({ type, data })}
+              onBarcodeScanned={({ data, type }) => {
+                if (isFocused && scanning) handleBarCodeScanned({ type, data });
+              }}
             />
           ) : null}
           {/* Nakładka reticle + ramka koloru */}

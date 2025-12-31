@@ -7,7 +7,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import api from './lib/api';
 import { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Text, Pressable, Modal, Animated, Easing, Platform, Linking } from 'react-native';  
+import { View, Text, Pressable, Modal, Animated, Easing, Platform, Linking, AppState } from 'react-native';  
 import GestureHandlerRootView from './components/GestureRoot';
 import ThemedButton from './components/ThemedButton';
 
@@ -522,9 +522,27 @@ function AppContent() {
         if (!cancelled) { setToolsIssuedCount(0); setBhpIssuedCount(0); }
       }
     };
+    
+    // Initial load
     loadCounts();
+    
+    // Only poll if app is active
     timer = setInterval(loadCounts, 30000);
-    return () => { cancelled = true; try { clearInterval(timer); } catch {} };
+
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'active') {
+        loadCounts(); // Refresh on resume
+        if (!timer) timer = setInterval(loadCounts, 30000);
+      } else {
+        if (timer) { clearInterval(timer); timer = null; }
+      }
+    });
+
+    return () => { 
+      cancelled = true; 
+      if (timer) clearInterval(timer); 
+      subscription.remove();
+    };
   }, [currentUser]);
 
   // Android: ukryj pasek systemowy i pozwól przywracać gestem (sticky immersive)
