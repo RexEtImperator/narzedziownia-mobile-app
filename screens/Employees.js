@@ -546,28 +546,28 @@ export default function EmployeesScreen() {
                       <ThemedButton
                         onPress={() => regenerateLogin(item)}
                         variant="secondary"
-                        style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
-                        icon={<Ionicons name="refresh-circle-outline" size={20} color={colors.text} />}
+                        style={{ width: 44, height: 44, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                        icon={<Ionicons name="refresh-circle-outline" size={25} color={colors.text} />}
                       />
                       <ThemedButton
                         onPress={() => sendCredentials(item)}
                         variant="secondary"
-                        style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
-                        icon={<Ionicons name="mail-outline" size={20} color={colors.text} />}
+                        style={{ width: 44, height: 44, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                        icon={<Ionicons name="mail-outline" size={25} color={colors.text} />}
                       />
                     </View>
                     <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
                       <ThemedButton
                         onPress={() => openEdit(item)}
                         variant="secondary"
-                        style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
-                        icon={<Ionicons name="create-outline" size={20} color={colors.text} />}
+                        style={{ width: 44, height: 44, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                        icon={<Ionicons name="create-outline" size={25} color={colors.text} />}
                       />
                       <ThemedButton
                         onPress={() => deleteEmployee(item)}
                         variant="secondary"
-                        style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
-                        icon={<Ionicons name="trash-outline" size={20} color={colors.danger || '#e11d48'} />}
+                        style={{ width: 44, height: 44, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                        icon={<Ionicons name="trash-outline" size={25} color={colors.danger || '#e11d48'} />}
                       />
                     </View>
                   </View>

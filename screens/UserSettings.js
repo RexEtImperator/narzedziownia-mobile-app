@@ -689,25 +689,14 @@ export default function UserSettingsScreen() {
 
       {/* Przycisk aktualizacji */}
       <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
-        <Pressable 
-          onPress={checkForUpdate} 
-          disabled={checkingUpdate}
-          style={({ pressed }) => ({
-            backgroundColor: colors.card,
-            borderWidth: 1,
-            borderColor: colors.primary,
-            borderRadius: 8,
-            padding: 12,
-            alignItems: 'center',
-            opacity: pressed || checkingUpdate ? 0.7 : 1
-          })}
-        >
-           {checkingUpdate ? (
-             <ActivityIndicator size="small" color={colors.primary} />
-           ) : (
-             <Text style={{ color: colors.primary, fontWeight: '600' }}>Sprawdź aktualizacje</Text>
-           )}
-        </Pressable>
+        <ThemedButton
+          title="Sprawdź aktualizacje"
+          onPress={checkForUpdate}
+          loading={checkingUpdate}
+          variant="outline"
+          style={{ borderColor: colors.primary, backgroundColor: colors.card }}
+          textStyle={{ color: colors.primary }}
+        />
       </View>
 
       <Modal
@@ -749,7 +738,7 @@ export default function UserSettingsScreen() {
           <Image source={require('../assets/favicon.png')} style={{ width: 24, height: 24, resizeMode: 'contain', marginRight: 8 }} />
           <Text style={{ fontSize: 12, fontWeight: '600', color: colors.muted }}>System Zarządzania Narzędziownią</Text>
         </View>
-        <Text style={{ fontSize: 10, color: colors.muted }}>ver. 1.6.1 © 2025 SZN - Wszelkie prawa zastrzeżone</Text>
+        <Text style={{ fontSize: 10, color: colors.muted }}>ver. 1.6.2 © 2025 SZN - Wszelkie prawa zastrzeżone</Text>
       </View>
     </ScrollView>
   );

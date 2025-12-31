@@ -508,8 +508,8 @@ export default function ToolsScreen() {
           <ThemedButton
             onPress={() => setAddToolVisible(true)}
             variant="secondary"
-            style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0, borderWidth: 1, borderColor: colors.border }}
-            icon={<Ionicons name="add" size={22} color={colors.primary || colors.text} />}
+            style={{ width: 44, height: 44, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0, borderWidth: 1, borderColor: colors.border }}
+            icon={<Ionicons name="add" size={25} color={colors.primary || colors.text} />}
           />
         ) : null}
       </View>
@@ -726,8 +726,8 @@ export default function ToolsScreen() {
                       <ThemedButton
                         onPress={() => openConfirmReturnFor(item)}
                         variant="secondary"
-                        style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
-                        icon={<Ionicons name="mail-outline" size={20} color={colors.text} />}
+                        style={{ width: 44, height: 44, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                        icon={<Ionicons name="mail-outline" size={25} color={colors.text} />}
                         disabled={notifySending}
                       />
                     ) : null}
@@ -735,16 +735,16 @@ export default function ToolsScreen() {
                       <ThemedButton
                         onPress={() => serviceReceiveFor(item)}
                         variant="secondary"
-                        style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
-                        icon={<Ionicons name="download-outline" size={20} color={colors.text} />}
+                        style={{ width: 44, height: 44, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                        icon={<Ionicons name="download-outline" size={25} color={colors.text} />}
                       />
                     ) : null}
                     {canManageTools ? (
                       <ThemedButton
                         onPress={() => openServiceModal(item)}
                         variant="secondary"
-                        style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
-                        icon={<Ionicons name="construct-outline" size={20} color={colors.text} />}
+                        style={{ width: 44, height: 44, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                        icon={<Ionicons name="construct-outline" size={25} color={colors.text} />}
                       />
                     ) : null}
                   </View>
@@ -752,14 +752,14 @@ export default function ToolsScreen() {
                     <ThemedButton
                       onPress={() => openEdit(item)}
                       variant="secondary"
-                      style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
-                      icon={<Ionicons name="create-outline" size={20} color={colors.text} />}
+                      style={{ width: 44, height: 44, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                      icon={<Ionicons name="create-outline" size={25} color={colors.text} />}
                     />
                     <ThemedButton
                       onPress={() => deleteTool(item)}
                       variant="secondary"
-                      style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
-                      icon={<Ionicons name="trash-outline" size={20} color={colors.danger || '#e11d48'} />}
+                      style={{ width: 44, height: 44, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                      icon={<Ionicons name="trash-outline" size={25} color={colors.danger || '#e11d48'} />}
                     />
                   </View>
                 </View>
@@ -996,7 +996,7 @@ export default function ToolsScreen() {
                         title="Odebrano"
                         onPress={serviceReceive}
                         variant="success"
-                        style={{ height: 36, width: 120, marginVertical: 0 }}
+                        style={{ height: 40, width: 120, marginVertical: 0 }}
                       />
                     </View>
                   ) : null}

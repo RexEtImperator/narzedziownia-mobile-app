@@ -1,6 +1,6 @@
 # Narzędziownia – aplikacja mobilna
 
-[![Wersja 1.6.1](https://img.shields.io/badge/version-1.6.1-blue.svg)](#)
+[![Wersja 1.6.2](https://img.shields.io/badge/version-1.6.2-blue.svg)](#)
 
 Aplikacja mobilna (React Native + Expo) do obsługi systemu Narzędziowni: logowanie, przeglądanie narzędzi, pracowników, wydawanie i zwroty, ustawienia użytkownika, skanowanie kodów.
 

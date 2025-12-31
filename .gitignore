@@ -43,7 +43,7 @@ GoogleService-Info.plist
 
 # generated native folders
 /ios
-/android
+#/android
 
 # embedded backend repo (ignored; use submodule if needed)
 source-system-zarzadzania-narzedziownia/

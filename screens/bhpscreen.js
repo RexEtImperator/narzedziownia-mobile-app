@@ -497,8 +497,8 @@ export default function BhpScreen() {
           <ThemedButton
             onPress={openAdd}
             variant="secondary"
-            style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0, borderWidth: 1, borderColor: colors.border }}
-            icon={<Ionicons name="add" size={22} color={colors.primary || colors.text} />}
+            style={{ width: 44, height: 44, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0, borderWidth: 1, borderColor: colors.border }}
+            icon={<Ionicons name="add" size={25} color={colors.primary || colors.text} />}
           />
         )}
       </View>
@@ -692,15 +692,15 @@ export default function BhpScreen() {
                             <ThemedButton
                               onPress={() => openReturnModal(item)}
                               variant="secondary"
-                              style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
-                              icon={<Ionicons name="return-down-back" size={20} color={colors.text} />}
+                              style={{ width: 44, height: 44, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                              icon={<Ionicons name="return-down-back" size={25} color={colors.text} />}
                             />
                           ) : (
                             <ThemedButton
                               onPress={() => openIssueModal(item)}
                               variant="secondary"
-                              style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
-                              icon={<Ionicons name="arrow-forward-circle-outline" size={20} color={colors.text} />}
+                              style={{ width: 44, height: 44, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                              icon={<Ionicons name="arrow-forward-circle-outline" size={25} color={colors.text} />}
                             />
                           ) ); })()}
                       </View>
@@ -708,14 +708,14 @@ export default function BhpScreen() {
                         <ThemedButton
                           onPress={() => openEdit(item)}
                           variant="secondary"
-                          style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
-                          icon={<Ionicons name="create-outline" size={20} color={colors.text} />}
+                          style={{ width: 44, height: 44, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                          icon={<Ionicons name="create-outline" size={25} color={colors.text} />}
                         />
                         <ThemedButton
                           onPress={() => deleteItem(item)}
                           variant="secondary"
-                          style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
-                          icon={<Ionicons name="trash-outline" size={20} color={colors.danger || '#e11d48'} />}
+                          style={{ width: 44, height: 44, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0 }}
+                          icon={<Ionicons name="trash-outline" size={25} color={colors.danger || '#e11d48'} />}
                         />
                       </View>
                     </View>

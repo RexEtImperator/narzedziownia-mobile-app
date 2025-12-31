@@ -3,6 +3,15 @@
 Wszystkie istotne zmiany w tym projekcie są dokumentowane w tym pliku.
 Projekt stosuje konwencję „Keep a Changelog” i SemVer.
 
+## [1.6.2] — 2025-12-31
+
+### Added
+- Integracja z Google Services (FCM) dla powiadomień push.
+- Dodano `google-services.json` oraz odpowiednie zależności Firebase/Expo.
+
+### Fixed
+- Naprawiono błąd endpointu rejestracji tokena push: zmiana z `/api/notifications/register-push` na `/api/push/register` (zgodność z backendem).
+
 ## [1.6.1] — 2025-12-31
 
 ### Added

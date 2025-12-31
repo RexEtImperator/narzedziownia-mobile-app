@@ -1,0 +1,38 @@
+{
+  "project_info": {
+    "project_number": "837872874930",
+    "project_id": "narzedziownia-28b3a",
+    "storage_bucket": "narzedziownia-28b3a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:837872874930:android:55080ed732bac3007de0ab",
+        "android_client_info": {
+          "package_name": "com.dbrzezinsky.narzedziownia"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "837872874930-jvsnunrgc26srv88l8hvt9gall87okre.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.dbrzezinsky.narzedziownia",
+            "certificate_hash": "8f46991aa7c360dfb99fe2c4675264a995e95468"
+          }
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDcB4u1cQ99svUc1ckZ6MRyLJ3tk_C0DZw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
