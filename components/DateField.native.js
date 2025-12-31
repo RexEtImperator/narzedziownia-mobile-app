@@ -6,7 +6,7 @@ import ThemedButton from './ThemedButton';
 const toISO = (date) => {
   try {
     if (!date) return '';
-    const d = date instanceof Date ? date : new Date(date);
+    const d = parseDate(date);
     if (isNaN(d.getTime())) return '';
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -28,6 +28,16 @@ const parseDate = (value) => {
     const d = new Date(str);
     return isNaN(d.getTime()) ? new Date() : d;
   } catch (_) { return new Date(); }
+};
+
+const formatDisplay = (value) => {
+  if (!value) return '';
+  const str = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+    const [y, m, d] = str.slice(0,10).split('-');
+    return `${d}.${m}.${y}`;
+  }
+  return str;
 };
 
 export default function DateField({ value, onChange, placeholder = 'YYYY-MM-DD', style, colors }) {

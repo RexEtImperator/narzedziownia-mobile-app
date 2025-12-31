@@ -61,9 +61,11 @@ export default function ThemedButton({ title, onPress, loading = false, disabled
       ) : (
         <>
           {icon}
-          <Text style={[styles.text, { color: getTextColor(), marginLeft: icon ? 8 : 0 }, textStyle]}>
-            {title}
-          </Text>
+          {title ? (
+            <Text style={[styles.text, { color: getTextColor(), marginLeft: icon ? 8 : 0 }, textStyle]}>
+              {title}
+            </Text>
+          ) : null}
         </>
       )}
     </TouchableOpacity>

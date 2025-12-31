@@ -812,36 +812,64 @@ export default function ToolsScreen() {
               </View>
 
               <Text style={{ color: colors.muted }}>Kategoria</Text>
-              <ThemedButton
-                title={editFields.category || (editCategoriesLoading ? 'Ładowanie kategorii…' : (editCategoryOptions.length ? 'Wybierz kategorię' : 'Brak kategorii'))}
-                onPress={() => setEditCategoryOpen(v => !v)}
-                variant="secondary"
-                style={{ height: 40, justifyContent: 'space-between', paddingHorizontal: 8, flexDirection: 'row-reverse' }}
-                textStyle={{ fontWeight: 'normal', color: editFields.category ? colors.text : colors.muted, flex: 1, textAlign: 'left' }}
-                icon={<Ionicons name={editCategoryOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} />}
-              />
-              {editCategoryOpen && (
-                <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, marginTop: 6, backgroundColor: colors.card, maxHeight: 160 }}>
-                  {editCategoriesLoading ? (
-                    <View style={{ padding: 10 }}><Text style={{ color: colors.muted }}>Ładowanie kategorii…</Text></View>
-                  ) : (editCategoryOptions && editCategoryOptions.length > 0) ? (
-                    <ScrollView style={{ maxHeight: 160 }}>
-                      {editCategoryOptions.map((opt) => (
-                        <ThemedButton
-                          key={String(opt)}
-                          title={opt}
-                          onPress={() => { setEditFields(s => ({ ...s, category: opt })); setEditCategoryOpen(false); }}
-                          variant="secondary"
-                          style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 12, height: 40, borderWidth: 0, marginVertical: 0 }}
-                          textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
-                        />
-                      ))}
-                    </ScrollView>
-                  ) : (
-                    <View style={{ padding: 10 }}><Text style={{ color: colors.muted }}>Brak kategorii</Text></View>
-                  )}
-                </View>
-              )}
+              <View style={{ position: 'relative', zIndex: editCategoryOpen ? 1000 : 1 }}>
+                <ThemedButton
+                  title={editFields.category || (editCategoriesLoading ? 'Ładowanie kategorii…' : (editCategoryOptions.length ? 'Wybierz kategorię' : 'Brak kategorii'))}
+                  onPress={() => setEditCategoryOpen(v => !v)}
+                  variant="secondary"
+                  style={{ height: 40, justifyContent: 'space-between', paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border, width: '100%' }}
+                  textStyle={{ fontWeight: 'normal', color: editFields.category ? colors.text : colors.muted, flex: 1, textAlign: 'left' }}
+                  icon={<Ionicons name={editCategoryOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} />}
+                />
+                {editCategoryOpen && (
+                  <View 
+                    style={{ 
+                      position: 'absolute',
+                      top: 45,
+                      left: 0,
+                      right: 0,
+                      backgroundColor: colors.card,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      borderRadius: 8,
+                      zIndex: 9999,
+                      elevation: 5,
+                      shadowColor: "#000",
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.25,
+                      shadowRadius: 3.84,
+                    }}
+                  >
+                    {editCategoriesLoading ? (
+                      <View style={{ padding: 10 }}><Text style={{ color: colors.muted }}>Ładowanie kategorii…</Text></View>
+                    ) : (editCategoryOptions && editCategoryOptions.length > 0) ? (
+                      <ScrollView style={{ maxHeight: 160 }} nestedScrollEnabled={true}>
+                        {editCategoryOptions.map((opt, index) => (
+                          <ThemedButton
+                            key={String(opt)}
+                            title={opt}
+                            onPress={() => { setEditFields(s => ({ ...s, category: opt })); setEditCategoryOpen(false); }}
+                            variant="secondary"
+                            style={{ 
+                              borderRadius: 0, 
+                              borderBottomWidth: index === editCategoryOptions.length - 1 ? 0 : 1, 
+                              borderBottomColor: colors.border, 
+                              justifyContent: 'flex-start', 
+                              paddingHorizontal: 12, 
+                              height: 40, 
+                              borderWidth: 0, 
+                              marginVertical: 0 
+                            }}
+                            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+                          />
+                        ))}
+                      </ScrollView>
+                    ) : (
+                      <View style={{ padding: 10 }}><Text style={{ color: colors.muted }}>Brak kategorii</Text></View>
+                    )}
+                  </View>
+                )}
+              </View>
               <Text style={{ color: colors.muted }}>Lokalizacja</Text>
               <TextInput style={[styles.input, { borderColor: focusedField === 'location' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Lokalizacja" value={editFields.location} onChangeText={(v) => setEditFields(s => ({ ...s, location: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('location')} onBlur={() => setFocusedField(null)} />
             </ScrollView>

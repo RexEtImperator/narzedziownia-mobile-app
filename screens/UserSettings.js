@@ -12,6 +12,7 @@ import { showSnackbar } from '../lib/snackbar';
 import { Ionicons } from '@expo/vector-icons';
 import { isAdmin } from '../lib/utils';
 import { usePermissions } from '../lib/PermissionsContext';
+import ThemedButton from '../components/ThemedButton';
 
 // Helper: Base64 decode for JWT payload (polyfill-like)
 const b64Decode = (input) => {

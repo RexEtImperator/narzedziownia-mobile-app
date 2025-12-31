@@ -15,22 +15,6 @@ Aplikacja mobilna (React Native + Expo) do obsługi systemu Narzędziowni: logow
 - Pasek „Offline” na górze informujący o próbie wznowienia połączenia.
 - Picker daty dla pól w BHP (web: `input[type=date]`, mobile: natywny lub fallback), zapisywany jako `YYYY-MM-DD`.
 
-### Nowości w 1.6.1
-- **BHP**: Poprawione formatowanie dat w szczegółach i na liście (format `YYYY-MM-DD`).
-
-### Nowości w 1.6.0
-- **Dark Mode**: Pełne wsparcie dla trybu ciemnego w skanerze (`ScanScreen`), w tym obsługa kolorów systemowych i poprawki inicjalizacji.
-- **ScanScreen**: Nowy przycisk "X" do resetowania skanera oraz poprawki widoczności pola wyszukiwania (z-index).
-- **Dashboard**: Nowe graficzne kafelki dla szybkich akcji (zamiast przycisków tekstowych).
-- **UI/UX**: Odświeżony wygląd zakładek powiadomień (styl "segmented control") i menu administratora.
-
-### Nowości w 1.5.0
-- Informacje osobowe: edytowalne tylko „Telefon” i „E‑mail”; pozostałe pola (Imię, Nazwisko, Dział, Stanowisko, Status, Przyjęty, Numer służbowy, UID karty RFID) wyświetlane jako tekst.
-- Auto‑zapis i walidacja dla telefonu/e‑maila (komunikaty w snackbarze, bez przycisku „Zapisz zmiany”).
-- Logowanie: blokada kont zawieszonych (`employees.status = 'suspended'`) z komunikatem w snackbarze: „Twoje konto jest zawieszone. Skontaktuj się ze swoim pracodawcą.”.
-- Ulepszone dopasowanie pracownika po `user.id` (z `/api/login`) do `employees.id`, z bezpiecznymi fallbackami (m.in. `employee_id`, `username`, `email`).
-- Naprawa wyświetlania snackbarów (brak `[object Object]`).
-
 ## Skaner – skrócona instrukcja
 - Multi-skan: dla każdej zeskanowanej pozycji dostępne są przyciski `- / +`
   do zmiany ilości; akcje „Wydaj wszystko” i „Zwróć wszystko” uwzględniają

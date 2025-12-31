@@ -561,35 +561,40 @@ export default function AddToolModal({ visible, onClose, onCreated }) {
 
             <View style={[styles.row, { zIndex: categoryOpen ? 1000 : 1 }]}>
               <Text style={[styles.label, { color: colors.muted }]}>Kategoria</Text>
-              <View>
-                <Pressable
+              <View style={{ position: 'relative', zIndex: categoryOpen ? 1000 : 1 }}>
+                <ThemedButton
+                  title={fields.category || (categoriesLoading ? 'Ładowanie kategorii…' : (categoryOptions.length ? 'Wybierz kategorię' : 'Brak kategorii'))}
                   onPress={() => setCategoryOpen((v) => !v)}
-                  style={({ pressed }) => [
-                    styles.input,
-                    { borderColor: colors.border, backgroundColor: colors.card, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-                    pressed && { opacity: 0.9 }
-                  ]}
-                >
-                  <Text style={{ color: fields.category ? colors.text : colors.muted }}>
-                    {fields.category || (categoriesLoading ? 'Ładowanie kategorii…' : (categoryOptions.length ? 'Wybierz kategorię' : 'Brak kategorii'))}
-                  </Text>
-                  <Ionicons name={categoryOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} />
-                </Pressable>
+                  variant="secondary"
+                  style={{ height: 40, justifyContent: 'space-between', paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border, width: '100%' }}
+                  textStyle={{ fontWeight: 'normal', color: fields.category ? colors.text : colors.muted, flex: 1, textAlign: 'left' }}
+                  icon={<Ionicons name={categoryOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} />}
+                />
                 {categoryOpen && (
-                  <View style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, borderWidth: 1, borderColor: colors.border, borderRadius: 8, backgroundColor: colors.card, maxHeight: 200, zIndex: 2000, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }}>
+                  <View style={{ position: 'absolute', top: 45, left: 0, right: 0, borderWidth: 1, borderColor: colors.border, borderRadius: 8, backgroundColor: colors.card, maxHeight: 200, zIndex: 2000, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }}>
                     {categoriesLoading ? (
                       <View style={{ padding: 10 }}><Text style={{ color: colors.muted }}>Ładowanie kategorii…</Text></View>
                     ) : (categoryOptions && categoryOptions.length > 0) ? (
                       <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled={true}>
-                        {categoryOptions.map((opt) => (
-                          <Pressable
+                        {categoryOptions.map((opt, index) => (
+                          <ThemedButton
                             key={String(opt)}
+                            title={opt}
                             onPress={() => { setField('category', opt); setCategoryOpen(false); }}
-                            style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: pressed ? (colors.overlay || 'rgba(0,0,0,0.05)') : 'transparent' }]}
-                          >
-                            <Text style={{ color: colors.text, flex: 1 }}>{opt}</Text>
-                            {fields.category === opt && <Ionicons name="checkmark-outline" size={18} color={colors.primary || '#007aff'} />}
-                          </Pressable>
+                            variant="secondary"
+                            style={{ 
+                              borderRadius: 0, 
+                              borderBottomWidth: index === categoryOptions.length - 1 ? 0 : 1, 
+                              borderBottomColor: colors.border, 
+                              justifyContent: 'flex-start', 
+                              paddingHorizontal: 12, 
+                              height: 40, 
+                              borderWidth: 0, 
+                              marginVertical: 0 
+                            }}
+                            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+                            icon={fields.category === opt ? <Ionicons name="checkmark-outline" size={18} color={colors.primary || '#007aff'} /> : null}
+                          />
                         ))}
                       </ScrollView>
                     ) : (
