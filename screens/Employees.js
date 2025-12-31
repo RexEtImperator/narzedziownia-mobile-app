@@ -602,78 +602,135 @@ export default function EmployeesScreen() {
 
               <Text style={{ color: colors.muted }}>UID karty RFID</Text>
               <TextInput style={[styles.filterInput, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="UID karty RFID" placeholderTextColor={colors.muted} value={editEmpFields.rfid_uid} onChangeText={v => setEditEmpFields(f => ({ ...f, rfid_uid: v }))} autoCapitalize="none" />
-              <ThemedButton
-                title={
-                  (departments.find(d => String(d?.id) === String(editEmpFields?.department_id))?.name
-                    || departments.find(d => String(d?.department_id) === String(editEmpFields?.department_id))?.name
-                    || editEmpFields.department
-                    || 'Wybierz dział')
-                }
-                onPress={() => setShowDeptSelect(v => !v)}
-                variant="secondary"
-                style={{ height: 36, justifyContent: 'space-between', paddingHorizontal: 8, flexDirection: 'row-reverse', marginBottom: 8 }}
-                textStyle={{ fontWeight: 'normal', color: colors.text, flex: 1, textAlign: 'left' }}
-                icon={<Ionicons name={showDeptSelect ? "chevron-up" : "chevron-down"} size={16} color={colors.text} />}
-              />
-              {showDeptSelect && (
-                <View style={[{ borderColor: colors.border, backgroundColor: colors.card, borderWidth: 1, borderRadius: 6, marginBottom: 8 }]} className="border rounded-md mb-2">
-                  <ScrollView style={{ maxHeight: 240 }}>
-                    {departments.map(dep => {
-                      const selected = editEmpFields?.department_id === (dep?.id ?? dep?.department_id);
-                      return (
-                        <ThemedButton
-                          key={String(dep?.id ?? dep?.department_id)}
-                          title={dep?.name || dep?.department_name || String(dep?.id ?? dep?.department_id)}
-                          onPress={() => {
-                            setEditEmpFields(f => ({ ...f, department_id: dep?.id ?? dep?.department_id }));
-                            setShowDeptSelect(false);
-                          }}
-                          variant={selected ? 'primary' : 'outline'}
-                          style={{ height: 40, borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'space-between', paddingHorizontal: 8, flexDirection: 'row-reverse', borderWidth: 0, marginVertical: 0 }}
-                          textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
-                          icon={selected ? <Ionicons name="checkmark" size={18} color="#fff" /> : null}
-                        />
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-              )}
-              <ThemedButton
-                title={
-                  (positions.find(p => String(p?.id) === String(editEmpFields?.position_id))?.name
-                    || positions.find(p => String(p?.position_id) === String(editEmpFields?.position_id))?.name
-                    || editEmpFields.position
-                    || 'Wybierz stanowisko')
-                }
-                onPress={() => setShowPosSelect(v => !v)}
-                variant="secondary"
-                style={{ height: 36, justifyContent: 'space-between', paddingHorizontal: 8, flexDirection: 'row-reverse', marginBottom: 8 }}
-                textStyle={{ fontWeight: 'normal', color: colors.text, flex: 1, textAlign: 'left' }}
-                icon={<Ionicons name={showPosSelect ? "chevron-up" : "chevron-down"} size={16} color={colors.text} />}
-              />
-              {showPosSelect && (
-                <View style={[{ borderColor: colors.border, backgroundColor: colors.card, borderWidth: 1, borderRadius: 6, marginBottom: 8 }]} className="border rounded-md mb-2">
-                  <ScrollView style={{ maxHeight: 240 }}>
-                    {positions.map(pos => {
-                      const selected = editEmpFields?.position_id === (pos?.id ?? pos?.position_id);
-                      return (
-                        <ThemedButton
-                          key={String(pos?.id ?? pos?.position_id)}
-                          title={pos?.name || pos?.position_name || String(pos?.id ?? pos?.position_id)}
-                          onPress={() => {
-                            setEditEmpFields(f => ({ ...f, position_id: pos?.id ?? pos?.position_id }));
-                            setShowPosSelect(false);
-                          }}
-                          variant={selected ? 'primary' : 'outline'}
-                          style={{ height: 40, borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'space-between', paddingHorizontal: 8, flexDirection: 'row-reverse', borderWidth: 0, marginVertical: 0 }}
-                          textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
-                          icon={selected ? <Ionicons name="checkmark" size={18} color="#fff" /> : null}
-                        />
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-              )}
+              {/* Departament */}
+              <View style={{ position: 'relative', zIndex: showDeptSelect ? 1000 : 1, marginBottom: 8 }}>
+                <ThemedButton
+                  title={editEmpFields.department_id
+                    ? (
+                        (departments.find(d => String(d?.id ?? d?.department_id) === String(editEmpFields.department_id))?.name) ||
+                        (departments.find(d => String(d?.id ?? d?.department_id) === String(editEmpFields.department_id))?.department_name)
+                      )
+                    : 'Wybierz dział'
+                  }
+                  onPress={() => { setShowDeptSelect(v => !v); setShowPosSelect(false); }}
+                  variant="secondary"
+                  style={{ height: 40, justifyContent: 'space-between', paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border, width: '100%' }}
+                  textStyle={{ fontWeight: 'normal', color: editEmpFields.department_id ? colors.text : colors.muted, flex: 1, textAlign: 'left' }}
+                  icon={<Ionicons name={showDeptSelect ? 'chevron-up' : 'chevron-down'} size={16} color={colors.muted} />}
+                />
+                {showDeptSelect && (
+                  <View 
+                    style={{ 
+                      position: 'absolute',
+                      top: 45,
+                      left: 0,
+                      right: 0,
+                      backgroundColor: colors.card,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      borderRadius: 8,
+                      zIndex: 9999,
+                      elevation: 5,
+                      shadowColor: "#000",
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.25,
+                      shadowRadius: 3.84,
+                      maxHeight: 220
+                    }}
+                  >
+                    <ScrollView style={{ maxHeight: 220 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                      {departments.map((dep, index) => {
+                        const selected = String(dep?.id ?? dep?.department_id) === String(editEmpFields.department_id);
+                        return (
+                          <ThemedButton
+                            key={String(dep?.id ?? dep?.department_id)}
+                            title={dep?.name || dep?.department_name || String(dep?.id ?? dep?.department_id)}
+                            onPress={() => { setEditEmpFields(f => ({ ...f, department_id: dep?.id ?? dep?.department_id })); setShowDeptSelect(false); }}
+                            variant="secondary"
+                            style={{ 
+                              borderRadius: 0, 
+                              borderBottomWidth: index === departments.length - 1 ? 0 : 1, 
+                              borderBottomColor: colors.border, 
+                              justifyContent: 'flex-start', 
+                              paddingHorizontal: 12, 
+                              height: 40, 
+                              borderWidth: 0, 
+                              marginVertical: 0 
+                            }}
+                            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+                            icon={selected ? <Ionicons name="checkmark" size={16} color={colors.primary || '#4f46e5'} /> : null}
+                          />
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+
+              {/* Stanowisko */}
+              <View style={{ position: 'relative', zIndex: showPosSelect ? 1000 : 1, marginBottom: 8 }}>
+                <ThemedButton
+                  title={editEmpFields.position_id
+                    ? (
+                        (positions.find(p => String(p?.id ?? p?.position_id) === String(editEmpFields.position_id))?.name) ||
+                        (positions.find(p => String(p?.id ?? p?.position_id) === String(editEmpFields.position_id))?.position_name)
+                      )
+                    : 'Wybierz stanowisko'
+                  }
+                  onPress={() => { setShowPosSelect(v => !v); setShowDeptSelect(false); }}
+                  variant="secondary"
+                  style={{ height: 40, justifyContent: 'space-between', paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border, width: '100%' }}
+                  textStyle={{ fontWeight: 'normal', color: editEmpFields.position_id ? colors.text : colors.muted, flex: 1, textAlign: 'left' }}
+                  icon={<Ionicons name={showPosSelect ? 'chevron-up' : 'chevron-down'} size={16} color={colors.muted} />}
+                />
+                {showPosSelect && (
+                  <View 
+                    style={{ 
+                      position: 'absolute',
+                      top: 45,
+                      left: 0,
+                      right: 0,
+                      backgroundColor: colors.card,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      borderRadius: 8,
+                      zIndex: 9999,
+                      elevation: 5,
+                      shadowColor: "#000",
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.25,
+                      shadowRadius: 3.84,
+                      maxHeight: 220
+                    }}
+                  >
+                    <ScrollView style={{ maxHeight: 220 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                      {positions.map((pos, index) => {
+                        const selected = String(pos?.id ?? pos?.position_id) === String(editEmpFields.position_id);
+                        return (
+                          <ThemedButton
+                            key={String(pos?.id ?? pos?.position_id)}
+                            title={pos?.name || pos?.position_name || String(pos?.id ?? pos?.position_id)}
+                            onPress={() => { setEditEmpFields(f => ({ ...f, position_id: pos?.id ?? pos?.position_id })); setShowPosSelect(false); }}
+                            variant="secondary"
+                            style={{ 
+                              borderRadius: 0, 
+                              borderBottomWidth: index === positions.length - 1 ? 0 : 1, 
+                              borderBottomColor: colors.border, 
+                              justifyContent: 'flex-start', 
+                              paddingHorizontal: 12, 
+                              height: 40, 
+                              borderWidth: 0, 
+                              marginVertical: 0 
+                            }}
+                            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+                            icon={selected ? <Ionicons name="checkmark" size={16} color={colors.primary || '#4f46e5'} /> : null}
+                          />
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
 
               <Text style={{ color: colors.muted }}>Status</Text>
               <ThemedButton

@@ -838,12 +838,13 @@ export default function ToolsScreen() {
                       shadowOffset: { width: 0, height: 2 },
                       shadowOpacity: 0.25,
                       shadowRadius: 3.84,
+                      maxHeight: 250
                     }}
                   >
                     {editCategoriesLoading ? (
                       <View style={{ padding: 10 }}><Text style={{ color: colors.muted }}>Ładowanie kategorii…</Text></View>
                     ) : (editCategoryOptions && editCategoryOptions.length > 0) ? (
-                      <ScrollView style={{ maxHeight: 160 }} nestedScrollEnabled={true}>
+                      <ScrollView style={{ flex: 1 }} nestedScrollEnabled={true} keyboardShouldPersistTaps="handled">
                         {editCategoryOptions.map((opt, index) => (
                           <ThemedButton
                             key={String(opt)}
@@ -1024,7 +1025,7 @@ export default function ToolsScreen() {
                         title="Odebrano"
                         onPress={serviceReceive}
                         variant="success"
-                        style={{ height: 40, width: 120, marginVertical: 0 }}
+                        style={{ height: 36, width: 120, marginVertical: 0 }}
                       />
                     </View>
                   ) : null}

@@ -571,11 +571,11 @@ export default function AddToolModal({ visible, onClose, onCreated }) {
                   icon={<Ionicons name={categoryOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} />}
                 />
                 {categoryOpen && (
-                  <View style={{ position: 'absolute', top: 45, left: 0, right: 0, borderWidth: 1, borderColor: colors.border, borderRadius: 8, backgroundColor: colors.card, maxHeight: 200, zIndex: 2000, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }}>
+                  <View style={{ position: 'absolute', top: 45, left: 0, right: 0, borderWidth: 1, borderColor: colors.border, borderRadius: 8, backgroundColor: colors.card, maxHeight: 250, zIndex: 2000, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }}>
                     {categoriesLoading ? (
                       <View style={{ padding: 10 }}><Text style={{ color: colors.muted }}>Ładowanie kategorii…</Text></View>
                     ) : (categoryOptions && categoryOptions.length > 0) ? (
-                      <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled={true}>
+                      <ScrollView style={{ flex: 1 }} nestedScrollEnabled={true} keyboardShouldPersistTaps="handled">
                         {categoryOptions.map((opt, index) => (
                           <ThemedButton
                             key={String(opt)}
@@ -626,8 +626,8 @@ export default function AddToolModal({ visible, onClose, onCreated }) {
                       {manufacturerOpen && (elSuggestionsLoading ? (
                         <View style={{ padding: 8 }}><Text style={{ color: colors.muted }}>Ładowanie podpowiedzi…</Text></View>
                       ) : (elSuggestions.manufacturer || []).length > 0 ? (
-                        <View style={{ position: 'absolute', top: 44, left: 0, right: 0, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card || '#fff', borderRadius: 8, maxHeight: 160, zIndex: 200, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }}>
-                          <ScrollView style={{ maxHeight: 160 }} nestedScrollEnabled={true}>
+                        <View style={{ position: 'absolute', top: 44, left: 0, right: 0, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card || '#fff', borderRadius: 8, maxHeight: 200, zIndex: 200, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }}>
+                          <ScrollView style={{ flex: 1 }} nestedScrollEnabled={true} keyboardShouldPersistTaps="handled">
                             {(elSuggestions.manufacturer || []).map(opt => (
                               <Pressable key={`mf-${String(opt)}`} onPress={() => { setField('manufacturer', String(opt)); setManufacturerOpen(false); }} style={({ pressed }) => [{ paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: pressed ? (colors.overlay || 'rgba(0,0,0,0.05)') : (colors.card || '#fff') }]}> 
                                 <Text style={{ color: colors.text }}>{String(opt)}</Text>
