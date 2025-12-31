@@ -33,7 +33,6 @@ yarn-error.*
 *.pem
 
 # Firebase
-google-services.json
 GoogleService-Info.plist
 
 # local env files
