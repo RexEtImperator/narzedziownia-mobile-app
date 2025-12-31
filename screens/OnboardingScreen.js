@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, Image, StyleSheet, Dimensions, FlatList, Pressable } from 'react-native';
 import { useTheme } from '../lib/theme';
+import { Ionicons } from '@expo/vector-icons';
 import { setStorageItem, KEYS } from '../lib/storage';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,7 +10,7 @@ import ThemedButton from '../components/ThemedButton';
 const { width, height } = Dimensions.get('window');
 
 export default function OnboardingScreen({ onFinish }) {
-  const { colors, isDark } = useTheme();
+  const { colors, isDark, toggleDark } = useTheme();
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef(null);
 
@@ -114,6 +115,21 @@ export default function OnboardingScreen({ onFinish }) {
           />
         ))}
       </View>
+
+      {/* Floating Dark Mode Toggle */}
+      <Pressable
+        onPress={toggleDark}
+        style={[
+          styles.darkToggle,
+          isDark 
+            ? { backgroundColor: colors.primary, borderColor: colors.primary } 
+            : { backgroundColor: colors.card, borderColor: colors.border }
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel={isDark ? 'Wyłącz tryb ciemny' : 'Włącz tryb ciemny'}
+      >
+        <Ionicons name={isDark ? 'moon' : 'sunny'} size={20} color={isDark ? '#fff' : colors.muted} />
+      </Pressable>
     </SafeAreaView>
   );
 }
@@ -121,6 +137,17 @@ export default function OnboardingScreen({ onFinish }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  darkToggle: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
   },
   slide: {
     width: width,
