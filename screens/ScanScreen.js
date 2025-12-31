@@ -852,17 +852,25 @@ export default function ScanScreen() {
                              key={emp.id} 
                              onPress={() => { 
                                setSelectedEmployee(emp); 
-                               setEmployeeSearch(`${emp.first_name} ${emp.last_name} ${emp.brand_number ? `(${emp.brand_number})` : ''}`);
+                               setEmployeeSearch(`${emp.brand_number ? `(${emp.brand_number})` : ''} ${emp.first_name} ${emp.last_name}`);
                                setDropdownOpen(false); 
                                Keyboard.dismiss();
                              }} 
                              style={({pressed}) => ({ 
-                               padding: 10, 
+                               padding: 12, 
+                               flexDirection: 'row',
+                               alignItems: 'center',
+                               gap: 10,
                                backgroundColor: pressed ? colors.border : 'transparent',
-                               borderRadius: 4
+                               borderRadius: 6
                              })}
                            > 
-                             <Text style={{ color: colors.text }}>{emp.first_name} {emp.last_name} {emp.brand_number ? `(${emp.brand_number})` : ''}</Text>
+                             {emp.brand_number ? (
+                               <View style={{ backgroundColor: colors.primary, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                                 <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>{emp.brand_number}</Text>
+                               </View>
+                             ) : null}
+                             <Text style={{ color: colors.text, fontSize: 15 }}>{emp.first_name} {emp.last_name}</Text>
                            </Pressable>
                          ));
                        })()}

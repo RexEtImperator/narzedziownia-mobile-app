@@ -1,6 +1,6 @@
 # Narzędziownia – aplikacja mobilna
 
-[![Wersja 1.6.0](https://img.shields.io/badge/version-1.6.0-blue.svg)](#)
+[![Wersja 1.6.1](https://img.shields.io/badge/version-1.6.1-blue.svg)](#)
 
 Aplikacja mobilna (React Native + Expo) do obsługi systemu Narzędziowni: logowanie, przeglądanie narzędzi, pracowników, wydawanie i zwroty, ustawienia użytkownika, skanowanie kodów.
 
@@ -14,6 +14,9 @@ Aplikacja mobilna (React Native + Expo) do obsługi systemu Narzędziowni: logow
 - Automatyczne wznawianie połączenia z API po powrocie internetu.
 - Pasek „Offline” na górze informujący o próbie wznowienia połączenia.
 - Picker daty dla pól w BHP (web: `input[type=date]`, mobile: natywny lub fallback), zapisywany jako `YYYY-MM-DD`.
+
+### Nowości w 1.6.1
+- **BHP**: Poprawione formatowanie dat w szczegółach i na liście (format `YYYY-MM-DD`).
 
 ### Nowości w 1.6.0
 - **Dark Mode**: Pełne wsparcie dla trybu ciemnego w skanerze (`ScanScreen`), w tym obsługa kolorów systemowych i poprawki inicjalizacji.

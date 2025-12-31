@@ -145,8 +145,17 @@ export default function BhpScreen() {
       const s = String(value).trim();
       const dmy = s.match(/^(\d{2})[.\/-](\d{2})[.\/-](\d{4})/);
       if (dmy) { const [, dd, mm, yyyy] = dmy; const ts = new Date(`${yyyy}-${mm}-${dd}`).getTime(); return isNaN(ts) ? null : ts; }
+      const ymd = s.match(/^(\d{4})[.\/-](\d{2})[.\/-](\d{2})/);
+      if (ymd) { const [, yyyy, mm, dd] = ymd; const ts = new Date(`${yyyy}-${mm}-${dd}`).getTime(); return isNaN(ts) ? null : ts; }
       const d = new Date(s); const ts = d.getTime(); return isNaN(ts) ? null : ts;
     } catch { return null; }
+  };
+
+  const formatDateYMD = (val) => {
+    const ts = parseDate(val);
+    if (!ts) return val || '—';
+    const d = new Date(ts);
+    return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
   };
 
   // Pobieranie listy pracowników na potrzeby wydania
@@ -673,7 +682,7 @@ export default function BhpScreen() {
                     <Text style={[styles.toolMeta, { color: colors.muted }]}>Producent/Model: {item?.manufacturer || '—'} / {item?.model || '—'}</Text>
                     <Text style={[styles.toolMeta, { color: colors.muted }]}>Nr fabryczny: {item?.serial_number || '—'}</Text>
                     <Text style={[styles.toolMeta, { color: colors.muted }]}>Przypisany: {empName}</Text>
-                    <Text style={[styles.toolMeta, { color: colors.muted }]}>Data przeglądu: {item?.inspection_date || item?.last_inspection_at || '—'}</Text>
+                    <Text style={[styles.toolMeta, { color: colors.muted }]}>Data przeglądu: {item?.inspection_date ? formatDateYMD(item.inspection_date) : (item?.last_inspection_at ? formatDateYMD(item.last_inspection_at) : '—')}</Text>
                   </View>
                   {canManageBhp && (
                     <View style={{ flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
@@ -1016,11 +1025,7 @@ export default function BhpScreen() {
                     </View>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                       <Text style={{ color: colors.muted }}>Data produkcji:</Text>
-                      <Text style={{ color: colors.text }}>{detailItem?.shock_absorber_production_date || '—'}</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                      <Text style={{ color: colors.muted }}>Rozpoczęcie użytkowania:</Text>
-                      <Text style={{ color: colors.text }}>{detailItem?.shock_absorber_start_date || '—'}</Text>
+                      <Text style={{ color: colors.text }}>{formatDateYMD(detailItem?.shock_absorber_production_date)}</Text>
                     </View>
                   </View>
                 </View>
@@ -1048,9 +1053,9 @@ export default function BhpScreen() {
                       <Text style={{ color: colors.text }}>{detailItem?.srd_catalog_number || '—'}</Text>
                     </View>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                      <Text style={{ color: colors.muted }}>Data produkcji:</Text>
-                      <Text style={{ color: colors.text }}>{detailItem?.srd_production_date || '—'}</Text>
-                    </View>
+                  <Text style={{ color: colors.muted }}>Data produkcji:</Text>
+                  <Text style={{ color: colors.text }}>{formatDateYMD(detailItem?.srd_production_date)}</Text>
+                </View>
                   </View>
                 </View>
               ) : null}

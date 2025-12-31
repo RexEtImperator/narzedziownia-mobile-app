@@ -57,6 +57,15 @@ export default function NotificationsScreen() {
             api.get('/api/tools').catch(() => [])
           ]);
 
+          const getList = (resp) => {
+             if (Array.isArray(resp)) return resp;
+             if (resp && Array.isArray(resp.data)) return resp.data;
+             return [];
+          };
+          
+          const toolsList = getList(tools);
+          const bhpList = getList(bhpItems);
+
           const dayMs = 1000 * 60 * 60 * 24;
           const daysDelta = (dateStr) => {
             const d = parseDateFlexibleUI(dateStr);
@@ -81,16 +90,16 @@ export default function NotificationsScreen() {
           });
 
           const overdue = [
-            ...((Array.isArray(tools) ? tools : [])
+            ...toolsList
               .filter(t => t?.inspection_date && (daysDelta(t.inspection_date) ?? 1) < 0)
-              .map(t => makeNotif(t, 'tool', 'overdue_inspection', ''))),
-            ...((Array.isArray(bhpItems) ? bhpItems : [])
+              .map(t => makeNotif(t, 'tool', 'overdue_inspection', '')),
+            ...bhpList
               .filter(b => b?.inspection_date && (daysDelta(b.inspection_date) ?? 1) < 0)
-              .map(b => makeNotif(b, 'bhp', 'overdue_inspection', ''))),
+              .map(b => makeNotif(b, 'bhp', 'overdue_inspection', '')),
           ];
 
           const upcoming = [
-            ...((Array.isArray(tools) ? tools : [])
+            ...toolsList
               .filter(t => t?.inspection_date && (daysDelta(t.inspection_date) ?? -999) >= 0 && (daysDelta(t.inspection_date) ?? 999) <= 30)
               .map(t => {
                 const d = daysDelta(t.inspection_date) ?? 0;
@@ -98,8 +107,8 @@ export default function NotificationsScreen() {
                   ? `Przegląd narzędzia ${t.inventory_number || '-'} za ${d} dni`
                   : `Przegląd narzędzia ${t.inventory_number || '-'} za ${d} dni`;
                 return makeNotif(t, 'tool', 'upcoming_inspection', msg);
-              })),
-            ...((Array.isArray(bhpItems) ? bhpItems : [])
+              }),
+            ...bhpList
               .filter(b => b?.inspection_date && (daysDelta(b.inspection_date) ?? -999) >= 0 && (daysDelta(b.inspection_date) ?? 999) <= 30)
               .map(b => {
                 const d = daysDelta(b.inspection_date) ?? 0;
@@ -107,7 +116,7 @@ export default function NotificationsScreen() {
                   ? `Przegląd BHP ${b.inventory_number || '-'} za ${d} dni`
                   : `Przegląd BHP ${b.inventory_number || '-'} za ${d} dni`;
                 return makeNotif(b, 'bhp', 'upcoming_inspection', msg);
-              })),
+              }),
           ];
 
           overdueNotifs = [...overdue, ...upcoming];
@@ -293,10 +302,11 @@ export default function NotificationsScreen() {
 
   const renderItem = ({ item: n }) => {
     const isInspectionType = n.type === 'overdue_inspection' || n.type === 'upcoming_inspection';
-    const iconBg = isInspectionType ? '#fecaca' : '#bfdbfe';
-    const iconColor = isInspectionType ? '#dc2626' : '#1d4ed8';
+    const isServiceType = n.type === 'service_status';
+    const iconBg = isServiceType ? '#fed7aa' : (isInspectionType ? '#fecaca' : '#bfdbfe');
+    const iconColor = isServiceType ? '#ea580c' : (isInspectionType ? '#dc2626' : '#1d4ed8');
     const isMessageType = n.type === 'broadcast' || n.type === 'custom' || n.type === 'admin';
-    const iconName = isMessageType ? 'notifications' : (n.itemType === 'bhp' ? 'shield' : (n.itemType === 'tool' ? 'construct' : 'notifications'));
+    const iconName = isServiceType ? 'construct' : (isMessageType ? 'notifications' : (n.itemType === 'bhp' ? 'shield' : (n.itemType === 'tool' ? 'construct' : 'notifications')));
     const unread = !n.read;
     const filterValue = (n.inventory_number && String(n.inventory_number).trim()) || (n.model && String(n.model).trim()) || '';
     const handleNavigate = () => {
@@ -373,13 +383,13 @@ export default function NotificationsScreen() {
                   )
                   ) : (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                      <Text numberOfLines={1} style={[styles.notifTitle, pressed ? { textDecorationLine: 'underline' } : null]}>{n.inventory_number || n.model || '-'}</Text>
+                      <Text numberOfLines={1} style={[styles.notifTitle, pressed ? { textDecorationLine: 'underline' } : null]}>{isServiceType ? (n.model || n.inventory_number || '-') : (n.inventory_number || n.model || '-')}</Text>
                       {n.url ? (<Ionicons name="link-outline" size={16} color={colors.primary} />) : null}
                     </View>
                 )}
                 {!isMessageType && (
                   <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
-                    <Text style={{ fontSize: 11, color: colors.muted }}>{n.itemType === 'bhp' ? 'BHP' : (n.itemType === 'tool' ? 'Narzędzie' : '-')}</Text>
+                    <Text style={{ fontSize: 11, color: colors.muted }}>{isServiceType ? 'Serwis' : (n.itemType === 'bhp' ? 'BHP' : (n.itemType === 'tool' ? 'Narzędzie' : '-'))}</Text>
                   </View>
                 )}
                 {isMessageType && (
@@ -408,8 +418,8 @@ export default function NotificationsScreen() {
                 )}
           </View>
         </View>
-        {n.manufacturer || n.model ? (
-          <Text style={{ color: colors.muted, fontSize: 12 }}>{[n.manufacturer, n.model].filter(Boolean).join(' ')}</Text>
+        {n.manufacturer || (n.model && !isServiceType) ? (
+          <Text style={{ color: colors.muted, fontSize: 12 }}>{[n.manufacturer, (!isServiceType ? n.model : null)].filter(Boolean).join(' ')}</Text>
         ) : null}
         {(n.type === 'broadcast' || n.type === 'custom' || n.type === 'admin') ? (
           (() => {
@@ -422,7 +432,6 @@ export default function NotificationsScreen() {
                 {content ? (
                   <Text style={{ marginTop: 6, color: colors.text, fontSize: 13 }}>{content}</Text>
                 ) : null}
-                {/* Link nie jest wyświetlany jako tekst; cała pozycja działa jako hiperłącze */}
               </>
             );
           })()
@@ -431,9 +440,16 @@ export default function NotificationsScreen() {
             {n.subject ? (
               <Text style={{ marginTop: 6, color: colors.text, fontSize: 13, fontWeight: '600', textDecorationLine: pressed ? 'underline' : 'none' }}>{n.subject}</Text>
             ) : null}
-            {n.message ? (
-              <Text style={{ marginTop: 6, color: colors.text, fontSize: 13 }}>{n.message}</Text>
-            ) : null}
+            {isServiceType ? (
+               <View style={{ marginTop: 4 }}>
+                 <Text style={{ color: colors.text, fontSize: 13 }}>W serwisie od: {formatDatePL(n.service_sent_at)}</Text>
+                 <Text style={{ color: colors.muted, fontSize: 12 }}>Zlecenie: {n.service_order_number || '-'}</Text>
+               </View>
+            ) : (
+               n.message ? (
+                 <Text style={{ marginTop: 6, color: colors.text, fontSize: 13 }}>{n.message}</Text>
+               ) : null
+            )}
           </>
         )}
           </View>
@@ -446,6 +462,10 @@ export default function NotificationsScreen() {
                 </View>
                 <Text style={{ color: colors.muted, fontSize: 11 }}>{formatDatePL(n.inspection_date)}</Text>
               </>
+            ) : isServiceType ? (
+               <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{ color: '#ea580c', fontSize: 12, fontWeight: '600' }}>W serwisie</Text>
+               </View>
             ) : (
               <Text style={{ color: colors.muted, fontSize: 11 }}>{formatDatePL(n.created_at)}, {formatDateTimePL(n.created_at)}</Text>
             )}
@@ -526,6 +546,26 @@ export default function NotificationsScreen() {
           >
             <Text style={{ color: adminTab === 'overdue' ? (isDark ? '#ffffff' : '#111827') : (isDark ? '#9ca3af' : '#6b7280'), textAlign: 'center', fontWeight: '600', fontSize: 13 }}>Po terminie</Text>
           </Pressable>
+          <Pressable
+            onPress={() => setAdminTab('service')}
+            accessibilityRole="tab"
+            accessibilityLabel="Zakładka W serwisie"
+            style={{ 
+              flex: 1, 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              paddingVertical: 6, 
+              borderRadius: 6, 
+              backgroundColor: adminTab === 'service' ? (isDark ? '#374151' : '#ffffff') : 'transparent',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: (adminTab === 'service' && !isDark) ? 0.1 : 0,
+              shadowRadius: 1,
+              elevation: (adminTab === 'service' && !isDark) ? 2 : 0
+            }}
+          >
+            <Text style={{ color: adminTab === 'service' ? (isDark ? '#ffffff' : '#111827') : (isDark ? '#9ca3af' : '#6b7280'), textAlign: 'center', fontWeight: '600', fontSize: 13 }}>W serwisie</Text>
+          </Pressable>
         </View>
       )}
       <View style={styles.card}>
@@ -554,7 +594,7 @@ export default function NotificationsScreen() {
           </View>
         ) : (
           <FlatList
-            data={(canOverdue ? (adminTab === 'overdue' ? items.filter(it => it.type === 'overdue_inspection' || it.type === 'upcoming_inspection') : items.filter(it => !(it.type === 'overdue_inspection' || it.type === 'upcoming_inspection'))) : items)}
+            data={(canOverdue ? (adminTab === 'overdue' ? items.filter(it => it.type === 'overdue_inspection' || it.type === 'upcoming_inspection') : (adminTab === 'service' ? items.filter(it => it.type === 'service_status') : items.filter(it => !['overdue_inspection', 'upcoming_inspection', 'service_status'].includes(it.type)))) : items)}
             keyExtractor={(it) => String(it.id)}
             ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
             renderItem={renderItem}

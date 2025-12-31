@@ -3,7 +3,7 @@
     "name": "Narzędziownia",
     "slug": "mobilna",
     "scheme": "narzedziownia",
-    "version": "1.6.0",
+    "version": "1.6.1",
     "extra": {
       "apiBaseUrl": "http://192.168.10.97:3000",
       "EXPO_PUBLIC_DISABLE_HISTORY_FETCH": "false",

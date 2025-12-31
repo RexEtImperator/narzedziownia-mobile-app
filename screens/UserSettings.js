@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Button, StyleSheet, Pressable, Switch, Platform, ScrollView, Image, TextInput } from 'react-native';
+import { View, Text, Button, StyleSheet, Pressable, Switch, Platform, ScrollView, Image, TextInput, Modal, Linking, ActivityIndicator } from 'react-native';
+import Constants from 'expo-constants';
 import api from '../lib/api';
 import { getStorageItem, setStorageItem, removeStorageItem, KEYS } from '../lib/storage';
 import { useNavigation, CommonActions } from '@react-navigation/native';
@@ -63,6 +64,64 @@ export default function UserSettingsScreen() {
   const [empEmail, setEmpEmail] = useState('');
   const [empPhoneError, setEmpPhoneError] = useState('');
   const [empEmailError, setEmpEmailError] = useState('');
+  
+  // Update logic
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [updateModalVisible, setUpdateModalVisible] = useState(false);
+  const [remoteVersion, setRemoteVersion] = useState(null);
+
+  const compareVersions = (v1, v2) => {
+    const p1 = String(v1).split('.').map(Number);
+    const p2 = String(v2).split('.').map(Number);
+    for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
+      const n1 = p1[i] || 0;
+      const n2 = p2[i] || 0;
+      if (n1 > n2) return 1;
+      if (n1 < n2) return -1;
+    }
+    return 0;
+  };
+
+  const checkForUpdate = async () => {
+    if (checkingUpdate) return;
+    setCheckingUpdate(true);
+    try {
+      const driveUrl = 'https://drive.google.com/drive/folders/1S92U9rRA55aLTZMFHDVrbvPQ1oBv0P3s?usp=sharing';
+      const response = await fetch(driveUrl);
+      const text = await response.text();
+      // Szukamy wzorca narzedziownia-X.X.X.apk
+      const regex = /narzedziownia-(\d+\.\d+\.\d+)\.apk/g;
+      let maxVer = '0.0.0';
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        if (compareVersions(match[1], maxVer) > 0) {
+          maxVer = match[1];
+        }
+      }
+      
+      const currentVer = Constants.expoConfig?.version || '1.6.0';
+      
+      if (maxVer !== '0.0.0' && compareVersions(maxVer, currentVer) > 0) {
+        setRemoteVersion(maxVer);
+        setUpdateModalVisible(true);
+      } else {
+        if (maxVer === '0.0.0') {
+            // Jeśli nie udało się znaleźć pliku, otwórz folder
+            showSnackbar('Nie znaleziono pliku aktualizacji. Sprawdź folder ręcznie.', { type: 'info' });
+            Linking.openURL(driveUrl);
+        } else {
+            showSnackbar('Masz najnowszą wersję aplikacji.', { type: 'success' });
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      showSnackbar('Błąd sprawdzania aktualizacji. Otwieram folder...', { type: 'error' });
+      Linking.openURL('https://drive.google.com/drive/folders/1S92U9rRA55aLTZMFHDVrbvPQ1oBv0P3s?usp=sharing');
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
+
   const navigation = useNavigation();
 
   // Permissions Context
@@ -206,6 +265,7 @@ export default function UserSettingsScreen() {
   }, []);
 
   const handleRefreshSession = async () => {
+    if ((process.env.EXPO_PUBLIC_API_SOURCE || 'localapi') !== 'localapi') return;
     if (isRefreshingSession) return;
     setIsRefreshingSession(true);
     try {
@@ -453,7 +513,7 @@ export default function UserSettingsScreen() {
           </View>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          {sessionLeft !== null && (
+          {(process.env.EXPO_PUBLIC_API_SOURCE || 'localapi') === 'localapi' && sessionLeft !== null && (
             <Pressable
               onPress={handleRefreshSession}
               disabled={isRefreshingSession}
@@ -574,6 +634,7 @@ export default function UserSettingsScreen() {
         </View>
       </View>
 
+      {['admin', 'administrator', 'manager', 'toolsmaster'].includes(String(currentUser?.role || currentUser?.role_name || '').toLowerCase()) && (
       <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card, marginTop: 16 }]}> 
         <Text style={styles.sectionTitle}>Powiadomienia</Text>
         <Text style={{ color: colors.muted, marginBottom: 6 }}>Przeglądy: {reviewsEnabled ? 'Włączone' : 'Wyłączone'} • Przeterminowane: {expiredEnabled ? 'Włączone' : 'Wyłączone'}</Text>
@@ -601,12 +662,13 @@ export default function UserSettingsScreen() {
           </Pressable>
         </View>
       </View>
+      )}
 
       {Platform.OS !== 'web' ? (
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card, marginTop: 16 }]}> 
           <Text style={styles.sectionTitle}>Logowanie biometryczne</Text>
           <Text style={{ color: colors.muted, marginBottom: 8 }}>
-            Po pierwszym zwykłym zalogowaniu zapisujemy login i hasło w pamięci szyfrowanej.
+            Po pierwszym zalogowaniu zapisujemy login i hasło w pamięci szyfrowanej.
             Włączenie poniższego przełącznika pozwoli logować się odciskiem palca na wspieranych urządzeniach.
           </Text>
           <View style={[styles.row, { marginBottom: 8 }]}> 
@@ -614,7 +676,8 @@ export default function UserSettingsScreen() {
             <Switch value={bioEnabled} onValueChange={toggleBiometrics} thumbColor={bioEnabled ? colors.primary : colors.border} trackColor={{ true: colors.primary, false: colors.border }} />
           </View>
           <Text style={{ color: colors.muted, marginBottom: 12 }}>
-            Sprzęt: {bioAvailable ? 'Tak' : 'Nie'} • Zapis biometrii: {bioEnrolled ? 'Tak' : 'Nie'}
+            Kompatybilność: {bioAvailable ? 'Tak' : 'Nie'}
+            Zgoda na zapis biometrii: {bioEnrolled ? 'Tak' : 'Nie'}
           </Text>
           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <Pressable onPress={clearSavedCredentials} style={[styles.button, { backgroundColor: colors.muted }]}> 
@@ -624,13 +687,69 @@ export default function UserSettingsScreen() {
         </View>
       ) : null}
 
+      {/* Przycisk aktualizacji */}
+      <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
+        <Pressable 
+          onPress={checkForUpdate} 
+          disabled={checkingUpdate}
+          style={({ pressed }) => ({
+            backgroundColor: colors.card,
+            borderWidth: 1,
+            borderColor: colors.primary,
+            borderRadius: 8,
+            padding: 12,
+            alignItems: 'center',
+            opacity: pressed || checkingUpdate ? 0.7 : 1
+          })}
+        >
+           {checkingUpdate ? (
+             <ActivityIndicator size="small" color={colors.primary} />
+           ) : (
+             <Text style={{ color: colors.primary, fontWeight: '600' }}>Sprawdź aktualizacje</Text>
+           )}
+        </Pressable>
+      </View>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={updateModalVisible}
+        onRequestClose={() => setUpdateModalVisible(false)}
+      >
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={{ width: '80%', backgroundColor: colors.card, borderRadius: 12, padding: 20, alignItems: 'center', borderWidth: 1, borderColor: colors.border }}>
+            <Ionicons name="cloud-download-outline" size={48} color={colors.primary} style={{ marginBottom: 16 }} />
+            <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 8, textAlign: 'center' }}>Dostępna aktualizacja!</Text>
+            <Text style={{ fontSize: 14, color: colors.text, marginBottom: 4, textAlign: 'center' }}>Wykryto nowszą wersję: {remoteVersion}</Text>
+            <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 20, textAlign: 'center' }}>Twoja wersja: {Constants.expoConfig?.version || '1.6.0'}</Text>
+            
+            <Pressable
+              onPress={() => {
+                setUpdateModalVisible(false);
+                Linking.openURL('https://drive.google.com/drive/folders/1S92U9rRA55aLTZMFHDVrbvPQ1oBv0P3s?usp=sharing');
+              }}
+              style={{ backgroundColor: colors.primary, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8, width: '100%', alignItems: 'center', marginBottom: 12 }}
+            >
+              <Text style={{ color: '#fff', fontWeight: '600' }}>Pobierz aktualizację</Text>
+            </Pressable>
+            
+            <Pressable
+              onPress={() => setUpdateModalVisible(false)}
+              style={{ paddingVertical: 12 }}
+            >
+              <Text style={{ color: colors.muted }}>Anuluj</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
       {/* Stopka */}
       <View style={{ alignItems: 'center', paddingVertical: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
           <Image source={require('../assets/favicon.png')} style={{ width: 24, height: 24, resizeMode: 'contain', marginRight: 8 }} />
           <Text style={{ fontSize: 12, fontWeight: '600', color: colors.muted }}>System Zarządzania Narzędziownią</Text>
         </View>
-        <Text style={{ fontSize: 10, color: colors.muted }}>ver. 1.6.0 © 2025 SZN - Wszelkie prawa zastrzeżone</Text>
+        <Text style={{ fontSize: 10, color: colors.muted }}>ver. 1.6.1 © 2025 SZN - Wszelkie prawa zastrzeżone</Text>
       </View>
     </ScrollView>
   );

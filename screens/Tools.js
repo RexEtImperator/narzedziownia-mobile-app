@@ -701,6 +701,22 @@ export default function ToolsScreen() {
                     <Text style={[styles.toolMeta, { color: colors.muted }]}>Nr ew.: {item?.inventory_number || (isDataUri(item?.code) ? '' : item?.code) || (isDataUri(item?.barcode) ? '' : item?.barcode) || (isDataUri(item?.qr_code) ? '' : item?.qr_code) || '—'}</Text>
                     <Text style={[styles.toolMeta, { color: colors.muted }]}>SKU: {isDataUri(item?.sku) ? '—' : (item?.sku || '—')}</Text>
                     <Text style={[styles.toolMeta, { color: colors.muted }]}>Kategoria: {item.category || item.category_name || '—'}</Text>
+                    {item.category === 'Spawalnicze' && (
+                       <Text style={[styles.toolMeta, { color: colors.muted }]}>Data przeglądu: {(() => {
+                         const val = item.inspection_date;
+                         if (!val) return '—';
+                         try {
+                           const s = String(val).trim();
+                           const dmy = s.match(/^(\d{2})[.\/-](\d{2})[.\/-](\d{4})/);
+                           if (dmy) return `${dmy[1]}.${dmy[2]}.${dmy[3]}`;
+                           const ymd = s.match(/^(\d{4})[.\/-](\d{2})[.\/-](\d{2})/);
+                           if (ymd) return `${ymd[3]}.${ymd[2]}.${ymd[1]}`;
+                           const d = new Date(s);
+                           if (isNaN(d.getTime())) return val;
+                           return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`;
+                         } catch { return val; }
+                       })()}</Text>
+                    )}
                     <Text style={[styles.toolMeta, { color: colors.muted }]}>Nr fabryczny: {item.serial_number || '—'}</Text>
                     <Text style={[styles.toolMeta, { color: colors.muted }]}>Lokalizacja: {item.location || '—'}</Text>
                   </View>

@@ -3,6 +3,22 @@
 Wszystkie istotne zmiany w tym projekcie są dokumentowane w tym pliku.
 Projekt stosuje konwencję „Keep a Changelog” i SemVer.
 
+## [1.6.1] — 2025-12-31
+
+### Added
+- NotificationsScreen: Nowa zakładka "W serwisie" wyświetlająca narzędzia ze statusem `serwis`.
+- NotificationsScreen: Wyświetlanie szczegółów serwisowych (data wysłania, numer zlecenia) na liście powiadomień.
+- NotificationsScreen: Obsługa nawigacji do szczegółów narzędzia po kliknięciu w powiadomienie serwisowe.
+
+### Changed
+- BHPScreen: Ujednolicone formatowanie dat na DD.MM.YYYY w widoku szczegółów i na liście.
+- ToolsScreen: Warunkowe wyświetlanie daty przeglądu (DD.MM.YYYY) dla narzędzi z kategorii 'Spawalnicze'.
+- ScanScreen: Odświeżony wygląd listy wyboru pracownika (czytelniejsze odstępy, badge z numerem marki, poprawiona kolejność).
+
+### Fixed
+- NotificationsScreen: Naprawiono błąd braku wyświetlania narzędzi w zakładce "Po terminie" (poprawa obsługi struktury odpowiedzi API).
+- BHPScreen: Poprawiono wyświetlanie daty przeglądu (obsługa formatów ISO i timestamp).
+
 ## [1.6.0] — 2025-12-23
 
 ### Added
