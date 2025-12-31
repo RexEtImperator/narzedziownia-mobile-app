@@ -676,8 +676,10 @@ export default function UserSettingsScreen() {
             <Text style={styles.label}>Używaj biometrii</Text>
             <Switch value={bioEnabled} onValueChange={toggleBiometrics} thumbColor={bioEnabled ? colors.primary : colors.border} trackColor={{ true: colors.primary, false: colors.border }} />
           </View>
-          <Text style={{ color: colors.muted, marginBottom: 12 }}>
+          <Text style={{ color: colors.muted }}>
             Kompatybilność: {bioAvailable ? 'Tak' : 'Nie'}
+          </Text>
+          <Text style={{ color: colors.muted, marginBottom: 12 }}>
             Zgoda na zapis biometrii: {bioEnrolled ? 'Tak' : 'Nie'}
           </Text>
           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>

@@ -119,7 +119,13 @@ export default function NotificationsScreen() {
               }),
           ];
 
-          overdueNotifs = [...overdue, ...upcoming];
+          const inService = [
+            ...toolsList
+              .filter(t => (t?.status && String(t.status).toLowerCase().includes('serwis')) || ((t?.service_quantity || 0) > 0))
+              .map(t => makeNotif(t, 'tool', 'service_status', '')),
+          ];
+
+          overdueNotifs = [...overdue, ...upcoming, ...inService];
         }
 
         // Wyświetl push lokalny dla nowych wiadomości (broadcast/custom/admin)
