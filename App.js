@@ -69,7 +69,7 @@ function SettingsStack() {
   );
 }
 
-function CustomTabBar({ state, descriptors, navigation, onPressScan, isAdmin, unreadCount, chatUnreadCount }) {
+function CustomTabBar({ state, descriptors, navigation, onPressScan, isAdmin, unreadCount, chatUnreadCount, isChatEnabled }) {
   const { colors, isDark } = useTheme();
   const activeColor = '#fff';
   const bubbleBg = colors.primary;
@@ -161,9 +161,9 @@ function CustomTabBar({ state, descriptors, navigation, onPressScan, isAdmin, un
                 {[
                   { name: 'Inwentaryzacja', icon: 'list-circle' },
                   { name: 'Powiadomienia', icon: 'notifications', badge: unreadCount },
-                  { name: 'Czat', icon: 'chatbubbles', badge: chatUnreadCount },
+                  { name: 'Czat', icon: 'chatbubbles', badge: chatUnreadCount, hidden: !isChatEnabled },
                   { name: 'Ustawienia', icon: 'settings' }
-                ].map((item) => (
+                ].filter(i => !i.hidden).map((item) => (
                   <ThemedButton
                     key={item.name}
                     onPress={() => {
@@ -261,7 +261,7 @@ function MainTabs({ openActionSheet, canSeeInventory, canSeeEmployees, isChatEna
     <Tab.Navigator
       initialRouteName="Dashboard"
       screenOptions={{ headerShown: false }}
-      tabBar={(props) => <CustomTabBar {...props} onPressScan={openActionSheet} isAdmin={isAdmin} unreadCount={unreadCount} chatUnreadCount={chatUnreadCount} />}
+      tabBar={(props) => <CustomTabBar {...props} onPressScan={openActionSheet} isAdmin={isAdmin} unreadCount={unreadCount} chatUnreadCount={chatUnreadCount} isChatEnabled={isChatEnabled} />}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
       <Tab.Screen name="Narzędzia" component={ToolsScreen} />
