@@ -39,7 +39,8 @@
         "android.permission.RECORD_AUDIO"
       ],
       "package": "com.dbrzezinsky.narzedziownia",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "versionCode": 3
     },
     "web": {
       "bundler": "metro",
@@ -65,9 +66,7 @@
       ]
     ],
     "owner": "dbrzezinsky",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.6.2",
     "updates": {
       "url": "https://u.expo.dev/2b0d8aaa-dada-4b64-a737-03f7c55b9012"
     }
