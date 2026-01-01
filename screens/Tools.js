@@ -422,7 +422,10 @@ export default function ToolsScreen() {
     }
     try {
       await api.init();
-      await api.post(`/api/tools/${id}/service/receive`, { quantity: current });
+      await api.post(`/api/tools/${id}/service/receive`, {
+        quantity: current,
+        name: tool.name,
+      });
       showSnackbar('Odebrano z serwisu', { type: 'success' });
       try { await load(); } catch {}
     } catch (e) {
@@ -509,7 +512,7 @@ export default function ToolsScreen() {
             onPress={() => setAddToolVisible(true)}
             variant="secondary"
             style={{ width: 44, height: 44, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0, borderWidth: 1, borderColor: colors.border }}
-            icon={<Ionicons name="add" size={25} color={colors.primary || colors.text} />}
+            icon={<Ionicons name="add" size={30} color={colors.primary || colors.text} />}
           />
         ) : null}
       </View>
@@ -1038,7 +1041,7 @@ export default function ToolsScreen() {
                   {detailData.issues.length > 0 ? detailData.issues.map((iss) => (
                     <View key={String(iss.id)} style={{ paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border }}>
                       <Text style={{ color: colors.text }}>#{iss.id} • {iss.employee_first_name} {iss.employee_last_name} [{iss.employee_brand_number}]</Text>
-                      <Text style={{ color: colors.muted }}>Ilość: {iss.quantity} • Wydano: {iss.issued_at}</Text>
+                      <Text style={{ color: colors.muted }}>Ilość: {iss.quantity} • Wydano: {new Date(iss.issued_at).toLocaleString('pl-PL')}</Text>
                     </View>
                   )) : (
                     <Text style={{ color: colors.muted }}>Brak aktywnych wydań</Text>

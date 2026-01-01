@@ -52,9 +52,10 @@ export default function NotificationsScreen() {
         // Przeterminowane przeglądy (BHP/Narzędzia) — jak w TopBar.jsx
         let overdueNotifs = [];
         if (canSeeOverdue) {
-          const [bhpItems, tools] = await Promise.all([
+          const [bhpItems, tools, serviceSummary] = await Promise.all([
             api.get('/api/bhp').catch(() => []),
-            api.get('/api/tools').catch(() => [])
+            api.get('/api/tools').catch(() => []),
+            api.get('/api/service-history/summary').catch(() => ({ in_service: [], recent_events: [] }))
           ]);
 
           const getList = (resp) => {
@@ -119,13 +120,43 @@ export default function NotificationsScreen() {
               }),
           ];
 
-          const inService = [
-            ...toolsList
-              .filter(t => (t?.status && String(t.status).toLowerCase().includes('serwis')) || ((t?.service_quantity || 0) > 0))
-              .map(t => makeNotif(t, 'tool', 'service_status', '')),
-          ];
+          const inService = (serviceSummary?.in_service || []).map(t => ({
+             id: `service-status-${t.id}`,
+             type: 'service_status',
+             itemType: 'tool',
+             inventory_number: t.sku || '-', 
+             manufacturer: '', 
+             model: t.name || '',
+             employee_id: null,
+             employee_brand_number: '',
+             message: '',
+             created_at: null,
+             inspection_date: null,
+             service_sent_at: t.service_sent_at,
+             service_order_number: t.service_order_number,
+             service_quantity: t.service_quantity,
+             read: true
+          }));
 
-          overdueNotifs = [...overdue, ...upcoming, ...inService];
+          const serviceHistory = (serviceSummary?.recent_events || []).map(e => ({
+             id: `service-hist-${e.id}`,
+             type: 'service_history',
+             itemType: 'tool',
+             inventory_number: e.sku || '-',
+             manufacturer: '',
+             model: e.name || '',
+             employee_id: null,
+             employee_brand_number: '',
+             message: '',
+             created_at: e.created_at,
+             inspection_date: null,
+             action: e.action, // 'sent' | 'received'
+             quantity: e.quantity,
+             order_number: e.order_number,
+             read: true
+          }));
+
+          overdueNotifs = [...overdue, ...upcoming, ...inService, ...serviceHistory];
         }
 
         // Wyświetl push lokalny dla nowych wiadomości (broadcast/custom/admin)
@@ -309,10 +340,31 @@ export default function NotificationsScreen() {
   const renderItem = ({ item: n }) => {
     const isInspectionType = n.type === 'overdue_inspection' || n.type === 'upcoming_inspection';
     const isServiceType = n.type === 'service_status';
-    const iconBg = isServiceType ? '#fed7aa' : (isInspectionType ? '#fecaca' : '#bfdbfe');
-    const iconColor = isServiceType ? '#ea580c' : (isInspectionType ? '#dc2626' : '#1d4ed8');
+    const isServiceHistory = n.type === 'service_history';
+    
+    // Ikony i kolory
+    let iconBg = '#bfdbfe';
+    let iconColor = '#1d4ed8';
+    let iconName = 'notifications';
+
+    if (isServiceType) {
+      iconBg = '#fed7aa';
+      iconColor = '#ea580c';
+      iconName = 'construct';
+    } else if (isServiceHistory) {
+      iconBg = n.action === 'sent' ? '#fed7aa' : '#bbf7d0';
+      iconColor = n.action === 'sent' ? '#ea580c' : '#16a34a';
+      iconName = n.action === 'sent' ? 'arrow-forward-circle' : 'arrow-back-circle';
+    } else if (isInspectionType) {
+      iconBg = '#fecaca';
+      iconColor = '#dc2626';
+      iconName = n.itemType === 'bhp' ? 'shield' : 'construct';
+    } else {
+      // Message types
+      iconName = n.itemType === 'bhp' ? 'shield' : (n.itemType === 'tool' ? 'construct' : 'notifications');
+    }
+
     const isMessageType = n.type === 'broadcast' || n.type === 'custom' || n.type === 'admin';
-    const iconName = isServiceType ? 'construct' : (isMessageType ? 'notifications' : (n.itemType === 'bhp' ? 'shield' : (n.itemType === 'tool' ? 'construct' : 'notifications')));
     const unread = !n.read;
     const filterValue = (n.inventory_number && String(n.inventory_number).trim()) || (n.model && String(n.model).trim()) || '';
     const handleNavigate = () => {
@@ -389,13 +441,17 @@ export default function NotificationsScreen() {
                   )
                   ) : (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                      <Text numberOfLines={1} style={[styles.notifTitle, pressed ? { textDecorationLine: 'underline' } : null]}>{isServiceType ? (n.model || n.inventory_number || '-') : (n.inventory_number || n.model || '-')}</Text>
+                      <Text numberOfLines={1} style={[styles.notifTitle, pressed ? { textDecorationLine: 'underline' } : null]}>
+                        {isServiceType || isServiceHistory ? (n.model || n.inventory_number || '-') : (n.inventory_number || n.model || '-')}
+                      </Text>
                       {n.url ? (<Ionicons name="link-outline" size={16} color={colors.primary} />) : null}
                     </View>
                 )}
                 {!isMessageType && (
                   <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
-                    <Text style={{ fontSize: 11, color: colors.muted }}>{isServiceType ? 'Serwis' : (n.itemType === 'bhp' ? 'BHP' : (n.itemType === 'tool' ? 'Narzędzie' : '-'))}</Text>
+                    <Text style={{ fontSize: 11, color: colors.muted }}>
+                      {isServiceType ? 'W serwisie' : (isServiceHistory ? 'Historia' : (n.itemType === 'bhp' ? 'BHP' : (n.itemType === 'tool' ? 'Narzędzie' : '-')))}
+                    </Text>
                   </View>
                 )}
                 {isMessageType && (
@@ -424,8 +480,8 @@ export default function NotificationsScreen() {
                 )}
           </View>
         </View>
-        {n.manufacturer || (n.model && !isServiceType) ? (
-          <Text style={{ color: colors.muted, fontSize: 12 }}>{[n.manufacturer, (!isServiceType ? n.model : null)].filter(Boolean).join(' ')}</Text>
+        {n.manufacturer || (n.model && !isServiceType && !isServiceHistory) ? (
+          <Text style={{ color: colors.muted, fontSize: 12 }}>{[n.manufacturer, (!isServiceType && !isServiceHistory ? n.model : null)].filter(Boolean).join(' ')}</Text>
         ) : null}
         {(n.type === 'broadcast' || n.type === 'custom' || n.type === 'admin') ? (
           (() => {
@@ -450,7 +506,13 @@ export default function NotificationsScreen() {
                <View style={{ marginTop: 4 }}>
                  <Text style={{ color: colors.text, fontSize: 13 }}>W serwisie od: {formatDatePL(n.service_sent_at)}</Text>
                  <Text style={{ color: colors.muted, fontSize: 12 }}>Zlecenie: {n.service_order_number || '-'}</Text>
+                 <Text style={{ color: colors.muted, fontSize: 12 }}>Ilość: {n.service_quantity} szt.</Text>
                </View>
+            ) : isServiceHistory ? (
+              <View style={{ marginTop: 4 }}>
+                 <Text style={{ color: colors.text, fontSize: 13 }}>{n.action === 'sent' ? 'Wysłano do serwisu' : 'Odebrano z serwisu'} ({n.quantity} szt.)</Text>
+                 <Text style={{ color: colors.muted, fontSize: 12 }}>Zlecenie: {n.order_number || '-'}</Text>
+              </View>
             ) : (
                n.message ? (
                  <Text style={{ marginTop: 6, color: colors.text, fontSize: 13 }}>{n.message}</Text>
@@ -471,6 +533,10 @@ export default function NotificationsScreen() {
             ) : isServiceType ? (
                <View style={{ alignItems: 'flex-end' }}>
                   <Text style={{ color: '#ea580c', fontSize: 12, fontWeight: '600' }}>W serwisie</Text>
+               </View>
+            ) : isServiceHistory ? (
+              <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{ color: colors.muted, fontSize: 11 }}>{formatDatePL(n.created_at)}</Text>
                </View>
             ) : (
               <Text style={{ color: colors.muted, fontSize: 11 }}>{formatDatePL(n.created_at)}, {formatDateTimePL(n.created_at)}</Text>
@@ -600,7 +666,7 @@ export default function NotificationsScreen() {
           </View>
         ) : (
           <FlatList
-            data={(canOverdue ? (adminTab === 'overdue' ? items.filter(it => it.type === 'overdue_inspection' || it.type === 'upcoming_inspection') : (adminTab === 'service' ? items.filter(it => it.type === 'service_status') : items.filter(it => !['overdue_inspection', 'upcoming_inspection', 'service_status'].includes(it.type)))) : items)}
+            data={(canOverdue ? (adminTab === 'overdue' ? items.filter(it => it.type === 'overdue_inspection' || it.type === 'upcoming_inspection') : (adminTab === 'service' ? items.filter(it => it.type === 'service_status' || it.type === 'service_history') : items.filter(it => !['overdue_inspection', 'upcoming_inspection', 'service_status', 'service_history'].includes(it.type)))) : items)}
             keyExtractor={(it) => String(it.id)}
             ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
             renderItem={renderItem}

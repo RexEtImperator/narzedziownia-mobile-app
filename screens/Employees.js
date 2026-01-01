@@ -331,8 +331,8 @@ export default function EmployeesScreen() {
           <ThemedButton
             onPress={() => setAddEmpVisible(true)}
             variant="secondary"
-            style={{ width: 36, height: 36, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0, borderWidth: 1, borderColor: colors.border }}
-            icon={<Ionicons name="add" size={22} color={colors.primary || colors.text} />}
+            style={{ width: 44, height: 44, borderRadius: 18, paddingHorizontal: 0, marginVertical: 0, borderWidth: 1, borderColor: colors.border }}
+            icon={<Ionicons name="add" size={30} color={colors.primary || colors.text} />}
           />
         ) : null}
       </View>

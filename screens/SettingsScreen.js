@@ -295,8 +295,7 @@ export default function SettingsScreen() {
             supabaseKey: db?.supabaseKey ?? prev.supabaseKey,
         }));
       } catch (e) { /* opcjonalne */ }
-  
-      // Powiadomienia — sekcja nieużywana; Funkcje — obsługa w dedykowanym ekranie
+
     } finally {
       setLoading(false);
     }

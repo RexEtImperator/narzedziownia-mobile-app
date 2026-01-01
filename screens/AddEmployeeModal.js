@@ -18,7 +18,9 @@ export default function AddEmployeeModal({ visible, onClose, onCreated }) {
     first_name: '',
     last_name: '',
     phone: '',
+    email: '',
     brand_number: '',
+    rfid_uid: '',
     department_id: null,
     position_id: null,
     status: 'active',
@@ -46,7 +48,7 @@ export default function AddEmployeeModal({ visible, onClose, onCreated }) {
   }, [visible]);
 
   const resetForm = () => {
-    setFields({ first_name: '', last_name: '', phone: '', brand_number: '', department_id: null, position_id: null, status: 'active' });
+    setFields({ first_name: '', last_name: '', phone: '', email: '', brand_number: '', rfid_uid: '', department_id: null, position_id: null, status: 'active' });
     setShowDeptSelect(false);
     setShowPosSelect(false);
   };
@@ -101,7 +103,9 @@ export default function AddEmployeeModal({ visible, onClose, onCreated }) {
             <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Imię" placeholderTextColor={colors.muted} value={fields.first_name} onChangeText={v => setFields(f => ({ ...f, first_name: v }))} />
             <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nazwisko" placeholderTextColor={colors.muted} value={fields.last_name} onChangeText={v => setFields(f => ({ ...f, last_name: v }))} />
             <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Telefon" placeholderTextColor={colors.muted} value={fields.phone} onChangeText={v => setFields(f => ({ ...f, phone: v }))} keyboardType="phone-pad" />
+            <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="E-mail" placeholderTextColor={colors.muted} value={fields.email} onChangeText={v => setFields(f => ({ ...f, email: v }))} keyboardType="email-address" autoCapitalize="none" />
             <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Numer służbowy" placeholderTextColor={colors.muted} value={fields.brand_number} onChangeText={v => setFields(f => ({ ...f, brand_number: v }))} />
+            <TextInput style={[styles.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="RFID UID" placeholderTextColor={colors.muted} value={fields.rfid_uid} onChangeText={v => setFields(f => ({ ...f, rfid_uid: v }))} />
 
             {/* Departament */}
             <View style={{ position: 'relative', zIndex: showDeptSelect ? 1000 : 1 }}>
@@ -123,20 +127,21 @@ export default function AddEmployeeModal({ visible, onClose, onCreated }) {
                 <View 
                   style={{ 
                     position: 'absolute',
-                    top: 45,
+                    top: '100%',
                     left: 0,
                     right: 0,
+                    marginTop: 4,
                     backgroundColor: colors.card,
                     borderWidth: 1,
                     borderColor: colors.border,
                     borderRadius: 8,
-                    zIndex: 9999,
+                    maxHeight: 220,
+                    zIndex: 1000,
                     elevation: 5,
                     shadowColor: "#000",
                     shadowOffset: { width: 0, height: 2 },
                     shadowOpacity: 0.25,
                     shadowRadius: 3.84,
-                    maxHeight: 220
                   }}
                 >
                   <ScrollView style={{ maxHeight: 220 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -188,20 +193,21 @@ export default function AddEmployeeModal({ visible, onClose, onCreated }) {
                 <View 
                   style={{ 
                     position: 'absolute',
-                    top: 45,
+                    top: '100%',
                     left: 0,
                     right: 0,
+                    marginTop: 4,
                     backgroundColor: colors.card,
                     borderWidth: 1,
                     borderColor: colors.border,
                     borderRadius: 8,
-                    zIndex: 9999,
+                    maxHeight: 220,
+                    zIndex: 1000,
                     elevation: 5,
                     shadowColor: "#000",
                     shadowOffset: { width: 0, height: 2 },
                     shadowOpacity: 0.25,
                     shadowRadius: 3.84,
-                    maxHeight: 220
                   }}
                 >
                   <ScrollView style={{ maxHeight: 220 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -234,7 +240,7 @@ export default function AddEmployeeModal({ visible, onClose, onCreated }) {
             </View>
 
             {/* Status */}
-            <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'center' }}>
               {['active','inactive','suspended'].map(s => (
                 <ThemedButton
                   key={s}
@@ -248,7 +254,7 @@ export default function AddEmployeeModal({ visible, onClose, onCreated }) {
             </View>
           </ScrollView>
 
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, justifyContent: 'center' }}>
             <View style={{ width: 100 }}>
               <ThemedButton
                 title="Anuluj"

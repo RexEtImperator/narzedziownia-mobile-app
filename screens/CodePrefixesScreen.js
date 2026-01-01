@@ -136,13 +136,14 @@ export default function CodePrefixesScreen() {
           <Text style={{ marginTop: 8, fontSize: 12, color: colors.muted }}>Pozostaw puste, aby używać globalnego prefiksu.</Text>
         </View>
 
-        <Pressable
-          style={({ pressed }) => [styles.button, { backgroundColor: colors.primary }, pressed && { opacity: 0.9 }]}
-          onPress={save}
-          disabled={saving}
-        >
-          <Text style={{ color: '#fff', fontWeight: '600' }}>{saving ? 'Zapisywanie…' : 'Zapisz prefiksy'}</Text>
-        </Pressable>
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 }}>
+          <ThemedButton
+            title={saving ? 'Zapisywanie…' : 'Zapisz prefiksy'}
+            onPress={save}
+            disabled={saving}
+            variant="primary"
+          />
+        </View>
       </View>
     </ScrollView>
   );
