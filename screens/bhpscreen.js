@@ -146,8 +146,7 @@ export default function BhpScreen() {
     }
   }, [route?.params?.filter]);
 
-  const statuses = [...new Set((items || []).map(it => it?.status || 'dostępne').filter(Boolean))];
-  const selectedStatusLabel = selectedStatus === '__ISSUED__' ? 'Tylko wydane' : selectedStatus === '__AVAILABLE__' ? 'Tylko dostępne' : (selectedStatus || 'Wszystkie statusy');
+  const selectedStatusLabel = selectedStatus === '__ISSUED__' ? 'Wydane' : selectedStatus === '__AVAILABLE__' ? 'Dostępne' : (selectedStatus || 'Wszystkie statusy');
 
   // Pomocnicze: parsowanie daty
   const parseDate = (value) => {
@@ -599,16 +598,6 @@ export default function BhpScreen() {
                 style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0, width: '100%' }}
                 textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
               />
-              {(statuses || []).map((st) => (
-                <ThemedButton
-                  key={String(st)}
-                  title={st}
-                  onPress={() => { setSelectedStatus(st); setShowStatusDropdown(false); }}
-                  variant="secondary"
-                  style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0, width: '100%' }}
-                  textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
-                />
-              ))}
             </View>
           )}
         </View>
@@ -616,7 +605,7 @@ export default function BhpScreen() {
         {/* Sort Dropdown */}
         <View style={{ flex: 1, position: 'relative', zIndex: showSortDropdown ? 200 : 101 }}>
           <ThemedButton
-            title={sortBy === 'inspection' ? 'Data przeglądu' : 'Nr ewidencyjny'}
+            title={sortBy === 'inspection' ? 'Data przeglądu' : 'Numer ewidencyjny'}
             onPress={() => { setShowSortDropdown(v => !v); setShowStatusDropdown(false); setShowReviewsDropdown(false); }}
             variant="secondary"
             style={{ height: 36, justifyContent: 'space-between', paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row-reverse', width: '100%' }}

@@ -556,7 +556,7 @@ export default function UserSettingsScreen() {
         {empError ? <Text style={{ color: colors.muted, marginBottom: 8 }}>{empError}</Text> : null}
         
         {/* Row 1: Imię i Nazwisko */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
           <Ionicons name="person-circle-outline" size={20} color={colors.muted} style={{ marginRight: 12 }} />
           <View style={{ flex: 1, flexDirection: 'row' }}>
             <View style={{ flex: 1 }}>

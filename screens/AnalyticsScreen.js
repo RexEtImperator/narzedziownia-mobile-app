@@ -220,17 +220,17 @@ export default function AnalyticsScreen() {
 
       {/* Nadchodzące przeglądy */}
       <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border, marginBottom: 20 }]}>
-        <View style={[styles.sectionHeader, { borderBottomColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Nadchodzące przeglądy</Text>
-          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-            <View style={{ backgroundColor: '#fee2e2', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={{ color: '#b91c1c', fontSize: 12, fontWeight: 'bold' }}>Przeterminowane {overdueInspections.length}</Text>
-            </View>
-            <View style={{ backgroundColor: '#fef3c7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={{ color: '#b45309', fontSize: 12, fontWeight: 'bold' }}>Nadchodzące ({'<'}30 dni) {upcomingInspections.length}</Text>
-            </View>
+        <View style={[styles.sectionHeader, { borderBottomColor: colors.border, flexDirection: 'column', alignItems: 'flex-start', gap: 8 }]}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Nadchodzące przeglądy</Text>
+        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+          <View style={{ backgroundColor: '#fee2e2', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ color: '#b91c1c', fontSize: 12, fontWeight: 'bold' }}>Przeterminowane {overdueInspections.length}</Text>
+          </View>
+          <View style={{ backgroundColor: '#fef3c7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ color: '#b45309', fontSize: 12, fontWeight: 'bold' }}>Nadchodzące ({'<'}30 dni) {upcomingInspections.length}</Text>
           </View>
         </View>
+      </View>
         
         {/* Przeterminowane Narzędzia */}
         <View style={{ padding: 16 }}>
