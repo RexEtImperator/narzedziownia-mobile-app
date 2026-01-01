@@ -548,107 +548,167 @@ export default function BhpScreen() {
       </View>
 
       {/* Status / Sortowanie / Przeglądy */}
-      <View style={styles.filterRow} className="flex-row items-center gap-2 mb-2">
-        <ThemedButton
-          title={selectedStatusLabel}
-          onPress={() => { setShowStatusDropdown(v => !v); setShowSortDropdown(false); setShowReviewsDropdown(false); }}
-          variant="secondary"
-          style={{ height: 36, justifyContent: 'space-between', paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row-reverse' }}
-          textStyle={{ fontWeight: 'normal', fontSize: 12, textAlign: 'left' }}
-          icon={<Ionicons name="chevron-down" size={14} color={colors.text} />}
-        />
-        <ThemedButton
-          title={sortBy === 'inspection' ? 'Data przeglądu' : 'Nr ewidencyjny'}
-          onPress={() => { setShowSortDropdown(v => !v); setShowStatusDropdown(false); setShowReviewsDropdown(false); }}
-          variant="secondary"
-          style={{ height: 36, justifyContent: 'space-between', paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row-reverse' }}
-          textStyle={{ fontWeight: 'normal', fontSize: 12, textAlign: 'left' }}
-          icon={<Ionicons name="chevron-down" size={14} color={colors.text} />}
-        />
-        {sortBy === 'inspection' && (
+      <View style={[styles.filterRow, { zIndex: 100 }]} className="flex-row items-center gap-2 mb-2">
+        {/* Status Dropdown */}
+        <View style={{ flex: 1, position: 'relative', zIndex: showStatusDropdown ? 200 : 101 }}>
           <ThemedButton
-            title={reviewsOrder === 'desc' ? 'Najdalszy przegląd' : 'Najbliższy przegląd'}
-            onPress={() => { setShowReviewsDropdown(v => !v); setShowStatusDropdown(false); setShowSortDropdown(false); }}
+            title={selectedStatusLabel}
+            onPress={() => { setShowStatusDropdown(v => !v); setShowSortDropdown(false); setShowReviewsDropdown(false); }}
             variant="secondary"
-            style={{ height: 36, justifyContent: 'space-between', paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row-reverse' }}
-            textStyle={{ fontWeight: 'normal', fontSize: 12, textAlign: 'left' }}
+            style={{ height: 36, justifyContent: 'space-between', paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row-reverse', width: '100%' }}
+            textStyle={{ fontWeight: 'normal', fontSize: 12, textAlign: 'left', flex: 1 }}
             icon={<Ionicons name="chevron-down" size={14} color={colors.text} />}
           />
+          {showStatusDropdown && (
+            <View 
+              style={{ 
+                position: 'absolute',
+                top: 40,
+                left: 0,
+                right: 0,
+                backgroundColor: colors.card,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 8,
+                zIndex: 9999,
+                elevation: 5,
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25,
+                shadowRadius: 3.84,
+              }}
+            >
+              <ThemedButton
+                title="Wszystkie statusy"
+                onPress={() => { setSelectedStatus(''); setShowStatusDropdown(false); }}
+                variant="secondary"
+                style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0, width: '100%' }}
+                textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+              />
+              <ThemedButton
+                title="Tylko wydane"
+                onPress={() => { setSelectedStatus('__ISSUED__'); setShowStatusDropdown(false); }}
+                variant="secondary"
+                style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0, width: '100%' }}
+                textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+              />
+              <ThemedButton
+                title="Tylko dostępne"
+                onPress={() => { setSelectedStatus('__AVAILABLE__'); setShowStatusDropdown(false); }}
+                variant="secondary"
+                style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0, width: '100%' }}
+                textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+              />
+              {(statuses || []).map((st) => (
+                <ThemedButton
+                  key={String(st)}
+                  title={st}
+                  onPress={() => { setSelectedStatus(st); setShowStatusDropdown(false); }}
+                  variant="secondary"
+                  style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0, width: '100%' }}
+                  textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+                />
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Sort Dropdown */}
+        <View style={{ flex: 1, position: 'relative', zIndex: showSortDropdown ? 200 : 101 }}>
+          <ThemedButton
+            title={sortBy === 'inspection' ? 'Data przeglądu' : 'Nr ewidencyjny'}
+            onPress={() => { setShowSortDropdown(v => !v); setShowStatusDropdown(false); setShowReviewsDropdown(false); }}
+            variant="secondary"
+            style={{ height: 36, justifyContent: 'space-between', paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row-reverse', width: '100%' }}
+            textStyle={{ fontWeight: 'normal', fontSize: 12, textAlign: 'left', flex: 1 }}
+            icon={<Ionicons name="chevron-down" size={14} color={colors.text} />}
+          />
+          {showSortDropdown && (
+            <View 
+              style={{ 
+                position: 'absolute',
+                top: 40,
+                left: 0,
+                right: 0,
+                backgroundColor: colors.card,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 8,
+                zIndex: 9999,
+                elevation: 5,
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25,
+                shadowRadius: 3.84,
+              }}
+            >
+              <ThemedButton
+                title="Data przeglądu"
+                onPress={() => { setSortBy('inspection'); setShowSortDropdown(false); }}
+                variant="secondary"
+                style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0, width: '100%' }}
+                textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+              />
+              <ThemedButton
+                title="Nr ewidencyjny"
+                onPress={() => { setSortBy('inventory'); setShowSortDropdown(false); setShowReviewsDropdown(false); }}
+                variant="secondary"
+                style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0, width: '100%' }}
+                textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+              />
+            </View>
+          )}
+        </View>
+
+        {/* Reviews Dropdown (Conditional) */}
+        {sortBy === 'inspection' && (
+          <View style={{ flex: 1, position: 'relative', zIndex: showReviewsDropdown ? 200 : 101 }}>
+            <ThemedButton
+              title={reviewsOrder === 'desc' ? 'Najdalszy przegląd' : 'Najbliższy przegląd'}
+              onPress={() => { setShowReviewsDropdown(v => !v); setShowStatusDropdown(false); setShowSortDropdown(false); }}
+              variant="secondary"
+              style={{ height: 36, justifyContent: 'space-between', paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row-reverse', width: '100%' }}
+              textStyle={{ fontWeight: 'normal', fontSize: 12, textAlign: 'left', flex: 1 }}
+              icon={<Ionicons name="chevron-down" size={14} color={colors.text} />}
+            />
+            {showReviewsDropdown && (
+              <View 
+                style={{ 
+                  position: 'absolute',
+                  top: 40,
+                  left: 0,
+                  right: 0,
+                  backgroundColor: colors.card,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: 8,
+                  zIndex: 9999,
+                  elevation: 5,
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 3.84,
+                }}
+              >
+                <ThemedButton
+                  title="Najbliższy przegląd"
+                  onPress={() => { setReviewsOrder('asc'); setShowReviewsDropdown(false); }}
+                  variant="secondary"
+                  style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0, width: '100%' }}
+                  textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+                />
+                <ThemedButton
+                  title="Najdalszy przegląd"
+                  onPress={() => { setReviewsOrder('desc'); setShowReviewsDropdown(false); }}
+                  variant="secondary"
+                  style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0, width: '100%' }}
+                  textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
+                />
+              </View>
+            )}
+          </View>
         )}
       </View>
-
-      {showStatusDropdown && (
-        <View style={[styles.dropdown, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md mb-2">
-          <ThemedButton
-            title="Wszystkie statusy"
-            onPress={() => { setSelectedStatus(''); setShowStatusDropdown(false); }}
-            variant="secondary"
-            style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0 }}
-            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
-          />
-          <ThemedButton
-            title="Tylko wydane"
-            onPress={() => { setSelectedStatus('__ISSUED__'); setShowStatusDropdown(false); }}
-            variant="secondary"
-            style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0 }}
-            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
-          />
-          <ThemedButton
-            title="Tylko dostępne"
-            onPress={() => { setSelectedStatus('__AVAILABLE__'); setShowStatusDropdown(false); }}
-            variant="secondary"
-            style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0 }}
-            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
-          />
-          {(statuses || []).map((st) => (
-            <ThemedButton
-              key={String(st)}
-              title={st}
-              onPress={() => { setSelectedStatus(st); setShowStatusDropdown(false); }}
-              variant="secondary"
-              style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0 }}
-              textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
-            />
-          ))}
-        </View>
-      )}
-
-      {showSortDropdown && (
-        <View style={[styles.dropdown, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md mb-2">
-          <ThemedButton
-            title="Data przeglądu"
-            onPress={() => { setSortBy('inspection'); setShowSortDropdown(false); }}
-            variant="secondary"
-            style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0 }}
-            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
-          />
-          <ThemedButton
-            title="Nr ewidencyjny"
-            onPress={() => { setSortBy('inventory'); setShowSortDropdown(false); setShowReviewsDropdown(false); }}
-            variant="secondary"
-            style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0 }}
-            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
-          />
-        </View>
-      )}
-      {sortBy === 'inspection' && showReviewsDropdown && (
-        <View style={[styles.dropdown, { borderColor: colors.border, backgroundColor: colors.card }]} className="border rounded-md mb-2">
-          <ThemedButton
-            title="Najbliższy przegląd"
-            onPress={() => { setReviewsOrder('asc'); setShowReviewsDropdown(false); }}
-            variant="secondary"
-            style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0 }}
-            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
-          />
-          <ThemedButton
-            title="Najdalszy przegląd"
-            onPress={() => { setReviewsOrder('desc'); setShowReviewsDropdown(false); }}
-            variant="secondary"
-            style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0 }}
-            textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
-          />
-        </View>
-      )}
 
       {/* Lista */}
       {error ? <Text style={[styles.error, { color: colors.danger }]} className="mb-2">{error}</Text> : null}

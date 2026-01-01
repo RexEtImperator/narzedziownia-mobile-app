@@ -557,7 +557,7 @@ export default function UserSettingsScreen() {
         
         {/* Row 1: Imię i Nazwisko */}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-          <Ionicons name="person-circle-outline" size={40} color={colors.primary} style={{ marginRight: 12 }} />
+          <Ionicons name="person-circle-outline" size={20} color={colors.muted} style={{ marginRight: 12 }} />
           <View style={{ flex: 1, flexDirection: 'row' }}>
             <View style={{ flex: 1 }}>
               <Text style={{ color: colors.muted, fontSize: 12 }}>Imię</Text>
