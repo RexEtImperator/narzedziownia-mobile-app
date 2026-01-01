@@ -705,7 +705,27 @@ export default function ToolsScreen() {
                     <Text style={[styles.toolMeta, { color: colors.muted }]}>SKU: {isDataUri(item?.sku) ? '—' : (item?.sku || '—')}</Text>
                     <Text style={[styles.toolMeta, { color: colors.muted }]}>Kategoria: {item.category || item.category_name || '—'}</Text>
                     {item.category === 'Spawalnicze' && (
-                       <Text style={[styles.toolMeta, { color: colors.muted }]}>Data przeglądu: {(() => {
+                       <Text style={[styles.toolMeta, { color: (() => {
+                         const val = item.inspection_date;
+                         if (!val) return colors.muted;
+                         try {
+                           let d = null;
+                           const s = String(val).trim();
+                           const dmy = s.match(/^(\d{2})[.\/-](\d{2})[.\/-](\d{4})/);
+                           if (dmy) d = new Date(`${dmy[3]}-${dmy[2]}-${dmy[1]}`);
+                           else {
+                             const ymd = s.match(/^(\d{4})[.\/-](\d{2})[.\/-](\d{2})/);
+                             if (ymd) d = new Date(`${ymd[1]}-${ymd[2]}-${ymd[3]}`);
+                             else d = new Date(s);
+                           }
+                           if (!d || isNaN(d.getTime())) return colors.muted;
+                           
+                           const today = new Date();
+                           d.setHours(0,0,0,0);
+                           today.setHours(0,0,0,0);
+                           return d < today ? (colors.danger || '#ef4444') : (colors.success || '#10b981');
+                         } catch { return colors.muted; }
+                       })() }]}>Data przeglądu: {(() => {
                          const val = item.inspection_date;
                          if (!val) return '—';
                          try {

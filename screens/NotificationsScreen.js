@@ -138,49 +138,9 @@ export default function NotificationsScreen() {
              read: true
           }));
 
-          const serviceHistory = (serviceSummary?.recent_events || []).map(e => ({
-             id: `service-hist-${e.id}`,
-             type: 'service_history',
-             itemType: 'tool',
-             inventory_number: e.sku || '-',
-             manufacturer: '',
-             model: e.name || '',
-             employee_id: null,
-             employee_brand_number: '',
-             message: '',
-             created_at: e.created_at,
-             inspection_date: null,
-             action: e.action, // 'sent' | 'received'
-             quantity: e.quantity,
-             order_number: e.order_number,
-             read: true
-          }));
-
-          overdueNotifs = [...overdue, ...upcoming, ...inService, ...serviceHistory];
+          overdueNotifs = [...overdue, ...upcoming, ...inService];
         }
 
-        // Wyświetl push lokalny dla nowych wiadomości (broadcast/custom/admin)
-        // Note: ensurePushForUserNotifs was likely handling local display, but Context handles listeners now.
-        // We can skip ensurePushForUserNotifs or keep it if it did something specific.
-        // Assuming context handles the "push" part (listeners), we just need to display list.
-        // But ensurePushForUserNotifs in previous code (which I didn't see definition of, probably in component body or imported?)
-        // Wait, ensurePushForUserNotifs was called in previous code but I don't see it imported. 
-        // Ah, it might have been defined inside the component or imported?
-        // Checking previous Read output... it was called at line 133, but NOT defined in the snippet I read.
-        // It must have been defined inside the component or imported?
-        // Actually, looking at imports: import { clearAcknowledgements, sendImmediate } from '../lib/notifications';
-        // It wasn't imported. It must be defined inside the component.
-        // I should check if I deleted it.
-        // I am replacing `load` function. If `ensurePushForUserNotifs` was inside `load` or outside, I need to know.
-        // I will assume it's not critical if I replace it with Context items.
-        
-        // Combine with context items (which are passed via prop or effect, but here we can just set them?
-        // No, `items` state in this component is used for rendering.
-        // We should merge contextItems + overdueNotifs.
-        // Since `load` is async, we can't guarantee `contextItems` is updated immediately after `refreshContext()`.
-        // So we should rely on `contextItems` dependency in useEffect to update `items`.
-        
-        // Let's store overdueNotifs in a state, and combine them in an effect.
         setOverdueItems(overdueNotifs);
       } catch (e) {
         setError(e?.message || 'Nie udało się wczytać powiadomień');
@@ -340,7 +300,6 @@ export default function NotificationsScreen() {
   const renderItem = ({ item: n }) => {
     const isInspectionType = n.type === 'overdue_inspection' || n.type === 'upcoming_inspection';
     const isServiceType = n.type === 'service_status';
-    const isServiceHistory = n.type === 'service_history';
     
     // Ikony i kolory
     let iconBg = '#bfdbfe';
@@ -351,10 +310,6 @@ export default function NotificationsScreen() {
       iconBg = '#fed7aa';
       iconColor = '#ea580c';
       iconName = 'construct';
-    } else if (isServiceHistory) {
-      iconBg = n.action === 'sent' ? '#fed7aa' : '#bbf7d0';
-      iconColor = n.action === 'sent' ? '#ea580c' : '#16a34a';
-      iconName = n.action === 'sent' ? 'arrow-forward-circle' : 'arrow-back-circle';
     } else if (isInspectionType) {
       iconBg = '#fecaca';
       iconColor = '#dc2626';
@@ -442,7 +397,7 @@ export default function NotificationsScreen() {
                   ) : (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 }}>
                       <Text numberOfLines={1} style={[styles.notifTitle, pressed ? { textDecorationLine: 'underline' } : null]}>
-                        {isServiceType || isServiceHistory ? (n.model || n.inventory_number || '-') : (n.inventory_number || n.model || '-')}
+                        {isServiceType ? (n.model || n.inventory_number || '-') : (n.inventory_number || n.model || '-')}
                       </Text>
                       {n.url ? (<Ionicons name="link-outline" size={16} color={colors.primary} />) : null}
                     </View>
@@ -450,7 +405,7 @@ export default function NotificationsScreen() {
                 {!isMessageType && (
                   <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
                     <Text style={{ fontSize: 11, color: colors.muted }}>
-                      {isServiceType ? 'W serwisie' : (isServiceHistory ? 'Historia' : (n.itemType === 'bhp' ? 'BHP' : (n.itemType === 'tool' ? 'Narzędzie' : '-')))}
+                      {isServiceType ? 'W serwisie' : (n.itemType === 'bhp' ? 'BHP' : (n.itemType === 'tool' ? 'Narzędzie' : '-'))}
                     </Text>
                   </View>
                 )}
@@ -508,11 +463,6 @@ export default function NotificationsScreen() {
                  <Text style={{ color: colors.muted, fontSize: 12 }}>Zlecenie: {n.service_order_number || '-'}</Text>
                  <Text style={{ color: colors.muted, fontSize: 12 }}>Ilość: {n.service_quantity} szt.</Text>
                </View>
-            ) : isServiceHistory ? (
-              <View style={{ marginTop: 4 }}>
-                 <Text style={{ color: colors.text, fontSize: 13 }}>{n.action === 'sent' ? 'Wysłano do serwisu' : 'Odebrano z serwisu'} ({n.quantity} szt.)</Text>
-                 <Text style={{ color: colors.muted, fontSize: 12 }}>Zlecenie: {n.order_number || '-'}</Text>
-              </View>
             ) : (
                n.message ? (
                  <Text style={{ marginTop: 6, color: colors.text, fontSize: 13 }}>{n.message}</Text>
@@ -533,10 +483,6 @@ export default function NotificationsScreen() {
             ) : isServiceType ? (
                <View style={{ alignItems: 'flex-end' }}>
                   <Text style={{ color: '#ea580c', fontSize: 12, fontWeight: '600' }}>W serwisie</Text>
-               </View>
-            ) : isServiceHistory ? (
-              <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={{ color: colors.muted, fontSize: 11 }}>{formatDatePL(n.created_at)}</Text>
                </View>
             ) : (
               <Text style={{ color: colors.muted, fontSize: 11 }}>{formatDatePL(n.created_at)}, {formatDateTimePL(n.created_at)}</Text>
@@ -666,7 +612,7 @@ export default function NotificationsScreen() {
           </View>
         ) : (
           <FlatList
-            data={(canOverdue ? (adminTab === 'overdue' ? items.filter(it => it.type === 'overdue_inspection' || it.type === 'upcoming_inspection') : (adminTab === 'service' ? items.filter(it => it.type === 'service_status' || it.type === 'service_history') : items.filter(it => !['overdue_inspection', 'upcoming_inspection', 'service_status', 'service_history'].includes(it.type)))) : items)}
+            data={(canOverdue ? (adminTab === 'overdue' ? items.filter(it => it.type === 'overdue_inspection' || it.type === 'upcoming_inspection') : (adminTab === 'service' ? items.filter(it => it.type === 'service_status') : items.filter(it => !['overdue_inspection', 'upcoming_inspection', 'service_status'].includes(it.type)))) : items)}
             keyExtractor={(it) => String(it.id)}
             ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
             renderItem={renderItem}

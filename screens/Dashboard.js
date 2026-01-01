@@ -421,14 +421,15 @@ export default function DashboardScreen() {
             borderColor: colors.border,
             borderWidth: 1,
             borderRadius: 16,
-            padding: 16
+            paddingHorizontal: 8,
+            paddingVertical: 16
           }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                 <Ionicons name="warning" size={20} color="#f97316" />
+                 <Ionicons name="warning" size={25} color="#f97316" />
                  <Text style={{ color: colors.text, fontSize: 18, fontWeight: '600' }}>Wymaga uwagi</Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+              <Ionicons name="chevron-forward" size={25} color={colors.muted} />
             </View>
 
             <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />

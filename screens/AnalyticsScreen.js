@@ -89,11 +89,6 @@ export default function AnalyticsScreen() {
         ]);
 
         if (mounted) {
-            console.log('Analytics fetched:', {
-              serviceRaw: serviceRes,
-              toolsCount: toArray(toolsRes).length,
-              bhpCount: toArray(bhpRes).length
-            });
             const svc = resolveServiceSummary(serviceRes);
             setServiceSummary(svc);
             setTools(toArray(toolsRes));
@@ -161,16 +156,6 @@ export default function AnalyticsScreen() {
 
   const overdueTools = overdueInspections.filter(x => x.source === 'tools');
   const overdueBhp = overdueInspections.filter(x => x.source === 'bhp');
-
-  useEffect(() => {
-    console.log('Inspections calc:', {
-      totalInspections: inspections.length,
-      overdueTotal: overdueInspections.length,
-      overdueTools: overdueTools.length,
-      overdueBhp: overdueBhp.length,
-      upcoming: upcomingInspections.length
-    });
-  }, [inspections.length, overdueInspections.length]);
 
   // Pagination Logic
   const getPaginatedData = (data, page) => {

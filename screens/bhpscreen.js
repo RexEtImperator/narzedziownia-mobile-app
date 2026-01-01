@@ -53,7 +53,6 @@ export default function BhpScreen() {
     shock_absorber_model: '',
     shock_absorber_catalog_number: '',
     shock_absorber_production_date: '',
-    shock_absorber_start_date: '',
     srd_manufacturer: '',
     srd_model: '',
     srd_serial_number: '',
@@ -82,7 +81,6 @@ export default function BhpScreen() {
     shock_absorber_serial: '',
     shock_absorber_catalog_number: '',
     shock_absorber_production_date: '',
-    shock_absorber_start_date: '',
     srd_manufacturer: '',
     srd_model: '',
     srd_serial_number: '',
@@ -342,7 +340,7 @@ export default function BhpScreen() {
     if (!canManageBhp) { showSnackbar('Brak uprawnień do edycji'); return; }
     const it = item || {};
     setEditingItem(it);
-    const hasShock = !!(it?.shock_absorber_name || it?.shock_absorber_model || it?.shock_absorber_serial || it?.shock_absorber_catalog_number || it?.shock_absorber_production_date || it?.shock_absorber_start_date || it?.has_shock_absorber);
+    const hasShock = !!(it?.shock_absorber_name || it?.shock_absorber_model || it?.shock_absorber_serial || it?.shock_absorber_catalog_number || it?.shock_absorber_production_date || it?.has_shock_absorber);
     const hasSrd = !!(it?.srd_manufacturer || it?.srd_model || it?.srd_serial_number || it?.srd_catalog_number || it?.srd_production_date || it?.has_srd);
     let shock = !!hasShock;
     let srd = !!hasSrd;
@@ -363,7 +361,6 @@ export default function BhpScreen() {
       shock_absorber_serial: it?.shock_absorber_serial || '',
       shock_absorber_catalog_number: it?.shock_absorber_catalog_number || '',
       shock_absorber_production_date: formatDateForInput(it?.shock_absorber_production_date),
-      shock_absorber_start_date: formatDateForInput(it?.shock_absorber_start_date),
       srd_manufacturer: it?.srd_manufacturer || '',
       srd_model: it?.srd_model || '',
       srd_serial_number: it?.srd_serial_number || '',
@@ -396,7 +393,6 @@ export default function BhpScreen() {
       inspection_date: normalizeDate(editFields.inspection_date),
       harness_start_date: normalizeDate(editFields.harness_start_date),
       shock_absorber_production_date: normalizeDate(editFields.shock_absorber_production_date),
-      shock_absorber_start_date: normalizeDate(editFields.shock_absorber_start_date),
       srd_production_date: normalizeDate(editFields.srd_production_date),
       is_set: !!(editFields.shock_absorber || editFields.srd_device),
       has_shock_absorber: !!editFields.shock_absorber,
@@ -446,7 +442,7 @@ export default function BhpScreen() {
       is_set: !!(addFields.shock_absorber || addFields.srd_device),
       has_shock_absorber: !!addFields.shock_absorber,
       has_srd: !!addFields.srd_device,
-    }, ['production_date','inspection_date','harness_start_date','shock_absorber_production_date','shock_absorber_start_date','srd_production_date']);
+    }, ['production_date','inspection_date','harness_start_date','shock_absorber_production_date','srd_production_date']);
     try {
       await api.init();
       const res = await api.post('/api/bhp', payload);
@@ -547,14 +543,14 @@ export default function BhpScreen() {
       </View>
 
       {/* Status / Sortowanie / Przeglądy */}
-      <View style={[styles.filterRow, { zIndex: 100 }]} className="flex-row items-center gap-2 mb-2">
+      <View style={[styles.filterRow, { zIndex: 100, flexWrap: 'wrap' }]} className="flex-row items-center gap-2 mb-2">
         {/* Status Dropdown */}
-        <View style={{ flex: 1, position: 'relative', zIndex: showStatusDropdown ? 200 : 101 }}>
+        <View style={{ width: '48%', position: 'relative', zIndex: showStatusDropdown ? 200 : 101 }}>
           <ThemedButton
             title={selectedStatusLabel}
             onPress={() => { setShowStatusDropdown(v => !v); setShowSortDropdown(false); setShowReviewsDropdown(false); }}
             variant="secondary"
-            style={{ height: 36, justifyContent: 'space-between', paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row-reverse', width: '100%' }}
+            style={{ height: 44, justifyContent: 'space-between', paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row-reverse', width: '100%' }}
             textStyle={{ fontWeight: 'normal', fontSize: 12, textAlign: 'left', flex: 1 }}
             icon={<Ionicons name="chevron-down" size={14} color={colors.text} />}
           />
@@ -562,7 +558,7 @@ export default function BhpScreen() {
             <View 
               style={{ 
                 position: 'absolute',
-                top: 40,
+                top: 48,
                 left: 0,
                 right: 0,
                 backgroundColor: colors.card,
@@ -581,21 +577,21 @@ export default function BhpScreen() {
                 title="Wszystkie statusy"
                 onPress={() => { setSelectedStatus(''); setShowStatusDropdown(false); }}
                 variant="secondary"
-                style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0, width: '100%' }}
+                style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 44, borderWidth: 0, marginVertical: 0, width: '100%' }}
                 textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
               />
               <ThemedButton
                 title="Tylko wydane"
                 onPress={() => { setSelectedStatus('__ISSUED__'); setShowStatusDropdown(false); }}
                 variant="secondary"
-                style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0, width: '100%' }}
+                style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 44, borderWidth: 0, marginVertical: 0, width: '100%' }}
                 textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
               />
               <ThemedButton
                 title="Tylko dostępne"
                 onPress={() => { setSelectedStatus('__AVAILABLE__'); setShowStatusDropdown(false); }}
                 variant="secondary"
-                style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0, width: '100%' }}
+                style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 44, borderWidth: 0, marginVertical: 0, width: '100%' }}
                 textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
               />
             </View>
@@ -603,12 +599,12 @@ export default function BhpScreen() {
         </View>
 
         {/* Sort Dropdown */}
-        <View style={{ flex: 1, position: 'relative', zIndex: showSortDropdown ? 200 : 101 }}>
+        <View style={{ width: '48%', position: 'relative', zIndex: showSortDropdown ? 200 : 101 }}>
           <ThemedButton
             title={sortBy === 'inspection' ? 'Data przeglądu' : 'Numer ewidencyjny'}
             onPress={() => { setShowSortDropdown(v => !v); setShowStatusDropdown(false); setShowReviewsDropdown(false); }}
             variant="secondary"
-            style={{ height: 36, justifyContent: 'space-between', paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row-reverse', width: '100%' }}
+            style={{ height: 44, justifyContent: 'space-between', paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row-reverse', width: '100%' }}
             textStyle={{ fontWeight: 'normal', fontSize: 12, textAlign: 'left', flex: 1 }}
             icon={<Ionicons name="chevron-down" size={14} color={colors.text} />}
           />
@@ -616,7 +612,7 @@ export default function BhpScreen() {
             <View 
               style={{ 
                 position: 'absolute',
-                top: 40,
+                top: 48,
                 left: 0,
                 right: 0,
                 backgroundColor: colors.card,
@@ -635,14 +631,14 @@ export default function BhpScreen() {
                 title="Data przeglądu"
                 onPress={() => { setSortBy('inspection'); setShowSortDropdown(false); }}
                 variant="secondary"
-                style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0, width: '100%' }}
+                style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 44, borderWidth: 0, marginVertical: 0, width: '100%' }}
                 textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
               />
               <ThemedButton
-                title="Nr ewidencyjny"
+                title="Numer ewidencyjny"
                 onPress={() => { setSortBy('inventory'); setShowSortDropdown(false); setShowReviewsDropdown(false); }}
                 variant="secondary"
-                style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0, width: '100%' }}
+                style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 44, borderWidth: 0, marginVertical: 0, width: '100%' }}
                 textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
               />
             </View>
@@ -651,12 +647,12 @@ export default function BhpScreen() {
 
         {/* Reviews Dropdown (Conditional) */}
         {sortBy === 'inspection' && (
-          <View style={{ flex: 1, position: 'relative', zIndex: showReviewsDropdown ? 200 : 101 }}>
+          <View style={{ width: '100%', position: 'relative', zIndex: showReviewsDropdown ? 200 : 101 }}>
             <ThemedButton
               title={reviewsOrder === 'desc' ? 'Najdalszy przegląd' : 'Najbliższy przegląd'}
               onPress={() => { setShowReviewsDropdown(v => !v); setShowStatusDropdown(false); setShowSortDropdown(false); }}
               variant="secondary"
-              style={{ height: 36, justifyContent: 'space-between', paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row-reverse', width: '100%' }}
+              style={{ height: 44, justifyContent: 'space-between', paddingHorizontal: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row-reverse', width: '100%' }}
               textStyle={{ fontWeight: 'normal', fontSize: 12, textAlign: 'left', flex: 1 }}
               icon={<Ionicons name="chevron-down" size={14} color={colors.text} />}
             />
@@ -664,7 +660,7 @@ export default function BhpScreen() {
               <View 
                 style={{ 
                   position: 'absolute',
-                  top: 40,
+                  top: 48,
                   left: 0,
                   right: 0,
                   backgroundColor: colors.card,
@@ -683,14 +679,14 @@ export default function BhpScreen() {
                   title="Najbliższy przegląd"
                   onPress={() => { setReviewsOrder('asc'); setShowReviewsDropdown(false); }}
                   variant="secondary"
-                  style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0, width: '100%' }}
+                  style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 44, borderWidth: 0, marginVertical: 0, width: '100%' }}
                   textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
                 />
                 <ThemedButton
                   title="Najdalszy przegląd"
                   onPress={() => { setReviewsOrder('desc'); setShowReviewsDropdown(false); }}
                   variant="secondary"
-                  style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 40, borderWidth: 0, marginVertical: 0, width: '100%' }}
+                  style={{ borderRadius: 0, borderBottomWidth: 1, borderBottomColor: colors.border, justifyContent: 'flex-start', paddingHorizontal: 10, height: 44, borderWidth: 0, marginVertical: 0, width: '100%' }}
                   textStyle={{ fontWeight: 'normal', textAlign: 'left', flex: 1 }}
                 />
               </View>
@@ -722,6 +718,21 @@ export default function BhpScreen() {
             const inv = item?.inventory_number || (isDataUri(item?.code) ? '' : item?.code) || (isDataUri(item?.barcode) ? '' : item?.barcode) || (isDataUri(item?.qr_code) ? '' : item?.qr_code) || '—';
             const empName = `${item?.assigned_employee_first_name || item?.employee_first_name || ''} ${item?.assigned_employee_last_name || item?.employee_last_name || ''}`.trim() || '—';
             const id = item?.id || item?.bhp_id || item?.item_id;
+
+            // Determine inspection date color
+            const inspectionDateRaw = item?.inspection_date || item?.last_inspection_at;
+            let inspectionColor = colors.muted;
+            if (inspectionDateRaw) {
+               const checkDate = new Date(inspectionDateRaw);
+               if (!isNaN(checkDate.getTime())) {
+                   const today = new Date();
+                   checkDate.setHours(0,0,0,0);
+                   today.setHours(0,0,0,0);
+                   if (checkDate < today) inspectionColor = colors.danger || '#ef4444';
+                   else inspectionColor = colors.success || '#10b981';
+               }
+            }
+
             return (
               <ThemedButton
                 onPress={() => openDetails(item)}
@@ -748,11 +759,11 @@ export default function BhpScreen() {
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.toolName, { color: colors.text }]} className="text-lg font-semibold">{name}</Text>
-                    <Text style={[styles.toolMeta, { color: colors.muted }]}>Nr ew.: {inv}</Text>
+                    <Text style={[styles.toolMeta, { color: colors.muted }]}>Nr. ew.: {inv}</Text>
                     <Text style={[styles.toolMeta, { color: colors.muted }]}>Producent/Model: {item?.manufacturer || '—'} / {item?.model || '—'}</Text>
-                    <Text style={[styles.toolMeta, { color: colors.muted }]}>Nr fabryczny: {item?.serial_number || '—'}</Text>
+                    <Text style={[styles.toolMeta, { color: colors.muted }]}>Nr. fabryczny: {item?.serial_number || '—'}</Text>
                     <Text style={[styles.toolMeta, { color: colors.muted }]}>Przypisany: {empName}</Text>
-                    <Text style={[styles.toolMeta, { color: colors.muted }]}>Data przeglądu: {item?.inspection_date ? formatDateYMD(item.inspection_date) : (item?.last_inspection_at ? formatDateYMD(item.last_inspection_at) : '—')}</Text>
+                    <Text style={[styles.toolMeta, { color: inspectionColor }]}>Data przeglądu: {item?.inspection_date ? formatDateYMD(item.inspection_date) : (item?.last_inspection_at ? formatDateYMD(item.last_inspection_at) : '—')}</Text>
                   </View>
                   {canManageBhp && (
                     <View style={{ flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
@@ -809,14 +820,14 @@ export default function BhpScreen() {
               <Text style={{ color: colors.muted }}>Model</Text>
               <TextInput style={[styles.input, { borderColor: focusedField === 'model' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Model" value={editFields.model} onChangeText={(v) => setEditFields(s => ({ ...s, model: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('model')} onBlur={() => setFocusedField(null)} />
 
-              <Text style={{ color: colors.muted }}>Nr ewidencyjny</Text>
-              <TextInput style={[styles.input, { borderColor: focusedField === 'inventory_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nr ewidencyjny" value={editFields.inventory_number} onChangeText={(v) => setEditFields(s => ({ ...s, inventory_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('inventory_number')} onBlur={() => setFocusedField(null)} />
+              <Text style={{ color: colors.muted }}>Numer ewidencyjny</Text>
+              <TextInput style={[styles.input, { borderColor: focusedField === 'inventory_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Numer ewidencyjny" value={editFields.inventory_number} onChangeText={(v) => setEditFields(s => ({ ...s, inventory_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('inventory_number')} onBlur={() => setFocusedField(null)} />
 
               <Text style={{ color: colors.muted }}>Numer fabryczny</Text>
               <TextInput style={[styles.input, { borderColor: focusedField === 'serial_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Numer fabryczny" value={editFields.serial_number} onChangeText={(v) => setEditFields(s => ({ ...s, serial_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('serial_number')} onBlur={() => setFocusedField(null)} />
 
-              <Text style={{ color: colors.muted }}>Nr katalogowy</Text>
-              <TextInput style={[styles.input, { borderColor: focusedField === 'catalog_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nr katalogowy" value={editFields.catalog_number} onChangeText={(v) => setEditFields(s => ({ ...s, catalog_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('catalog_number')} onBlur={() => setFocusedField(null)} />
+              <Text style={{ color: colors.muted }}>Numer katalogowy</Text>
+              <TextInput style={[styles.input, { borderColor: focusedField === 'catalog_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Numer katalogowy" value={editFields.catalog_number} onChangeText={(v) => setEditFields(s => ({ ...s, catalog_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('catalog_number')} onBlur={() => setFocusedField(null)} />
 
               <Text style={{ color: colors.muted }}>Data produkcji</Text>
               <DateField value={editFields.production_date} onChange={(v) => setEditFields(s => ({ ...s, production_date: v }))} placeholder="YYYY-MM-DD" style={styles.input} colors={colors} />
@@ -836,23 +847,20 @@ export default function BhpScreen() {
               </View>
               {editFields.shock_absorber ? (
                 <>
-                  <Text style={{ color: colors.muted }}>Nazwa amortyzatora</Text>
-                  <TextInput style={[styles.input, { borderColor: focusedField === 'shock_absorber_name' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nazwa amortyzatora" value={editFields.shock_absorber_name} onChangeText={(v) => setEditFields(s => ({ ...s, shock_absorber_name: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('shock_absorber_name')} onBlur={() => setFocusedField(null)} />
+                  <Text style={{ color: colors.muted }}>Producent</Text>
+                  <TextInput style={[styles.input, { borderColor: focusedField === 'shock_absorber_name' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Producent" value={editFields.shock_absorber_name} onChangeText={(v) => setEditFields(s => ({ ...s, shock_absorber_name: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('shock_absorber_name')} onBlur={() => setFocusedField(null)} />
 
-                  <Text style={{ color: colors.muted }}>Model amortyzatora</Text>
-                  <TextInput style={[styles.input, { borderColor: focusedField === 'shock_absorber_model' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Model amortyzatora" value={editFields.shock_absorber_model} onChangeText={(v) => setEditFields(s => ({ ...s, shock_absorber_model: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('shock_absorber_model')} onBlur={() => setFocusedField(null)} />
+                  <Text style={{ color: colors.muted }}>Model</Text>
+                  <TextInput style={[styles.input, { borderColor: focusedField === 'shock_absorber_model' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Model" value={editFields.shock_absorber_model} onChangeText={(v) => setEditFields(s => ({ ...s, shock_absorber_model: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('shock_absorber_model')} onBlur={() => setFocusedField(null)} />
 
-                  <Text style={{ color: colors.muted }}>Nr fabryczny amortyzatora</Text>
-                  <TextInput style={[styles.input, { borderColor: focusedField === 'shock_absorber_serial' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nr fabryczny amortyzatora" value={editFields.shock_absorber_serial} onChangeText={(v) => setEditFields(s => ({ ...s, shock_absorber_serial: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('shock_absorber_serial')} onBlur={() => setFocusedField(null)} />
+                  <Text style={{ color: colors.muted }}>Numer fabryczny</Text>
+                  <TextInput style={[styles.input, { borderColor: focusedField === 'shock_absorber_serial' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Numer fabryczny" value={editFields.shock_absorber_serial} onChangeText={(v) => setEditFields(s => ({ ...s, shock_absorber_serial: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('shock_absorber_serial')} onBlur={() => setFocusedField(null)} />
 
-                  <Text style={{ color: colors.muted }}>Nr katalogowy amortyzatora</Text>
-                  <TextInput style={[styles.input, { borderColor: focusedField === 'shock_absorber_catalog_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nr katalogowy amortyzatora" value={editFields.shock_absorber_catalog_number} onChangeText={(v) => setEditFields(s => ({ ...s, shock_absorber_catalog_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('shock_absorber_catalog_number')} onBlur={() => setFocusedField(null)} />
+                  <Text style={{ color: colors.muted }}>Numer katalogowy</Text>
+                  <TextInput style={[styles.input, { borderColor: focusedField === 'shock_absorber_catalog_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Numer katalogowy" value={editFields.shock_absorber_catalog_number} onChangeText={(v) => setEditFields(s => ({ ...s, shock_absorber_catalog_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('shock_absorber_catalog_number')} onBlur={() => setFocusedField(null)} />
 
-                  <Text style={{ color: colors.muted }}>Data produkcji amortyzatora</Text>
+                  <Text style={{ color: colors.muted }}>Data produkcji</Text>
                   <DateField value={editFields.shock_absorber_production_date} onChange={(v) => setEditFields(s => ({ ...s, shock_absorber_production_date: v }))} placeholder="YYYY-MM-DD" style={styles.input} colors={colors} />
-
-                  <Text style={{ color: colors.muted }}>Data rozpoczęcia amortyzatora</Text>
-                  <DateField value={editFields.shock_absorber_start_date} onChange={(v) => setEditFields(s => ({ ...s, shock_absorber_start_date: v }))} placeholder="YYYY-MM-DD" style={styles.input} colors={colors} />
                 </>
               ) : null}
 
@@ -862,19 +870,19 @@ export default function BhpScreen() {
               </View>
               {editFields.srd_device ? (
                 <>
-                  <Text style={{ color: colors.muted }}>Producent SRD</Text>
-                  <TextInput style={[styles.input, { borderColor: focusedField === 'srd_manufacturer' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Producent SRD" value={editFields.srd_manufacturer} onChangeText={(v) => setEditFields(s => ({ ...s, srd_manufacturer: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('srd_manufacturer')} onBlur={() => setFocusedField(null)} />
+                  <Text style={{ color: colors.muted }}>Producent</Text>
+                  <TextInput style={[styles.input, { borderColor: focusedField === 'srd_manufacturer' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Producent" value={editFields.srd_manufacturer} onChangeText={(v) => setEditFields(s => ({ ...s, srd_manufacturer: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('srd_manufacturer')} onBlur={() => setFocusedField(null)} />
 
-                  <Text style={{ color: colors.muted }}>Model SRD</Text>
-                  <TextInput style={[styles.input, { borderColor: focusedField === 'srd_model' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Model SRD" value={editFields.srd_model} onChangeText={(v) => setEditFields(s => ({ ...s, srd_model: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('srd_model')} onBlur={() => setFocusedField(null)} />
+                  <Text style={{ color: colors.muted }}>Model</Text>
+                  <TextInput style={[styles.input, { borderColor: focusedField === 'srd_model' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Model" value={editFields.srd_model} onChangeText={(v) => setEditFields(s => ({ ...s, srd_model: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('srd_model')} onBlur={() => setFocusedField(null)} />
 
-                  <Text style={{ color: colors.muted }}>Nr fabryczny SRD</Text>
-                  <TextInput style={[styles.input, { borderColor: focusedField === 'srd_serial_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nr fabryczny SRD" value={editFields.srd_serial_number} onChangeText={(v) => setEditFields(s => ({ ...s, srd_serial_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('srd_serial_number')} onBlur={() => setFocusedField(null)} />
+                  <Text style={{ color: colors.muted }}>Numer fabryczny</Text>
+                  <TextInput style={[styles.input, { borderColor: focusedField === 'srd_serial_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Numer fabryczny" value={editFields.srd_serial_number} onChangeText={(v) => setEditFields(s => ({ ...s, srd_serial_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('srd_serial_number')} onBlur={() => setFocusedField(null)} />
 
-                  <Text style={{ color: colors.muted }}>Nr katalogowy SRD</Text>
-                  <TextInput style={[styles.input, { borderColor: focusedField === 'srd_catalog_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nr katalogowy SRD" value={editFields.srd_catalog_number} onChangeText={(v) => setEditFields(s => ({ ...s, srd_catalog_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('srd_catalog_number')} onBlur={() => setFocusedField(null)} />
+                  <Text style={{ color: colors.muted }}>Numer katalogowy</Text>
+                  <TextInput style={[styles.input, { borderColor: focusedField === 'srd_catalog_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Numer katalogowy" value={editFields.srd_catalog_number} onChangeText={(v) => setEditFields(s => ({ ...s, srd_catalog_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('srd_catalog_number')} onBlur={() => setFocusedField(null)} />
 
-                  <Text style={{ color: colors.muted }}>Data produkcji SRD</Text>
+                  <Text style={{ color: colors.muted }}>Data produkcji</Text>
                   <DateField value={editFields.srd_production_date} onChange={(v) => setEditFields(s => ({ ...s, srd_production_date: v }))} placeholder="YYYY-MM-DD" style={styles.input} colors={colors} />
                 </>
               ) : null}
@@ -899,14 +907,14 @@ export default function BhpScreen() {
               <Text style={{ color: colors.muted }}>Model</Text>
               <TextInput style={[styles.input, { borderColor: focusedField === 'add_model' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Model" value={addFields.model} onChangeText={(v) => setAddFields(s => ({ ...s, model: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_model')} onBlur={() => setFocusedField(null)} />
 
-              <Text style={{ color: colors.muted }}>Nr ewidencyjny</Text>
-              <TextInput style={[styles.input, { borderColor: focusedField === 'add_inventory_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nr ewidencyjny" value={addFields.inventory_number} onChangeText={(v) => setAddFields(s => ({ ...s, inventory_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_inventory_number')} onBlur={() => setFocusedField(null)} />
+              <Text style={{ color: colors.muted }}>Numer ewidencyjny</Text>
+              <TextInput style={[styles.input, { borderColor: focusedField === 'add_inventory_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Numer ewidencyjny" value={addFields.inventory_number} onChangeText={(v) => setAddFields(s => ({ ...s, inventory_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_inventory_number')} onBlur={() => setFocusedField(null)} />
 
               <Text style={{ color: colors.muted }}>Numer fabryczny</Text>
               <TextInput style={[styles.input, { borderColor: focusedField === 'add_serial_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Numer fabryczny" value={addFields.serial_number} onChangeText={(v) => setAddFields(s => ({ ...s, serial_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_serial_number')} onBlur={() => setFocusedField(null)} />
 
-              <Text style={{ color: colors.muted }}>Nr katalogowy</Text>
-              <TextInput style={[styles.input, { borderColor: focusedField === 'add_catalog_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nr katalogowy" value={addFields.catalog_number} onChangeText={(v) => setAddFields(s => ({ ...s, catalog_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_catalog_number')} onBlur={() => setFocusedField(null)} />
+              <Text style={{ color: colors.muted }}>Numer katalogowy</Text>
+              <TextInput style={[styles.input, { borderColor: focusedField === 'add_catalog_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Numer katalogowy" value={addFields.catalog_number} onChangeText={(v) => setAddFields(s => ({ ...s, catalog_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_catalog_number')} onBlur={() => setFocusedField(null)} />
 
               <Text style={{ color: colors.muted }}>Data produkcji</Text>
               <DateField value={addFields.production_date} onChange={(v) => setAddFields(s => ({ ...s, production_date: v }))} placeholder="YYYY-MM-DD" style={styles.input} colors={colors} />
@@ -932,23 +940,20 @@ export default function BhpScreen() {
               </View>
               {addFields.shock_absorber ? (
                 <>
-                  <Text style={{ color: colors.muted }}>Nazwa amortyzatora</Text>
-                  <TextInput style={[styles.input, { borderColor: focusedField === 'add_shock_absorber_name' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nazwa amortyzatora" value={addFields.shock_absorber_name} onChangeText={(v) => setAddFields(s => ({ ...s, shock_absorber_name: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_shock_absorber_name')} onBlur={() => setFocusedField(null)} />
+                  <Text style={{ color: colors.muted }}>Producent</Text>
+                  <TextInput style={[styles.input, { borderColor: focusedField === 'add_shock_absorber_name' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Producent" value={addFields.shock_absorber_name} onChangeText={(v) => setAddFields(s => ({ ...s, shock_absorber_name: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_shock_absorber_name')} onBlur={() => setFocusedField(null)} />
 
-                  <Text style={{ color: colors.muted }}>Model amortyzatora</Text>
-                  <TextInput style={[styles.input, { borderColor: focusedField === 'add_shock_absorber_model' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Model amortyzatora" value={addFields.shock_absorber_model} onChangeText={(v) => setAddFields(s => ({ ...s, shock_absorber_model: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_shock_absorber_model')} onBlur={() => setFocusedField(null)} />
+                  <Text style={{ color: colors.muted }}>Model</Text>
+                  <TextInput style={[styles.input, { borderColor: focusedField === 'add_shock_absorber_model' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Model" value={addFields.shock_absorber_model} onChangeText={(v) => setAddFields(s => ({ ...s, shock_absorber_model: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_shock_absorber_model')} onBlur={() => setFocusedField(null)} />
 
-                  <Text style={{ color: colors.muted }}>Nr seryjny amortyzatora</Text>
-                  <TextInput style={[styles.input, { borderColor: focusedField === 'add_shock_absorber_serial' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nr seryjny amortyzatora" value={addFields.shock_absorber_serial} onChangeText={(v) => setAddFields(s => ({ ...s, shock_absorber_serial: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_shock_absorber_serial')} onBlur={() => setFocusedField(null)} />
+                  <Text style={{ color: colors.muted }}>Numer seryjny</Text>
+                  <TextInput style={[styles.input, { borderColor: focusedField === 'add_shock_absorber_serial' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Numer seryjny" value={addFields.shock_absorber_serial} onChangeText={(v) => setAddFields(s => ({ ...s, shock_absorber_serial: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_shock_absorber_serial')} onBlur={() => setFocusedField(null)} />
 
-                  <Text style={{ color: colors.muted }}>Nr katalogowy amortyzatora</Text>
-                  <TextInput style={[styles.input, { borderColor: focusedField === 'add_shock_absorber_catalog_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nr katalogowy amortyzatora" value={addFields.shock_absorber_catalog_number} onChangeText={(v) => setAddFields(s => ({ ...s, shock_absorber_catalog_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_shock_absorber_catalog_number')} onBlur={() => setFocusedField(null)} />
+                  <Text style={{ color: colors.muted }}>Numer katalogowy</Text>
+                  <TextInput style={[styles.input, { borderColor: focusedField === 'add_shock_absorber_catalog_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Numer katalogowy" value={addFields.shock_absorber_catalog_number} onChangeText={(v) => setAddFields(s => ({ ...s, shock_absorber_catalog_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_shock_absorber_catalog_number')} onBlur={() => setFocusedField(null)} />
 
-                  <Text style={{ color: colors.muted }}>Data produkcji amortyzatora</Text>
+                  <Text style={{ color: colors.muted }}>Data produkcji</Text>
                   <DateField value={addFields.shock_absorber_production_date} onChange={(v) => setAddFields(s => ({ ...s, shock_absorber_production_date: v }))} placeholder="YYYY-MM-DD" style={styles.input} colors={colors} />
-
-                  <Text style={{ color: colors.muted }}>Data rozpoczęcia użytkowania (amortyzator)</Text>
-                  <DateField value={addFields.shock_absorber_start_date} onChange={(v) => setAddFields(s => ({ ...s, shock_absorber_start_date: v }))} placeholder="YYYY-MM-DD" style={styles.input} colors={colors} />
                 </>
               ) : null}
 
@@ -958,19 +963,19 @@ export default function BhpScreen() {
               </View>
               {addFields.srd_device ? (
                 <>
-                  <Text style={{ color: colors.muted }}>Producent SRD</Text>
-                  <TextInput style={[styles.input, { borderColor: focusedField === 'add_srd_manufacturer' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Producent SRD" value={addFields.srd_manufacturer} onChangeText={(v) => setAddFields(s => ({ ...s, srd_manufacturer: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_srd_manufacturer')} onBlur={() => setFocusedField(null)} />
+                  <Text style={{ color: colors.muted }}>Producent</Text>
+                  <TextInput style={[styles.input, { borderColor: focusedField === 'add_srd_manufacturer' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Producent" value={addFields.srd_manufacturer} onChangeText={(v) => setAddFields(s => ({ ...s, srd_manufacturer: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_srd_manufacturer')} onBlur={() => setFocusedField(null)} />
 
-                  <Text style={{ color: colors.muted }}>Model SRD</Text>
-                  <TextInput style={[styles.input, { borderColor: focusedField === 'add_srd_model' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Model SRD" value={addFields.srd_model} onChangeText={(v) => setAddFields(s => ({ ...s, srd_model: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_srd_model')} onBlur={() => setFocusedField(null)} />
+                  <Text style={{ color: colors.muted }}>Model</Text>
+                  <TextInput style={[styles.input, { borderColor: focusedField === 'add_srd_model' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Model" value={addFields.srd_model} onChangeText={(v) => setAddFields(s => ({ ...s, srd_model: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_srd_model')} onBlur={() => setFocusedField(null)} />
 
-                  <Text style={{ color: colors.muted }}>Nr fabryczny SRD</Text>
-                  <TextInput style={[styles.input, { borderColor: focusedField === 'add_srd_serial_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nr fabryczny SRD" value={addFields.srd_serial_number} onChangeText={(v) => setAddFields(s => ({ ...s, srd_serial_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_srd_serial_number')} onBlur={() => setFocusedField(null)} />
+                  <Text style={{ color: colors.muted }}>Numer fabryczny</Text>
+                  <TextInput style={[styles.input, { borderColor: focusedField === 'add_srd_serial_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Numer fabryczny" value={addFields.srd_serial_number} onChangeText={(v) => setAddFields(s => ({ ...s, srd_serial_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_srd_serial_number')} onBlur={() => setFocusedField(null)} />
 
-                  <Text style={{ color: colors.muted }}>Nr katalogowy SRD</Text>
-                  <TextInput style={[styles.input, { borderColor: focusedField === 'add_srd_catalog_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Nr katalogowy SRD" value={addFields.srd_catalog_number} onChangeText={(v) => setAddFields(s => ({ ...s, srd_catalog_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_srd_catalog_number')} onBlur={() => setFocusedField(null)} />
+                  <Text style={{ color: colors.muted }}>Numer katalogowy</Text>
+                  <TextInput style={[styles.input, { borderColor: focusedField === 'add_srd_catalog_number' ? colors.primary : colors.border, backgroundColor: colors.card, color: colors.text }]} placeholder="Numer katalogowy" value={addFields.srd_catalog_number} onChangeText={(v) => setAddFields(s => ({ ...s, srd_catalog_number: v }))} placeholderTextColor={colors.muted} onFocus={() => setFocusedField('add_srd_catalog_number')} onBlur={() => setFocusedField(null)} />
 
-                  <Text style={{ color: colors.muted }}>Data produkcji SRD</Text>
+                  <Text style={{ color: colors.muted }}>Data produkcji</Text>
                   <DateField value={addFields.srd_production_date} onChange={(v) => setAddFields(s => ({ ...s, srd_production_date: v }))} placeholder="YYYY-MM-DD" style={styles.input} colors={colors} />
                 </>
               ) : null}
@@ -1109,7 +1114,7 @@ export default function BhpScreen() {
               </View>
 
               {/* Sekcja Amortyzator, tylko jeśli są dane */}
-              {([detailItem?.shock_absorber_name, detailItem?.shock_absorber_model, detailItem?.shock_absorber_serial, detailItem?.shock_absorber_catalog_number, detailItem?.shock_absorber_production_date, detailItem?.shock_absorber_start_date].some(v => !!v)) ? (
+              {([detailItem?.shock_absorber_name, detailItem?.shock_absorber_model, detailItem?.shock_absorber_serial, detailItem?.shock_absorber_catalog_number, detailItem?.shock_absorber_production_date].some(v => !!v)) ? (
                 <View style={{ marginTop: 10 }}>
                   <Text style={{ color: colors.text, fontWeight: '700', marginBottom: 6 }}>Amortyzator</Text>
                   <View style={{ gap: 6 }}>
@@ -1122,11 +1127,11 @@ export default function BhpScreen() {
                       <Text style={{ color: colors.text }}>{detailItem?.shock_absorber_model || '—'}</Text>
                     </View>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                      <Text style={{ color: colors.muted }}>Nr seryjny:</Text>
+                      <Text style={{ color: colors.muted }}>Numer seryjny:</Text>
                       <Text style={{ color: colors.text }}>{detailItem?.shock_absorber_serial || '—'}</Text>
                     </View>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                      <Text style={{ color: colors.muted }}>Nr katalogowy:</Text>
+                      <Text style={{ color: colors.muted }}>Numer katalogowy:</Text>
                       <Text style={{ color: colors.text }}>{detailItem?.shock_absorber_catalog_number || '—'}</Text>
                     </View>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
@@ -1151,11 +1156,11 @@ export default function BhpScreen() {
                       <Text style={{ color: colors.text }}>{detailItem?.srd_model || '—'}</Text>
                     </View>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                      <Text style={{ color: colors.muted }}>Nr seryjny:</Text>
+                      <Text style={{ color: colors.muted }}>Numer seryjny:</Text>
                       <Text style={{ color: colors.text }}>{detailItem?.srd_serial_number || '—'}</Text>
                     </View>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                      <Text style={{ color: colors.muted }}>Nr katalogowy:</Text>
+                      <Text style={{ color: colors.muted }}>Numer katalogowy:</Text>
                       <Text style={{ color: colors.text }}>{detailItem?.srd_catalog_number || '—'}</Text>
                     </View>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
