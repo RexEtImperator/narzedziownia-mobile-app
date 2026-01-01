@@ -137,7 +137,7 @@ export default function UserSettingsScreen() {
     identityTextWrap: { minWidth: 0 },
     identityName: { fontSize: 16, fontWeight: '700', color: colors.text },
     identityRole: { fontSize: 14, color: colors.muted },
-    bellBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+    Btn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
     status: { marginBottom: 12, color: colors.text },
     api: { marginBottom: 12, color: colors.muted },
     spacer: { height: 8 },
@@ -542,9 +542,12 @@ export default function UserSettingsScreen() {
               </View>
             </Pressable>
           )}
-          <Pressable accessibilityLabel="Wyloguj" onPress={logout} style={({ pressed }) => [styles.bellBtn, { opacity: pressed ? 0.85 : 1 }]}>
-            <Ionicons name="log-out" size={22} color={colors.text} />
-          </Pressable>
+          <ThemedButton
+            onPress={logout}
+            variant="secondary"
+            style={[styles.Btn, { width: 48, height: 48, paddingHorizontal: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent', borderWidth: 0 }]}
+            icon={<Ionicons name="log-out" size={30} color={colors.text} />}
+          />
         </View>
       </View>
       {/* Informacje osobowe - login (employees) */}

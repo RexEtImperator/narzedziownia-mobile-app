@@ -126,7 +126,7 @@ function CustomTabBar({ state, descriptors, navigation, onPressScan, isAdmin, un
       {renderTabButton('BHP', 'medkit')}
 
       {/* Środkowy przycisk skanowania */}
-      <Pressable onPress={onPressScan} style={({ pressed }) => ({ width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1, alignItems: 'center', justifyContent: 'center', ...(Platform.select({ web: { boxShadow: '0px 6px 18px rgba(0,0,0,0.18)' }, ios: { shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8 }, android: { elevation: 6 } })) })}>
+      <Pressable onPress={onPressScan} style={({ pressed }) => ({ width: 56, height: 56, borderRadius: 28, backgroundColor: '#4b5563', opacity: pressed ? 0.9 : 1, alignItems: 'center', justifyContent: 'center', ...(Platform.select({ web: { boxShadow: '0px 6px 18px rgba(0,0,0,0.18)' }, ios: { shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8 }, android: { elevation: 6 } })) })}>
         <Ionicons name="scan" size={35} color="#fff" />
       </Pressable>
 
