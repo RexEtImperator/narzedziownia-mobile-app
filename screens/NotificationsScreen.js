@@ -435,8 +435,8 @@ export default function NotificationsScreen() {
                 )}
           </View>
         </View>
-        {n.manufacturer || (n.model && !isServiceType && !isServiceHistory) ? (
-          <Text style={{ color: colors.muted, fontSize: 12 }}>{[n.manufacturer, (!isServiceType && !isServiceHistory ? n.model : null)].filter(Boolean).join(' ')}</Text>
+        {n.manufacturer || (n.model && !isServiceType) ? (
+          <Text style={{ color: colors.muted, fontSize: 12 }}>{[n.manufacturer, (!isServiceType ? n.model : null)].filter(Boolean).join(' ')}</Text>
         ) : null}
         {(n.type === 'broadcast' || n.type === 'custom' || n.type === 'admin') ? (
           (() => {
