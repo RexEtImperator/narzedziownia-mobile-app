@@ -63,7 +63,46 @@ export default function DashboardScreen() {
       setTools(list.slice(0, 20));
       const overdueToolsCount = computeOverdueCount(list);
       const overdueBhpCount = computeOverdueCount(bhpList);
-      setStats(s => ({ ...s, overdueInspections: (overdueToolsCount + overdueBhpCount), overdueToolsCount, overdueBhpCount }));
+
+      // Helper for days to
+      const getDaysTo = (dateString) => {
+        if (!dateString) return null;
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return null;
+        const now = new Date();
+        const startOfNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        const diffMs = startOfDate - startOfNow;
+        return Math.round(diffMs / (1000 * 60 * 60 * 24));
+      };
+      
+      const upcomingTools = list.filter(t => {
+        const d = getDaysTo(t.inspection_date);
+        return d !== null && d >= 0 && d <= 30;
+      }).length;
+      
+      const upcomingBhp = bhpList.filter(b => {
+        const d = getDaysTo(b.inspection_date);
+        return d !== null && d >= 0 && d <= 30;
+      }).length;
+
+      let toolsInServiceCount = 0;
+      try {
+        const serviceRes = await api.get('/api/service-history/summary');
+        toolsInServiceCount = (serviceRes?.in_service || []).length;
+      } catch {}
+
+      const issuedToolsCount = list.filter(t => t.status === 'issued' || t.current_holder_id).length;
+
+      setStats(s => ({ 
+        ...s, 
+        overdueInspections: (overdueToolsCount + overdueBhpCount), 
+        overdueToolsCount, 
+        overdueBhpCount,
+        upcomingCount: upcomingTools + upcomingBhp,
+        toolsInServiceCount,
+        issuedToolsCount
+      }));
 
       // Build issue/return history
       const employees = Array.isArray(emps) ? emps : (Array.isArray(emps?.data) ? emps.data : []);
@@ -261,55 +300,93 @@ export default function DashboardScreen() {
         />
       )}
 
-      {/* KPI cards */}
+      {/* Header */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
+         <Ionicons name="hand-left" size={28} color="#eab308" style={{ marginRight: 10 }} />
+         <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.text }}>
+           Cześć, {currentUser?.first_name || currentUser?.name || 'Użytkowniku'}
+         </Text>
+      </View>
+
+      {/* KPI cards & Wymaga uwagi */}
       {(() => {
         const roleVal = String(currentUser?.role || currentUser?.role_name || '').toLowerCase();
         const isEmployeeRole = roleVal === 'employee' || roleVal === 'pracownik';
         if (isEmployeeRole) return null;
+
         return (
-      <View style={styles.kpiRow} className="flex-row flex-wrap gap-3">
-        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.kpiHeader} className="items-center">
-            <Ionicons name="construct" size={22} color="#fb923c" />
-            <Text style={[styles.kpiValue, { color: colors.orange }]} className="text-2xl font-bold">{stats.tools}</Text>
-          </View>
-        </View>
+          <>
+            <Pressable
+              onPress={() => navigation.navigate('Analytics')}
+              style={({ pressed }) => ({
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                borderWidth: 1,
+                borderRadius: 16,
+                padding: 16,
+                marginBottom: 16,
+                opacity: pressed ? 0.9 : 1
+              })}
+            >
+              <Text style={{ color: colors.text, fontSize: 18, fontWeight: '600', marginBottom: 12 }}>Wymaga uwagi</Text>
+              
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#ef4444', marginRight: 8 }} />
+                <Text style={{ color: colors.text, fontSize: 15 }}>{stats.issuedToolsCount ?? 0} narzędzia wydane</Text>
+              </View>
 
-        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.kpiHeader} className="items-center">
-            <Ionicons name="medkit" size={22} color="#4ade80" />
-            <Text style={[styles.kpiValue, { color: colors.green }]} className="text-2xl font-bold">{stats.bhp}</Text>
-          </View>
-        </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#3b82f6', marginRight: 8 }} />
+                <Text style={{ color: colors.text, fontSize: 15 }}>{stats.toolsInServiceCount ?? 0} {stats.toolsInServiceCount === 1 ? 'narzędzie' : 'narzędzia'} w serwisie</Text>
+              </View>
 
-        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.kpiHeader} className="items-center">
-            <Ionicons name="people" size={22} color="#c084fc" />
-            <Text style={[styles.kpiValue, { color: colors.purple }]} className="text-2xl font-bold">{stats.employees}</Text>
-          </View>
-        </View>
-
-        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]} className="content-center">
-          <View style={styles.kpiHeader} className="items-center">
-            <Ionicons name="time" size={22} color="#f87171" />
-            <Pressable onPress={() => setOverdueTipOpen(v => !v)} style={({ pressed }) => [{ marginLeft: 6, opacity: pressed ? 0.8 : 1 }]}>
-              <Text style={[styles.kpiValue, { color: colors.red }]} className="text-2xl font-bold">{stats.overdueInspections ?? computeOverdueCount(tools)}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#f97316', marginRight: 8 }} />
+                <Text style={{ color: colors.text, fontSize: 15 }}>{(stats.upcomingCount || 0) + (stats.overdueInspections || 0)} {((stats.upcomingCount || 0) + (stats.overdueInspections || 0)) === 1 ? 'narzędzie wymagające' : 'narzędzia wymagające'} przeglądu</Text>
+              </View>
             </Pressable>
-          </View>
-          {overdueTipOpen && (
-            <View style={[{ position: 'absolute', top: 6, right: 6, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12, zIndex: 10, minWidth: 150 }, Platform.select({ web: { boxShadow: '0px 4px 12px rgba(0,0,0,0.15)' }, ios: { shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } }, android: { elevation: 4 } }) ]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={{ fontWeight: '600', color: colors.text, fontSize: 14 }}>Narzędzia:</Text>
-                <Text style={{ color: colors.text, fontSize: 14 }}>{stats.overdueToolsCount ?? 0}</Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
-                <Text style={{ fontWeight: '600', color: colors.text, fontSize: 14 }}>BHP:</Text>
-                <Text style={{ color: colors.text, fontSize: 14 }}>{stats.overdueBhpCount ?? 0}</Text>
-              </View>
+
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
+               <View style={{ flex: 1, minWidth: '30%', backgroundColor: colors.card, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
+                  <Ionicons name="construct" size={28} color="#fb923c" />
+                  <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.text, marginTop: 4 }}>{stats.tools}</Text>
+                  <Text style={{ color: colors.muted, fontSize: 12 }}>Narzędzia</Text>
+               </View>
+               
+               <View style={{ flex: 1, minWidth: '30%', backgroundColor: colors.card, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
+                  <Ionicons name="medkit" size={28} color="#4ade80" />
+                  <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.text, marginTop: 4 }}>{stats.bhp}</Text>
+                  <Text style={{ color: colors.muted, fontSize: 12 }}>BHP</Text>
+               </View>
+
+               <View style={{ flex: 1, minWidth: '30%', backgroundColor: colors.card, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
+                  <Ionicons name="people" size={28} color="#c084fc" />
+                  <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.text, marginTop: 4 }}>{stats.employees}</Text>
+                  <Text style={{ color: colors.muted, fontSize: 12 }}>Pracownicy</Text>
+               </View>
+
+               <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border, minWidth: '30%', justifyContent: 'center' }]}>
+                  <View style={styles.kpiHeader} className="items-center">
+                    <Ionicons name="time" size={22} color="#f87171" />
+                    <Pressable onPress={() => setOverdueTipOpen(v => !v)} style={({ pressed }) => [{ marginLeft: 6, opacity: pressed ? 0.8 : 1 }]}>
+                      <Text style={[styles.kpiValue, { color: colors.red }]} className="text-2xl font-bold">{stats.overdueInspections ?? computeOverdueCount(tools)}</Text>
+                    </Pressable>
+                  </View>
+                  {overdueTipOpen && (
+                    <View style={[{ position: 'absolute', top: 6, right: 6, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12, zIndex: 10, minWidth: 150 }, Platform.select({ web: { boxShadow: '0px 4px 12px rgba(0,0,0,0.15)' }, ios: { shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } }, android: { elevation: 4 } }) ]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={{ fontWeight: '600', color: colors.text, fontSize: 14 }}>Narzędzia:</Text>
+                        <Text style={{ color: colors.text, fontSize: 14 }}>{stats.overdueToolsCount ?? 0}</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                        <Text style={{ fontWeight: '600', color: colors.text, fontSize: 14 }}>BHP:</Text>
+                        <Text style={{ color: colors.text, fontSize: 14 }}>{stats.overdueBhpCount ?? 0}</Text>
+                      </View>
+                    </View>
+                  )}
+               </View>
             </View>
-          )}
-        </View>
-      </View>
+          </>
         );
       })()}
 

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Button, StyleSheet, Pressable, Switch, Platform, ScrollView, Image, TextInput, Modal, Linking, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Switch, Platform, ScrollView, Image, TextInput, Modal, Linking } from 'react-native';
 import Constants from 'expo-constants';
 import api from '../lib/api';
 import { getStorageItem, setStorageItem, removeStorageItem, KEYS } from '../lib/storage';
-import { useNavigation, CommonActions } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../lib/theme';
 import { initNotifications, sendImmediate, saveSettings, getSettings, rescheduleFromSettings, disableAllNotifications, clearAcknowledgements } from '../lib/notifications';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -551,61 +551,126 @@ export default function UserSettingsScreen() {
       <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card, marginTop: 16 }]}> 
         <Text style={styles.sectionTitle}>Informacje osobowe — {employee?.login || employee?.username || currentUser?.username || '—'}</Text>
         {empError ? <Text style={{ color: colors.muted, marginBottom: 8 }}>{empError}</Text> : null}
-        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, marginBottom: 4 }}>Imię</Text>
-            <Text style={{ color: colors.text, paddingHorizontal: 2, paddingVertical: 8 }}>{String(employee?.first_name || '-')}</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, marginBottom: 4 }}>Nazwisko</Text>
-            <Text style={{ color: colors.text, paddingHorizontal: 2, paddingVertical: 8 }}>{String(employee?.last_name || '-')}</Text>
-          </View>
-        </View>
-        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, marginBottom: 4 }}>Telefon</Text>
-            <TextInput keyboardType="phone-pad" value={employee?.id ? empPhone : '-'} onChangeText={setEmpPhone} onEndEditing={employee?.id ? handlePhoneBlur : undefined}
-              editable={!!employee?.id} placeholder="Telefon" placeholderTextColor={colors.muted}
-              style={{ borderWidth: 1, borderColor: employee?.id ? (empPhoneError ? '#ef4444' : colors.border) : colors.border, backgroundColor: employee?.id ? colors.card : colors.bg, color: colors.text, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 }} />
-            {empPhoneError ? <Text style={{ color: '#ef4444', fontSize: 12, marginTop: 4 }}>{empPhoneError}</Text> : null}
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, marginBottom: 4 }}>E-mail</Text>
-            <TextInput keyboardType="email-address" autoCapitalize="none" value={employee?.id ? empEmail : '-'} onChangeText={setEmpEmail} onEndEditing={employee?.id ? handleEmailBlur : undefined}
-              editable={!!employee?.id} placeholder="E-mail" placeholderTextColor={colors.muted}
-              style={{ borderWidth: 1, borderColor: employee?.id ? (empEmailError ? '#ef4444' : colors.border) : colors.border, backgroundColor: employee?.id ? colors.card : colors.bg, color: colors.text, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 }} />
-            {empEmailError ? <Text style={{ color: '#ef4444', fontSize: 12, marginTop: 4 }}>{empEmailError}</Text> : null}
+        
+        {/* Row 1: Imię i Nazwisko */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+          <Ionicons name="person-circle-outline" size={40} color={colors.primary} style={{ marginRight: 12 }} />
+          <View style={{ flex: 1, flexDirection: 'row' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.muted, fontSize: 12 }}>Imię</Text>
+              <Text style={{ color: colors.text, fontSize: 16, fontWeight: '500' }}>{String(employee?.first_name || '-')}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.muted, fontSize: 12 }}>Nazwisko</Text>
+              <Text style={{ color: colors.text, fontSize: 16, fontWeight: '500' }}>{String(employee?.last_name || '-')}</Text>
+            </View>
           </View>
         </View>
-        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, marginBottom: 4 }}>Dział</Text>
-            <Text style={{ color: colors.text, paddingHorizontal: 2, paddingVertical: 8 }}>{String(employee?.department || employee?.department_name || '-')}</Text>
+
+        <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
+
+        {/* Telefon */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name="call-outline" size={20} color={colors.muted} style={{ marginRight: 12 }} />
+            <Text style={{ color: colors.text }}>Telefon</Text>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, marginBottom: 4 }}>Stanowisko</Text>
-            <Text style={{ color: colors.text, paddingHorizontal: 2, paddingVertical: 8 }}>{String(employee?.position || employee?.position_name || '-')}</Text>
+          <View style={{ flex: 1, alignItems: 'flex-end' }}>
+             <TextInput 
+                keyboardType="phone-pad" 
+                value={employee?.id ? empPhone : '-'} 
+                onChangeText={setEmpPhone} 
+                onEndEditing={employee?.id ? handlePhoneBlur : undefined}
+                editable={!!employee?.id} 
+                placeholder="Brak danych" 
+                placeholderTextColor={colors.muted}
+                style={{ color: colors.muted, textAlign: 'right', padding: 0 }} 
+            />
+            {empPhoneError ? <Text style={{ color: '#ef4444', fontSize: 10 }}>{empPhoneError}</Text> : null}
           </View>
         </View>
-        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, marginBottom: 4 }}>Status</Text>
-            <Text style={{ color: colors.text, paddingHorizontal: 2, paddingVertical: 8 }}>{formatStatus(employee?.status)}</Text>
+        <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
+
+        {/* E-mail */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name="mail-outline" size={20} color={colors.muted} style={{ marginRight: 12 }} />
+            <Text style={{ color: colors.text }}>E-mail</Text>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, marginBottom: 4 }}>Przyjęty</Text>
-            <Text style={{ color: colors.text, paddingHorizontal: 2, paddingVertical: 8 }}>{employee?.created_at ? new Date(employee.created_at).toLocaleDateString() : '-'}</Text>
+           <View style={{ flex: 1, alignItems: 'flex-end' }}>
+             <TextInput 
+                keyboardType="email-address" 
+                autoCapitalize="none"
+                value={employee?.id ? empEmail : '-'} 
+                onChangeText={setEmpEmail} 
+                onEndEditing={employee?.id ? handleEmailBlur : undefined}
+                editable={!!employee?.id} 
+                placeholder="Brak danych" 
+                placeholderTextColor={colors.muted}
+                style={{ color: colors.muted, textAlign: 'right', padding: 0 }} 
+            />
+            {empEmailError ? <Text style={{ color: '#ef4444', fontSize: 10 }}>{empEmailError}</Text> : null}
           </View>
         </View>
-        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, marginBottom: 4 }}>Numer służbowy</Text>
-            <Text style={{ color: colors.text, paddingHorizontal: 2, paddingVertical: 8 }}>{String(employee?.brand_number || '-')}</Text>
+        <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
+
+        {/* Dział */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name="business-outline" size={20} color={colors.muted} style={{ marginRight: 12 }} />
+            <Text style={{ color: colors.text }}>Dział</Text>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, marginBottom: 4 }}>UID karty RFID</Text>
-            <Text style={{ color: colors.text, paddingHorizontal: 2, paddingVertical: 8 }}>{String(employee?.rfid_uid || '-')}</Text>
+          <Text style={{ color: colors.muted }}>{String(employee?.department || employee?.department_name || 'Brak danych')}</Text>
+        </View>
+        <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
+
+        {/* Stanowisko */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name="briefcase-outline" size={20} color={colors.muted} style={{ marginRight: 12 }} />
+            <Text style={{ color: colors.text }}>Stanowisko</Text>
           </View>
+          <Text style={{ color: colors.muted }}>{String(employee?.position || employee?.position_name || 'Brak danych')}</Text>
+        </View>
+        <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
+
+        {/* Status */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name="information-circle-outline" size={20} color={colors.muted} style={{ marginRight: 12 }} />
+            <Text style={{ color: colors.text }}>Status</Text>
+          </View>
+          <Text style={{ color: colors.muted }}>{formatStatus(employee?.status)}</Text>
+        </View>
+        <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
+
+        {/* Przyjęty */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name="calendar-outline" size={20} color={colors.muted} style={{ marginRight: 12 }} />
+            <Text style={{ color: colors.text }}>Przyjęty</Text>
+          </View>
+          <Text style={{ color: colors.muted }}>{employee?.created_at ? new Date(employee.created_at).toLocaleDateString() : '-'}</Text>
+        </View>
+        <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
+
+        {/* Numer służbowy */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name="id-card-outline" size={20} color={colors.muted} style={{ marginRight: 12 }} />
+            <Text style={{ color: colors.text }}>Numer służbowy</Text>
+          </View>
+          <Text style={{ color: colors.muted }}>{String(employee?.brand_number || '-')}</Text>
+        </View>
+        <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
+
+        {/* UID karty RFID */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name="qr-code-outline" size={20} color={colors.muted} style={{ marginRight: 12 }} />
+            <Text style={{ color: colors.text }}>UID karty RFID</Text>
+          </View>
+          <Text style={{ color: colors.muted }}>{String(employee?.rfid_uid || '-')}</Text>
         </View>
       </View>
 

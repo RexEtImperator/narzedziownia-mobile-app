@@ -29,6 +29,7 @@ import CodePrefixesScreen from './screens/CodePrefixesScreen';
 import UserSettingsScreen from './screens/UserSettings';
 import InventoryScreen from './screens/Inventory';
 import AuditLogScreen from './screens/AuditLog';
+import AnalyticsScreen from './screens/AnalyticsScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
 import ChatScreen from './screens/ChatScreen';
 import ChatDetailsScreen from './screens/ChatDetailsScreen';
@@ -82,7 +83,14 @@ function CustomTabBar({ state, descriptors, navigation, onPressScan, isAdmin, un
     if (routeIndex === -1) return null;
 
     const isFocused = state.index === routeIndex;
-    const bubbleStyle = isFocused ? { backgroundColor: bubbleBg } : { backgroundColor: 'transparent' };
+    
+    let activeBubbleColor = bubbleBg;
+    if (routeName === 'Narzędzia') activeBubbleColor = '#fb923c';
+    else if (routeName === 'BHP') activeBubbleColor = '#4ade80';
+    else if (routeName === 'Pracownicy') activeBubbleColor = '#c084fc';
+    else if (routeName === 'Użytkownik') activeBubbleColor = '#facc15';
+
+    const bubbleStyle = isFocused ? { backgroundColor: activeBubbleColor } : { backgroundColor: 'transparent' };
     const iconColor = isFocused ? activeColor : inactiveColor;
     const finalIcon = isFocused ? iconName : (iconName + '-outline');
 
@@ -224,7 +232,14 @@ function CustomNavOthers({ state, navigation, unreadCount = 0, toolsIssuedCount 
             case 'Użytkownik': iconName = isFocused ? 'person' : 'person-outline'; break;
             default: iconName = isFocused ? 'ellipse' : 'ellipse-outline';
           }
-          const bubbleStyle = isFocused ? { backgroundColor: bubbleBg } : { backgroundColor: colors.card };
+
+          let activeBubbleColor = bubbleBg;
+          if (route.name === 'Narzędzia') activeBubbleColor = '#fb923c';
+          else if (route.name === 'BHP') activeBubbleColor = '#4ade80';
+          else if (route.name === 'Pracownicy') activeBubbleColor = '#c084fc';
+          else if (route.name === 'Użytkownik') activeBubbleColor = '#facc15';
+
+          const bubbleStyle = isFocused ? { backgroundColor: activeBubbleColor } : { backgroundColor: colors.card };
           const iconColor = isFocused ? activeColor : inactiveColor;
           return (
             <Pressable key={route.key} onPress={() => navigation.navigate(route.name)} style={{ alignItems: 'center' }}>
@@ -677,6 +692,7 @@ function AppContent() {
             <RootStack.Screen name="Scanner" component={ScanScreen} />
             <RootStack.Screen name="Powiadomienia" component={NotificationsScreen} />
             <RootStack.Screen name="ChatDetails" component={ChatDetailsScreen} />
+            <RootStack.Screen name="Analytics" component={AnalyticsScreen} options={{ headerShown: true, title: 'Analityka' }} />
           </>
         ) : (
           <RootStack.Screen name="Login" component={LoginScreen} />
