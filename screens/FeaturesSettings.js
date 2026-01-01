@@ -18,9 +18,7 @@ export default function FeaturesSettings() {
     enableDataExport: true,
     enableRealtimeChat: true,
   });
-  // Dodatkowe ustawienia powiązane z eksportem danych (zgodnie z AppConfigScreen.jsx)
   const [auditLogRetention, setAuditLogRetention] = useState(90);
-  const [backupFrequency, setBackupFrequency] = useState('daily');
   
   // Uprawnienia z kontekstu
   const { currentUser, hasPermission, ready: permsReady } = usePermissions();
@@ -48,7 +46,6 @@ export default function FeaturesSettings() {
         try {
           const n = await api.get('/api/config/notifications');
           setAuditLogRetention(n?.auditLogRetention ?? 90);
-          setBackupFrequency(n?.backupFrequency ?? 'daily');
         } catch (e) { /* pomiń */ }
       } finally {
         setLoading(false);
@@ -90,7 +87,6 @@ export default function FeaturesSettings() {
       setSavingNotifications(true);
       await api.put('/api/config/notifications', {
         auditLogRetention: days,
-        backupFrequency,
       });
       showSnackbar('Dodatkowe ustawienia zapisane.', { type: 'success' });
     } catch (e) {

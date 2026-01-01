@@ -1078,9 +1078,10 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-scrollContainer:{backgroundColor:'#f8fafc',},pageWrapper:{padding:16,},
+scrollContainer:{backgroundColor:'#f8fafc',},
+pageWrapper:{paddingHorizontal:16,paddingBottom:16,paddingTop:4,},
 pageTitle:{fontSize:24,fontWeight:'700',color:'#0f172a',marginBottom:16,},
-sectionTitle:{fontSize:18,fontWeight:'600',color:'#0f172a',marginBottom:12,},
+sectionTitle:{fontSize:18,fontWeight:'600',color:'#0f172a',marginBottom:8,},
 card:{backgroundColor:'#ffffff',borderRadius:12,borderWidth:1,borderColor:'#e5e7eb',padding:16,marginBottom:16,},
 label:{fontSize:14,color:'#334155',marginBottom:6,},
 row:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12,},
